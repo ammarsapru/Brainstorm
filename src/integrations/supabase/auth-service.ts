@@ -1,5 +1,5 @@
 
-import { supabase } from './client';
+import { supabase } from '../../lib/supabase';
 
 export const authService = {
     async signInWithGoogle(currentSessionId?: string) {
