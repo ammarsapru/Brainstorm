@@ -33,10 +33,13 @@ export const authService = {
 
     signInWithGoogle: async () => {
         checkSupabaseConfig();
+        // Construct the proper redirect URL using Vite's base path
+        const redirectUrl = window.location.origin + import.meta.env.BASE_URL;
+        
         const { data, error } = await supabase!.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin
+                redirectTo: redirectUrl
             }
         });
         if (error) throw error;
