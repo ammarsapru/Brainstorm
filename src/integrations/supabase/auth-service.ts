@@ -33,10 +33,13 @@ export const authService = {
 
     signInWithGoogle: async () => {
         checkSupabaseConfig();
+        // Construct the proper redirect URL based on environment
+        const redirectUrl = window.location.origin + (window.location.pathname.includes('/Brainstorm/') ? '/Brainstorm/' : '/');
+        
         const { data, error } = await supabase!.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin
+                redirectTo: redirectUrl
             }
         });
         if (error) throw error;
