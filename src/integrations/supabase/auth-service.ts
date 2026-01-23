@@ -1,6 +1,6 @@
 // Auth service integration with Supabase
 
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../../lib/supabase';
 
 export const signIn = async (email: string, password: string) => {
     const { user, error } = await supabase.auth.signIn({ email, password });
