@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../client';
+import { supabase } from '../../../../lib/supabase';
 import { syncEngine } from '../sync-engine';
 import { Session, IdeaCard, Connection, FileSystemItem, ArrowType } from '@/types';
 import { buildFileSystemTree } from '../utils/tree-transformer';

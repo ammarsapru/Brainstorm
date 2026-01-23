@@ -1,5 +1,5 @@
 
-import { supabase } from './client';
+import { supabase } from '../../../lib/supabase';
 import { IdeaCard, Session, Connection, FileSystemItem, Collection } from '@/types';
 import { flattenFileSystem, FlatFileSystemNode } from './utils/tree-transformer';
 
