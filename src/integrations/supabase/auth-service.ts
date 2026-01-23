@@ -33,8 +33,8 @@ export const authService = {
 
     signInWithGoogle: async () => {
         checkSupabaseConfig();
-        // Construct the proper redirect URL based on environment
-        const redirectUrl = window.location.origin + (window.location.pathname.includes('/Brainstorm/') ? '/Brainstorm/' : '/');
+        // Construct the proper redirect URL using Vite's base path
+        const redirectUrl = window.location.origin + import.meta.env.BASE_URL;
         
         const { data, error } = await supabase!.auth.signInWithOAuth({
             provider: 'google',
