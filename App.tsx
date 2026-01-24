@@ -168,14 +168,15 @@ function App() {
           .eq('id', user.id)
           .single();
         
-        if (error || !profile) {
+        // Only create profile if not found (PGRST116 is "not found" error code)
+        if (error?.code === 'PGRST116' || !profile) {
           console.log('Profile not found, creating profile for user:', user.id);
           const { error: upsertError } = await supabase.from('profiles').upsert({
             id: user.id,
             email: user.email,
             full_name: user.full_name,
             avatar_url: user.avatar_url
-          });
+          }, { onConflict: 'id' });
           
           if (upsertError) {
             console.error('Failed to create profile:', upsertError);
@@ -183,6 +184,11 @@ function App() {
             return;
           }
           console.log('Profile created successfully');
+        } else if (error) {
+          // Handle other database errors
+          console.error('Database error while checking profile:', error);
+          alert('An error occurred while verifying your profile. Please try again.');
+          return;
         }
       } catch (err) {
         console.error('Error checking/creating profile:', err);
