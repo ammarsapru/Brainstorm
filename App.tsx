@@ -97,8 +97,18 @@ function App() {
           }
 
         } else {
-
+        } else {
+          // Automatic Cleanup (Handles token expiry, remote logout, etc.)
           setUser(undefined);
+          setSessions([]);
+          setActiveSessionId(null);
+          // Only redirect to landing if not already there (prevents interference during initial load if needed, though usually safe)
+          setView(v => v === 'landing' ? v : 'landing');
+
+          localStorage.removeItem('mindcanvas_sessions');
+          localStorage.removeItem('last_active_session_id');
+          localStorage.removeItem('current_view');
+          localStorage.removeItem('pending_session_id');
         }
       });
 
@@ -126,8 +136,18 @@ function App() {
 
   const handleLogout = async () => {
     if (supabase) await supabase.auth.signOut();
+
+    // Clear State
     setUser(undefined);
+    setSessions([]);
+    setActiveSessionId(null);
     setView('landing');
+
+    // Clear Persistence
+    localStorage.removeItem('mindcanvas_sessions');
+    localStorage.removeItem('last_active_session_id');
+    localStorage.removeItem('current_view');
+    localStorage.removeItem('pending_session_id');
   };
 
   // Persistence

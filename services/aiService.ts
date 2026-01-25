@@ -161,7 +161,7 @@ export const generateSessionIcon = async (sessionName: string, cardTexts: string
     Ensure the object is centered and looks like an app icon.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: 'imagen-3.0-generate-001',
       contents: {
         parts: [{ text: prompt }],
       },
@@ -191,7 +191,7 @@ export const generateSessionImage = async (sessionName: string, cardTexts: strin
     High quality, modern digital art style, 4k resolution, minimalistic but vibrant, suitable for a card background.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: 'imagen-3.0-generate-001',
       contents: {
         parts: [{ text: prompt }],
       },
