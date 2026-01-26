@@ -694,21 +694,38 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     }
   }
 
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Native Wheel Listener to prevent browser zoom (passive: false required)
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        // Increased zoom sensitivity (3x faster)
+        const newScale = Math.min(Math.max(0.2, viewport.scale - e.deltaY * 0.003), 3);
+        setViewport(prev => ({ ...prev, scale: newScale }));
+      } else {
+        e.preventDefault();
+        setViewport(prev => ({ ...prev, x: prev.x - e.deltaX, y: prev.y - e.deltaY }));
+      }
+    };
+
+    const el = wrapperRef.current;
+    if (el) {
+      el.addEventListener('wheel', handleWheel, { passive: false });
+    }
+    return () => {
+      if (el) el.removeEventListener('wheel', handleWheel);
+    };
+  }, [viewport.scale]);
+
   return (
     <div
+      ref={wrapperRef}
       className="fixed inset-0 overflow-hidden bg-black select-none font-sans"
       onMouseDown={handleMouseDownCanvas}
       onMouseMove={handleMouseMove}
       onMouseUp={() => setIsDragging(false)}
-      onWheel={(e) => {
-        if (e.ctrlKey || e.metaKey) {
-          e.preventDefault();
-          const newScale = Math.min(Math.max(0.2, viewport.scale - e.deltaY * 0.001), 3);
-          setViewport(prev => ({ ...prev, scale: newScale }));
-        } else {
-          setViewport(prev => ({ ...prev, x: prev.x - e.deltaX, y: prev.y - e.deltaY }));
-        }
-      }}
       onDoubleClick={(e) => { if (e.target === containerRef.current) handleAddCard(e.clientX, e.clientY); }}
       onDragOver={handleDragOver}
       onDrop={handleDrop}

@@ -1,13 +1,24 @@
-
 import { createClient } from '@supabase/supabase-js';
 
-// Replace these with your actual environment variables or process.env calls
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-export const supabase = supabaseUrl && supabaseAnonKey
+// Debug logging for development
+if (import.meta.env.DEV) {
+  console.log('🔧 Supabase Configuration:', {
+    url: supabaseUrl ? '✅ Set' : '❌ Missing',
+    keyLength: supabaseAnonKey?.length || 0,
+    hasKey: !!supabaseAnonKey
+  });
+}
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn('⚠️ Supabase is not configured. Authentication features will not work.');
+  console.warn('Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.');
+}
+
+export const supabase = (supabaseUrl && supabaseAnonKey)
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
-// Helper to check if supabase is configured
 export const isSupabaseConfigured = () => !!supabase;
