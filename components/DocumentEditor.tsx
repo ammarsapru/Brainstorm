@@ -97,19 +97,19 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
       e.preventDefault();
       // inherit list style if bulleted
       const currentBlock = blocks[index];
-      const newBlock: DocBlock = { 
-        id: generateId(), 
-        text: '', 
-        style: { ...currentBlock.style } 
+      const newBlock: DocBlock = {
+        id: generateId(),
+        text: '',
+        style: { ...currentBlock.style }
       };
-      
+
       const newBlocks = [...blocks];
       newBlocks.splice(index + 1, 0, newBlock);
       setBlocks(newBlocks);
       setIsSaved(false);
       setTimeout(() => document.getElementById(`block-${newBlock.id}`)?.focus(), 0);
     }
-    
+
     if (e.key === 'Backspace' && blocks[index].text === '' && blocks.length > 1) {
       e.preventDefault();
       const newBlocks = blocks.filter(b => b.id !== id);
@@ -133,9 +133,9 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
   const currentStyle = activeBlock?.style || DEFAULT_BLOCK_STYLE;
 
   const toggleList = () => {
-      if (!activeBlockId) return;
-      const newValue = currentStyle.listType === 'bullet' ? 'none' : 'bullet';
-      updateActiveBlockStyle('listType', newValue);
+    if (!activeBlockId) return;
+    const newValue = currentStyle.listType === 'bullet' ? 'none' : 'bullet';
+    updateActiveBlockStyle('listType', newValue);
   };
 
   // --- Drag and Drop Reordering ---
@@ -152,7 +152,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
     const draggedItem = newBlocks[draggedBlockIndex];
     newBlocks.splice(draggedBlockIndex, 1);
     newBlocks.splice(index, 0, draggedItem);
-    
+
     setBlocks(newBlocks);
     setDraggedBlockIndex(index);
     setIsSaved(false);
@@ -164,7 +164,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
 
   // --- Helpers for Render ---
   const getFontFamilyClass = (font: string) => {
-    switch(font) {
+    switch (font) {
       case 'sans': return 'font-sans';
       case 'mono': return 'font-mono';
       case 'cursive': return 'font-cursive';
@@ -179,15 +179,21 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-[900px] h-[95%] bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
-        
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="w-[900px] h-[95%] bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+
         {/* Header / Toolbar */}
         <div className="h-16 border-b border-gray-100 flex items-center justify-between px-6 bg-white shrink-0 z-10">
-          
+
           {/* Formatting Controls */}
           <div className="flex items-center gap-2">
-            <select 
+            <select
               value={currentStyle.fontFamily}
               onChange={(e) => updateActiveBlockStyle('fontFamily', e.target.value)}
               className="h-8 px-2 border border-gray-200 rounded text-sm text-gray-700 outline-none focus:border-black bg-white"
@@ -198,7 +204,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
               ))}
             </select>
 
-            <select 
+            <select
               value={currentStyle.fontSize}
               onChange={(e) => updateActiveBlockStyle('fontSize', parseInt(e.target.value))}
               className="h-8 w-16 px-2 border border-gray-200 rounded text-sm text-gray-700 outline-none focus:border-black bg-white"
@@ -211,21 +217,21 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
 
             <div className="w-px h-6 bg-gray-200 mx-1" />
 
-            <button 
+            <button
               onClick={() => updateActiveBlockStyle('bold', !currentStyle.bold)}
               className={`p-1.5 rounded hover:bg-gray-100 transition-colors ${currentStyle.bold ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
               title="Bold"
             >
               <Bold className="w-4 h-4" />
             </button>
-            <button 
+            <button
               onClick={() => updateActiveBlockStyle('italic', !currentStyle.italic)}
               className={`p-1.5 rounded hover:bg-gray-100 transition-colors ${currentStyle.italic ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
               title="Italic"
             >
               <Italic className="w-4 h-4" />
             </button>
-            <button 
+            <button
               onClick={() => updateActiveBlockStyle('underline', !currentStyle.underline)}
               className={`p-1.5 rounded hover:bg-gray-100 transition-colors ${currentStyle.underline ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
               title="Underline"
@@ -235,7 +241,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
 
             <div className="w-px h-6 bg-gray-200 mx-1" />
 
-            <button 
+            <button
               onClick={toggleList}
               className={`p-1.5 rounded hover:bg-gray-100 transition-colors ${currentStyle.listType === 'bullet' ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
               title="Bullet List"
@@ -246,12 +252,12 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
 
           {/* Right Actions */}
           <div className="flex items-center gap-4">
-             {isSaved ? (
-               <span className="text-xs text-green-500 flex items-center gap-1 font-medium"><Save className="w-3 h-3" /> Saved</span>
-             ) : (
-               <span className="text-xs text-amber-500 font-medium">Saving...</span>
-             )}
-            <button 
+            {isSaved ? (
+              <span className="text-xs text-green-500 flex items-center gap-1 font-medium"><Save className="w-3 h-3" /> Saved</span>
+            ) : (
+              <span className="text-xs text-amber-500 font-medium">Saving...</span>
+            )}
+            <button
               onClick={onClose}
               className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"
             >
@@ -263,7 +269,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
         {/* Editor Body */}
         <div className="flex-1 overflow-y-auto px-8 py-8 bg-gray-50/30">
           <div className="max-w-3xl mx-auto bg-white min-h-[800px] shadow-sm border border-gray-100 p-12 rounded-lg">
-            
+
             {/* Title */}
             <input
               type="text"
@@ -272,12 +278,12 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
               placeholder="Untitled Document"
               className="w-full text-4xl font-bold text-gray-900 placeholder-gray-300 outline-none border-none bg-transparent mb-8 font-serif"
             />
-            
+
             {/* Blocks List */}
             <div className="flex flex-col gap-1">
               {blocks.map((block, index) => (
-                <div 
-                  key={block.id} 
+                <div
+                  key={block.id}
                   className="group relative flex items-start -ml-8 pr-4"
                   draggable
                   onDragStart={(e) => handleDragStart(e, index)}
@@ -317,55 +323,55 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
                       fontStyle: block.style.italic ? 'italic' : 'normal',
                       textDecoration: block.style.underline ? 'underline' : 'none',
                       // Fix for auto-height initial render
-                      height: 'auto', 
+                      height: 'auto',
                     }}
                     // Trick to make auto-height work on mount
                     ref={el => {
-                       if (el) {
-                         el.style.height = 'auto';
-                         el.style.height = el.scrollHeight + 'px';
-                       }
+                      if (el) {
+                        el.style.height = 'auto';
+                        el.style.height = el.scrollHeight + 'px';
+                      }
                     }}
                   />
-                  
+
                   {/* Delete Button (optional, for explicit deletion) */}
                   {blocks.length > 1 && (
-                     <button 
-                        onClick={() => {
-                            const newBlocks = blocks.filter(b => b.id !== block.id);
-                            setBlocks(newBlocks);
-                            setIsSaved(false);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-gray-300 hover:text-red-400 transition-opacity absolute right-0 top-0"
-                        title="Delete block"
-                     >
-                       <X className="w-3 h-3" />
-                     </button>
+                    <button
+                      onClick={() => {
+                        const newBlocks = blocks.filter(b => b.id !== block.id);
+                        setBlocks(newBlocks);
+                        setIsSaved(false);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-gray-300 hover:text-red-400 transition-opacity absolute right-0 top-0"
+                      title="Delete block"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
                   )}
                 </div>
               ))}
-              
+
               {/* Add Block at End Area */}
-              <div 
-                className="h-24 cursor-text" 
+              <div
+                className="h-24 cursor-text"
                 onClick={() => {
-                   // Add a new block at the end if the last one isn't empty, otherwise focus last
-                   const lastBlock = blocks[blocks.length-1];
-                   if (lastBlock.text.trim() !== "") {
-                       const newBlock = { id: generateId(), text: '', style: { ...DEFAULT_BLOCK_STYLE } };
-                       setBlocks([...blocks, newBlock]);
-                       setTimeout(() => document.getElementById(`block-${newBlock.id}`)?.focus(), 0);
-                   } else {
-                       document.getElementById(`block-${lastBlock.id}`)?.focus();
-                   }
+                  // Add a new block at the end if the last one isn't empty, otherwise focus last
+                  const lastBlock = blocks[blocks.length - 1];
+                  if (lastBlock.text.trim() !== "") {
+                    const newBlock = { id: generateId(), text: '', style: { ...DEFAULT_BLOCK_STYLE } };
+                    setBlocks([...blocks, newBlock]);
+                    setTimeout(() => document.getElementById(`block-${newBlock.id}`)?.focus(), 0);
+                  } else {
+                    document.getElementById(`block-${lastBlock.id}`)?.focus();
+                  }
                 }}
               />
             </div>
 
           </div>
-          
+
           <div className="max-w-3xl mx-auto mt-4 text-right text-xs text-gray-400 px-12">
-             {blocks.length} blocks · {blocks.reduce((acc, b) => acc + b.text.length, 0)} characters
+            {blocks.length} blocks · {blocks.reduce((acc, b) => acc + b.text.length, 0)} characters
           </div>
         </div>
       </div>

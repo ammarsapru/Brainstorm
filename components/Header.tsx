@@ -12,6 +12,9 @@ interface HeaderProps {
   onLogin?: () => void;
   onLogout?: () => void;
   onRename?: (newName: string) => void;
+  onSave?: () => void; // Added onSave prop
+  onSwitchAccount?: () => void; // New Prop
+  isSaving?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -23,7 +26,10 @@ export const Header: React.FC<HeaderProps> = ({
   user,
   onLogin,
   onLogout,
-  onRename
+  onRename,
+  onSave,
+  onSwitchAccount,
+  isSaving = false
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -123,9 +129,18 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="flex items-center justify-end gap-2 w-1/3">
         {isWorkspace && (
           <>
-            <button className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
-              <Save className="w-4 h-4" />
-              <span className="hidden sm:inline">Save</span>
+            <button
+              onClick={onSave}
+              disabled={isSaving}
+              className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${isSaving ? 'text-gray-400 bg-gray-50 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+            >
+              {isSaving ? (
+                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline">{isSaving ? 'Saving...' : 'Save'}</span>
             </button>
 
             <div className="w-px h-6 bg-gray-200 mx-2 hidden sm:block"></div>
@@ -152,6 +167,18 @@ export const Header: React.FC<HeaderProps> = ({
                   <div className="text-sm font-bold text-gray-800">{user.full_name || 'User'}</div>
                   <div className="text-xs text-gray-500 truncate">{user.email}</div>
                 </div>
+
+                <button
+                  onClick={() => {
+                    // Trigger Switch Account which logs out + opens modal
+                    onSwitchAccount?.();
+                    setShowUserMenu(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Switch Account
+                </button>
+
                 <button
                   onClick={onLogout}
                   className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"

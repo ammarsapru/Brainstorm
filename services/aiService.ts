@@ -38,81 +38,6 @@ export const generateRelatedIdeas = async (contextText: string, existingIdeas: s
   }
 };
 
-export const generateProjectSummary = async (
-  cards: IdeaCard[],
-  connections: Connection[],
-  fileSystem: FileSystemItem[]
-): Promise<string> => {
-  // 1. Flatten File System Text
-  let fileContents = "";
-  const traverse = (items: FileSystemItem[]) => {
-    items.forEach(item => {
-      if (item.type === 'file' && item.content && !item.mediaType?.startsWith('image/')) {
-        // Try to parse if it's JSON blocks, else use raw
-        let text = item.content;
-        try {
-          const parsed = JSON.parse(text);
-          if (Array.isArray(parsed)) text = parsed.map((b: any) => b.text).join('\n');
-        } catch (e) { }
-        fileContents += `File '${item.name}':\n${text}\n---\n`;
-      }
-      if (item.children) traverse(item.children);
-    });
-  };
-  traverse(fileSystem);
-
-  // 2. Format Cards
-  const cardContents = cards.map(c => `Card (ID: ${c.id}): ${c.text || c.fileName || 'Image Card'}`).join('\n');
-
-  // 3. Format Connections
-  const connectionContents = connections.map(c => {
-    const from = cards.find(card => card.id === c.fromId)?.text.substring(0, 20) || 'Unknown';
-    const to = cards.find(card => card.id === c.toId)?.text.substring(0, 20) || 'Unknown';
-    return `${from} -> [${c.relationType}] -> ${to}`;
-  }).join('\n');
-
-  const prompt = `
-        You are an expert project manager and summarizer.
-        I will provide you with the raw data of a brainstorming session including idea cards, connections between them, and uploaded document contents.
-        
-        Please generate a comprehensive, well-structured Executive Summary of this project. 
-        Format the output in clean Markdown/HTML compatible text.
-        
-        Structure the report as follows:
-        1. **Title**: A creative title based on the content.
-        2. **Overview**: A high-level summary of the main topic.
-        3. **Key Concepts**: Derived from the idea cards.
-        4. **Relationships**: Analysis of how ideas connect (Parent/Child hierarchies).
-        5. **Document Insights**: Summary of the attached file contents.
-        6. **Actionable Next Steps**: Suggested next steps based on the brainstorming.
-
-        Here is the data:
-        
-        --- CARDS ---
-        ${cardContents}
-        
-        --- CONNECTIONS ---
-        ${connectionContents}
-        
-        --- FILES/DOCUMENTS ---
-        ${fileContents}
-    `;
-
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview', // Use a smarter model for summarization
-      contents: prompt,
-      config: {
-        systemInstruction: "You are a helpful AI that summarizes complex brainstorming sessions into clear, readable reports.",
-      }
-    });
-    return response.text || "Failed to generate summary.";
-  } catch (error) {
-    console.error("Summary generation failed", error);
-    return "An error occurred while generating the summary. Please check your API key and try again.";
-  }
-}
-
 export const getChatResponse = async (
   history: ChatMessage[],
   newMessage: string,
@@ -135,10 +60,18 @@ export const getChatResponse = async (
                 Your Goal: Help the user expand their thinking, structurally organize ideas, and find connections they missed.
                 
                 Adhere to these Guidelines:
-                1. **Formatting**: Use **bold** for key concepts, *italics* for emphasis, and bullet points for lists. KEEP PARAGRAPHS SHORT.
+                1. **Formatting**: Provide your response in PLAIN TEXT ONLY. Do NOT use Markdown formatting characters (like #, *, **, or - for bullets). Use standard numbering (1., 2.) for lists if needed, or simple hyphens with spaces. Do NOT use bold or italics.
                 2. **Tone**: Energetic, concise, and professional. Avoid "fluff" or generic greetings.
                 3. **Context**: Use the provided board context (cards and connections) to anchor your answers in reality.
                 4. **Action-Oriented**: Suggest concrete next steps or new cards they could add.
+                
+                **CAPABILITIES (FUNCTION CALLING)**:
+                - You have the ability to CREATE CARDS on the board.
+                - If the user asks you to create cards, add ideas, or visual elements, you MUST return the card data in a specific strict format embedded in your response.
+                - Use the tag [CREATE_CARDS] followed by a minified JSON array of card objects, and close with [/CREATE_CARDS].
+                - Structure: [CREATE_CARDS] [{"text": "Idea 1", "color": "#ffffff"}, {"text": "Idea 2", "color": "#ffeba8"}] [/CREATE_CARDS]
+                - You can mix this with normal text. For example: "Sure, I've added those cards for you. [CREATE_CARDS] ... [/CREATE_CARDS]"
+                - Allowed colors: #ffffff (White), #ffeba8 (Yellow), #ffcaca (Red), #e9f5db (Green), #e0f2fe (Blue), #f3e8ff (Purple). Default to #ffffff.
                 
                 Current Board Context:
                 ${boardContext}`

@@ -1,5 +1,5 @@
 import React, { useRef, useState, useMemo } from 'react';
-import { Plus, Move, MousePointer2, Image as ImageIcon, FileText, ChevronLeft, ChevronRight, FolderPlus, FilePlus, Sparkles, ChevronDown, ChevronUp, StickyNote, Folder, PlusCircle } from 'lucide-react';
+import { Plus, Move, MousePointer2, Image as ImageIcon, FileText, ChevronLeft, ChevronRight, FolderPlus, FilePlus, ChevronDown, ChevronUp, StickyNote, Folder, PlusCircle } from 'lucide-react';
 import { ToolMode, FileSystemItem, IdeaCard, Connection, Collection } from '../types';
 import { FileSystem } from './FileSystem';
 
@@ -23,7 +23,8 @@ interface SidebarProps {
   onCreateFolder: (parentId: string | null) => void;
   onCreateCollection: () => void;
   onMoveCardToCollection: (cardId: string, collectionId: string) => void;
-  isGeneratingSummary?: boolean;
+  onRenameFile?: (id: string, newName: string) => void; // New
+  onDeleteFile?: (id: string) => void; // New
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -34,7 +35,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onAddCard,
   onUploadImage,
   onUploadDoc,
-  onGenerateSummary,
   fileSystem,
   cards,
   connections = [],
@@ -46,7 +46,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCreateFolder,
   onCreateCollection,
   onMoveCardToCollection,
-  isGeneratingSummary
+  onRenameFile,
+  onDeleteFile
 }) => {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
@@ -56,6 +57,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // State for expanded card groups (now Collections)
   const [expandedCollections, setExpandedCollections] = useState<Record<string, boolean>>({});
   const [dragOverColId, setDragOverColId] = useState<string | null>(null);
+
+  // Dedicated state for tool sections
+  const [isCanvasExpanded, setIsCanvasExpanded] = useState(true);
+  const [isActionsExpanded, setIsActionsExpanded] = useState(true);
 
   const toggleCollection = (colId: string) => {
     setExpandedCollections(prev => ({ ...prev, [colId]: !prev[colId] }));
@@ -140,95 +145,95 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6 no-scrollbar">
 
           {/* Canvas Tools */}
-          <div className="shrink-0">
-            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Canvas</div>
-            <div className="flex flex-col gap-1">
-              <button
-                onClick={() => setMode('select')}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium ${mode === 'select' ? 'bg-zinc-100 text-black' : 'text-gray-600 hover:bg-gray-50'}`}
-              >
-                <MousePointer2 className="w-4 h-4" />
-                Select / Move
-              </button>
-              <button
-                onClick={() => setMode('pan')}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium ${mode === 'pan' ? 'bg-zinc-100 text-black' : 'text-gray-600 hover:bg-gray-50'}`}
-              >
-                <Move className="w-4 h-4" />
-                Pan Canvas
-              </button>
-            </div>
+          <div className="shrink-0 pb-4 border-b border-gray-100">
+            <button
+              onClick={() => setIsCanvasExpanded(!isCanvasExpanded)}
+              className="flex items-center gap-2 w-full mb-2 group text-left"
+            >
+              <div className="text-xs font-bold text-gray-400 uppercase tracking-wider group-hover:text-gray-800 group-hover:font-extrabold transition-all duration-200">Canvas</div>
+              {isCanvasExpanded ? <ChevronUp className="w-3 h-3 text-gray-400 group-hover:text-gray-600" /> : <ChevronDown className="w-3 h-3 text-gray-400 group-hover:text-gray-600" />}
+            </button>
+            {isCanvasExpanded && (
+              <div className="flex flex-col gap-1 animate-in slide-in-from-top-1 duration-200">
+                <button
+                  onClick={() => setMode('select')}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium ${mode === 'select' ? 'bg-zinc-100 text-black' : 'text-gray-600 hover:bg-gray-50'}`}
+                >
+                  <MousePointer2 className="w-4 h-4" />
+                  Select / Move
+                </button>
+                <button
+                  onClick={() => setMode('pan')}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium ${mode === 'pan' ? 'bg-zinc-100 text-black' : 'text-gray-600 hover:bg-gray-50'}`}
+                >
+                  <Move className="w-4 h-4" />
+                  Pan Canvas
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Actions */}
-          <div className="shrink-0">
-            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Actions</div>
-            <div className="flex flex-col gap-1">
-              <button
-                onClick={onAddCard}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors text-sm font-medium"
-              >
-                <Plus className="w-4 h-4 text-black" />
-                New Card
-              </button>
+          <div className="shrink-0 pb-4 border-b border-gray-100">
+            <button
+              onClick={() => setIsActionsExpanded(!isActionsExpanded)}
+              className="flex items-center gap-2 w-full mb-2 group text-left"
+            >
+              <div className="text-xs font-bold text-gray-400 uppercase tracking-wider group-hover:text-gray-800 group-hover:font-extrabold transition-all duration-200">Actions</div>
+              {isActionsExpanded ? <ChevronUp className="w-3 h-3 text-gray-400 group-hover:text-gray-600" /> : <ChevronDown className="w-3 h-3 text-gray-400 group-hover:text-gray-600" />}
+            </button>
+            {isActionsExpanded && (
+              <div className="flex flex-col gap-1 animate-in slide-in-from-top-1 duration-200">
+                <button
+                  onClick={onAddCard}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors text-sm font-medium"
+                >
+                  <Plus className="w-4 h-4 text-black" />
+                  New Card
+                </button>
 
-              <button
-                onClick={() => imageInputRef.current?.click()}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors text-sm font-medium"
-              >
-                <ImageIcon className="w-4 h-4 text-purple-500" />
-                Upload Image
-              </button>
-              <input
-                type="file"
-                ref={imageInputRef}
-                className="hidden"
-                accept="image/*"
-                onChange={handleImageUpload}
-              />
+                <button
+                  onClick={() => imageInputRef.current?.click()}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors text-sm font-medium"
+                >
+                  <ImageIcon className="w-4 h-4 text-purple-500" />
+                  Upload Image
+                </button>
+                <input
+                  type="file"
+                  ref={imageInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                />
 
-              <button
-                onClick={() => docInputRef.current?.click()}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors text-sm font-medium"
-              >
-                <FileText className="w-4 h-4 text-orange-500" />
-                Upload File
-              </button>
-              <input
-                type="file"
-                ref={docInputRef}
-                className="hidden"
-                accept=".pdf,.doc,.docx,.txt"
-                onChange={handleDocUpload}
-              />
-
-              <div className="h-px bg-gray-100 my-1"></div>
-
-              <button
-                onClick={onGenerateSummary}
-                disabled={isGeneratingSummary}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium ${isGeneratingSummary ? 'bg-amber-50 text-amber-600' : 'text-gray-700 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100'
-                  }`}
-              >
-                {isGeneratingSummary ? (
-                  <span className="w-4 h-4 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Sparkles className="w-4 h-4 text-amber-600" />
-                )}
-                {isGeneratingSummary ? 'Generating...' : 'AI Summary Report'}
-              </button>
-            </div>
+                <button
+                  onClick={() => docInputRef.current?.click()}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors text-sm font-medium"
+                >
+                  <FileText className="w-4 h-4 text-orange-500" />
+                  Upload File
+                </button>
+                <input
+                  type="file"
+                  ref={docInputRef}
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.txt"
+                  onChange={handleDocUpload}
+                />
+              </div>
+            )}
           </div>
 
           {/* Documents File System */}
-          <div className="flex flex-col shrink-0">
+          <div className="flex flex-col shrink-0 pb-4 border-b border-gray-100">
             <div className="flex items-center justify-between mb-2">
               <button
                 onClick={() => setIsFilesExpanded(!isFilesExpanded)}
                 className="flex items-center gap-2 group text-left"
               >
-                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider group-hover:text-gray-600 transition-colors">Files</div>
-                {isFilesExpanded ? <ChevronUp className="w-3 h-3 text-gray-400" /> : <ChevronDown className="w-3 h-3 text-gray-400" />}
+                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider group-hover:text-gray-800 group-hover:font-extrabold transition-all duration-200">Files</div>
+                {isFilesExpanded ? <ChevronUp className="w-3 h-3 text-gray-400 group-hover:text-gray-600" /> : <ChevronDown className="w-3 h-3 text-gray-400 group-hover:text-gray-600" />}
               </button>
 
               {/* Root Level Creation */}
@@ -265,6 +270,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onOpenFile={onOpenFile}
                     onCreateFile={onCreateFile}
                     onCreateFolder={onCreateFolder}
+                    onRename={onRenameFile}
+                    onDelete={onDeleteFile}
                   />
                   {fileSystem.length === 0 && (
                     <div className="p-4 text-center text-xs text-gray-400">
@@ -277,14 +284,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* Cards / Collections Section */}
-          <div className="flex flex-col shrink-0">
+          <div className="flex flex-col shrink-0 pb-4 border-b border-gray-100">
             <div className="flex items-center justify-between mb-2">
               <button
                 onClick={() => setIsCardsExpanded(!isCardsExpanded)}
                 className="flex items-center gap-2 group text-left"
               >
-                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider group-hover:text-gray-600 transition-colors">Collections</div>
-                {isCardsExpanded ? <ChevronUp className="w-3 h-3 text-gray-400" /> : <ChevronDown className="w-3 h-3 text-gray-400" />}
+                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider group-hover:text-gray-800 group-hover:font-extrabold transition-all duration-200">Collections</div>
+                {isCardsExpanded ? <ChevronUp className="w-3 h-3 text-gray-400 group-hover:text-gray-600" /> : <ChevronDown className="w-3 h-3 text-gray-400 group-hover:text-gray-600" />}
               </button>
 
               <button
@@ -317,8 +324,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <div
                         key={col.id}
                         className={`mb-1 transition-all rounded-lg border-2 ${isDragTarget
-                            ? 'border-black bg-zinc-100'
-                            : 'border-transparent'
+                          ? 'border-black bg-zinc-100'
+                          : 'border-transparent'
                           }`}
                         onDragOver={(e) => handleDragOver(e, col.id)}
                         onDragLeave={(e) => handleDragLeave(e, col.id)}

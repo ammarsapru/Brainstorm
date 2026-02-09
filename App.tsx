@@ -153,6 +153,9 @@ function App() {
             localStorage.removeItem('pending_session_id');
             setActiveSessionId(pendingId);
             setView('workspace');
+          } else {
+            // If just logged in (and not deep linking), go to dashboard if currently on landing
+            setView(prev => prev === 'landing' ? 'dashboard' : prev);
           }
 
         } else {
@@ -369,7 +372,7 @@ function App() {
   };
 
   const handleUpdateSessionIcon = (sessionId: string, icon: string) => {
-    setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, icon: icon } : s));
+    setSessions(prev => prev.map(s => s.id === sessionId ? ({ ...s, icon: icon }) : s));
   };
 
   const handleGoHome = () => {
@@ -378,6 +381,26 @@ function App() {
   };
 
   const activeSession = sessions.find(s => s.id === activeSessionId);
+
+  // Switch Account: Logs out and immediately opens Auth Modal to allow sign in with different account
+  const handleSwitchAccount = async () => {
+    if (supabase) await supabase.auth.signOut();
+
+    // Clear State (similar to logout)
+    setUser(undefined);
+    setSessions([]);
+    setActiveSessionId(null);
+    setView('landing');
+
+    // Clear Persistence
+    localStorage.removeItem('mindcanvas_sessions');
+    localStorage.removeItem('last_active_session_id');
+    localStorage.removeItem('current_view');
+    localStorage.removeItem('pending_session_id');
+
+    // Open Auth Modal immediately
+    setIsAuthModalOpen(true);
+  };
 
   // VIEW ROUTING
 
@@ -411,6 +434,7 @@ function App() {
         user={user}
         onLogin={handleLogin}
         onLogout={handleLogout}
+        onSwitchAccount={handleSwitchAccount}
       />
     );
   }
@@ -418,7 +442,7 @@ function App() {
   // 3. Dashboard View - Global Header
   return (
     <>
-      <Header isWorkspace={false} onGoHome={handleGoHome} user={user} onLogin={handleLogin} onLogout={handleLogout} />
+      <Header isWorkspace={false} onGoHome={handleGoHome} user={user} onLogin={handleLogin} onLogout={handleLogout} onSwitchAccount={handleSwitchAccount} />
       <SessionList
         sessions={sessions}
         onSelect={(s) => { setActiveSessionId(s.id); setView('workspace'); }}

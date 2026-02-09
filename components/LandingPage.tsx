@@ -208,8 +208,8 @@ const AIPreview = () => {
       {generated && (
         <>
           <div className="absolute top-[20%] left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 px-4 py-2 rounded-lg border border-purple-500/30 text-sm font-medium text-purple-200 animate-in zoom-in slide-in-from-bottom-4 duration-500">Research</div>
-          <div className="absolute bottom-[20%] left-[20%] -translate-x-1/2 -translate-y-1/2 bg-gray-800 px-4 py-2 rounded-lg border border-purple-500/30 text-sm font-medium text-purple-200 animate-in zoom-in slide-in-from-right-4 duration-500 delay-100">Design</div>
-          <div className="absolute bottom-[20%] right-[20%] translate-x-1/2 -translate-y-1/2 bg-gray-800 px-4 py-2 rounded-lg border border-purple-500/30 text-sm font-medium text-purple-200 animate-in zoom-in slide-in-from-left-4 duration-500 delay-200">Develop</div>
+          <div className="absolute top-[80%] left-[20%] -translate-x-1/2 -translate-y-1/2 bg-gray-800 px-4 py-2 rounded-lg border border-purple-500/30 text-sm font-medium text-purple-200 animate-in zoom-in slide-in-from-right-4 duration-500 delay-100">Design</div>
+          <div className="absolute top-[80%] right-[20%] translate-x-1/2 -translate-y-1/2 bg-gray-800 px-4 py-2 rounded-lg border border-purple-500/30 text-sm font-medium text-purple-200 animate-in zoom-in slide-in-from-left-4 duration-500 delay-200">Develop</div>
         </>
       )}
 

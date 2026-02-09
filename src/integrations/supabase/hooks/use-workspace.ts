@@ -16,6 +16,8 @@ interface UseWorkspaceResult {
     error: string | null;
     saveWorkspace: (session: Session) => void;
     refreshWorkspace: () => void;
+    deleteCard: (id: string) => void;
+    deleteConnection: (id: string) => void;
 }
 
 export function useWorkspace(sessionId: string | null): UseWorkspaceResult {
@@ -95,7 +97,7 @@ export function useWorkspace(sessionId: string | null): UseWorkspaceResult {
 
             const fileSystem = buildFileSystemTree(filesData);
 
-            setSession({
+            const newSession: Session = {
                 id: sessionData.id,
                 user_id: sessionData.user_id,
                 name: sessionData.name,
@@ -107,7 +109,12 @@ export function useWorkspace(sessionId: string | null): UseWorkspaceResult {
                 fileSystem,
                 chatHistory: [], // Load chat if needed
                 lastModified: sessionData.last_modified
-            });
+            };
+
+            setSession(newSession);
+
+            // Hydrate the SyncEngine with initial state to prevent unnecessary saves
+            syncEngine.hydrate(newSession);
 
         } catch (e: any) {
             console.error('Failed to load session:', e);
@@ -202,6 +209,8 @@ export function useWorkspace(sessionId: string | null): UseWorkspaceResult {
         hasUnsavedChanges: syncState.isDirty,
         error: syncState.error || null,
         saveWorkspace,
-        refreshWorkspace: loadSession
+        refreshWorkspace: loadSession,
+        deleteCard: (id: string) => syncEngine.queueCardDeletion(id),
+        deleteConnection: (id: string) => syncEngine.queueConnectionDeletion(id)
     };
 }
