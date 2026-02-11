@@ -130,7 +130,7 @@ function App() {
         }
       });
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         if (session?.user) {
           const u = {
             id: session.user.id,
@@ -145,17 +145,19 @@ function App() {
           // Deep Linking
           const pendingId = localStorage.getItem('pending_session_id');
           if (pendingId) {
-            // We can't validate this yet easily without fetching specific ID, 
-            // but fetchSessions will load user sessions.
-            // Pending ID is special (shared link).
-            // Ideally we should wait for fetch.
-            // For now, let's leave pending logic but remove the redundant generic restoration.
             localStorage.removeItem('pending_session_id');
             setActiveSessionId(pendingId);
             setView('workspace');
           } else {
-            // If just logged in (and not deep linking), go to dashboard if currently on landing
-            setView(prev => prev === 'landing' ? 'dashboard' : prev);
+            // INTENT-BASED REDIRECT:
+            // Only redirect to dashboard if the user explicitly initiated a login flow.
+            // This prevents random redirects when tabs are focused or tokens refresh.
+            const hasLoginIntent = localStorage.getItem('login_redirect_intent');
+            if (hasLoginIntent && view === 'landing') {
+              console.log('[App] Login Intent detected. Redirecting to dashboard.');
+              localStorage.removeItem('login_redirect_intent');
+              setView('dashboard');
+            }
           }
 
         } else {

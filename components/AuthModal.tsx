@@ -22,11 +22,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginIn
     const handleGoogleLogin = async () => {
         try {
             setLoading(true);
+            // Set intent flag so App.tsx knows to redirect after reload
+            localStorage.setItem('login_redirect_intent', 'true');
             await authService.signInWithGoogle();
             // Redirect happens automatically
         } catch (e: any) {
             setError(e.message);
             setLoading(false);
+            localStorage.removeItem('login_redirect_intent'); // Clear on error
         }
     };
 
@@ -37,18 +40,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginIn
         setLoading(true);
 
         try {
+            // Set intent for local login too (consistency)
+            localStorage.setItem('login_redirect_intent', 'true');
+
             if (view === 'login') {
                 await authService.signInWithPassword(email, password);
                 onClose();
             } else if (view === 'signup') {
                 await authService.signUp(email, password);
                 setMessage('Check your email for the confirmation link.');
+                localStorage.removeItem('login_redirect_intent'); // Clear if awaiting email
             } else if (view === 'magic') {
                 await authService.signInWithOtp(email);
                 setMessage('Check your email for the magic link.');
+                localStorage.removeItem('login_redirect_intent'); // Clear if awaiting email
             }
         } catch (e: any) {
             setError(e.message);
+            localStorage.removeItem('login_redirect_intent'); // Clear on error
         } finally {
             setLoading(false);
         }
