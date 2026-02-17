@@ -85,7 +85,7 @@ export const AIChat: React.FC<AIChatProps> = ({ history, onSendMessage, isProces
             {/* Floating Toggle Button - Only visible when chat is closed */}
             <button
                 onClick={() => setIsOpen(true)}
-                className={`fixed top-36 z-[60] pointer-events-auto w-10 h-10 flex items-center justify-center rounded-xl shadow-md border transition-all duration-300 font-bold text-xs shrink-0 ${isOpen
+                className={`fixed top-36 z-[70] pointer-events-auto w-10 h-10 flex items-center justify-center rounded-xl shadow-md border transition-all duration-300 font-bold text-xs shrink-0 ${isOpen
                     ? 'translate-x-full opacity-0 pointer-events-none' // Hide when open
                     : 'right-4 bg-white/90 backdrop-blur-sm text-black border-gray-200 hover:bg-gray-50 hover:border-gray-300 translate-x-0 opacity-100'
                     }`}
@@ -96,7 +96,7 @@ export const AIChat: React.FC<AIChatProps> = ({ history, onSendMessage, isProces
 
             {/* Chat Panel - Full height sidebar */}
             <div
-                className={`fixed right-0 top-0 h-full z-50 pointer-events-auto w-80 sm:w-[450px] bg-black shadow-2xl border-l border-zinc-800 overflow-hidden transition-transform duration-300 ease-in-out flex flex-col ${isOpen
+                className={`fixed right-0 top-0 h-full z-[70] pointer-events-auto w-80 sm:w-[450px] bg-black shadow-2xl border-l border-zinc-800 overflow-hidden transition-transform duration-300 ease-in-out flex flex-col ${isOpen
                     ? 'translate-x-0'
                     : 'translate-x-full'
                     }`}

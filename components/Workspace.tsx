@@ -145,7 +145,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       // Call Supabase save
       saveWorkspace(updatedSession);
 
-    }, 1000); // Debounce saves by 1s
+    }, 500); // Debounce saves by 500ms
     return () => clearTimeout(timer);
   }, [sessionName, cards, connections, fileSystem, collections, chatHistory, session, onSave, viewport, saveWorkspace]);
 

@@ -30,7 +30,7 @@ class SyncEngine {
     private lastSyncedConnections: Map<string, Connection> = new Map();
 
     private saveTimer: NodeJS.Timeout | null = null;
-    private readonly DEBOUNCE_MS = 500;
+    private readonly DEBOUNCE_MS = 300;
 
     private state: SyncState = {
         isDirty: false,
