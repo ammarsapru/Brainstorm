@@ -28,3 +28,11 @@ dist-electron/
 public/Brainstorm-Windows.zip
 electron_build_output.txt
 tsc_output.txt
+
+# Irrelevant & Sensitive
+*.sql
+SUPABASE_SETUP.txt
+DESKTOP_APP_INSTRUCTIONS.txt
+PRODUCT_BRIEF.txt
+conv*.md
+electron-builder.yml
