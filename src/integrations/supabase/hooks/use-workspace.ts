@@ -82,7 +82,7 @@ export function useWorkspace(sessionId: string | null): UseWorkspaceResult {
                 style: c.style,
                 image: c.image,
                 fileName: c.file_name,
-                collectionId: c.collectionId
+                collectionId: c.collection_id
             }));
 
             const connections: Connection[] = connsData.map((c: any) => ({
@@ -90,6 +90,7 @@ export function useWorkspace(sessionId: string | null): UseWorkspaceResult {
                 fromId: c.from_id,
                 toId: c.to_id,
                 style: c.style,
+                color: c.color,
                 relationType: c.relation_type,
                 arrowStart: ArrowType.NONE, // Default or map if stored
                 arrowEnd: ArrowType.STANDARD

@@ -33,6 +33,7 @@ export const mapSessionData = (
         fromId: c.from_id,
         toId: c.to_id,
         style: c.style,
+        color: c.color,
         relationType: c.relation_type,
         arrowStart: c.arrow_start || ArrowType.NONE,
         arrowEnd: c.arrow_end || ArrowType.STANDARD
@@ -59,6 +60,7 @@ export const mapSessionData = (
         connections: connections,
         fileSystem: fileSystem,
         collections: collections,
+        strokes: typeof sessionData.strokes === 'string' ? JSON.parse(sessionData.strokes) : (Array.isArray(sessionData.strokes) ? sessionData.strokes : []),
         chatHistory: [], // Usually loaded separately or empty on list view
         lastModified: new Date(sessionData.last_modified).getTime() || Date.now()
     };

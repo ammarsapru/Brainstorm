@@ -1,6 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { IdeaCard, CardStyle } from '../types';
-import { Trash2, GripHorizontal, Sparkles, Bold, Italic, Type, Image as ImageIcon, FileText } from 'lucide-react';
+import { Trash2, GripHorizontal, Sparkles, Bold, Italic, Type, Image as ImageIcon, FileText, Maximize2 } from 'lucide-react';
 
 interface CardNodeProps {
   card: IdeaCard;
@@ -13,8 +13,9 @@ interface CardNodeProps {
   onConnectStart: (e: React.MouseEvent, id: string) => void;
   onGenerateAI: (id: string) => void;
   isProcessingAI: boolean;
-  onGripDown?: (e: React.MouseEvent, id: string) => void; // New Prop
-  isConnecting?: boolean; // New Prop for connection mode
+  onGripDown?: (e: React.MouseEvent, id: string) => void;
+  isConnecting?: boolean;
+  onImageClick?: (url: string) => void;
 }
 
 const FONTS = [
@@ -29,7 +30,7 @@ const FONTS = [
   { value: 'comic', label: 'Comic Neue' },
 ];
 
-export const CardNode: React.FC<CardNodeProps> = ({
+export const CardNode = React.memo<CardNodeProps>(({
   card,
   isSelected,
   scale,
@@ -41,12 +42,11 @@ export const CardNode: React.FC<CardNodeProps> = ({
   onGenerateAI,
   isProcessingAI,
   onGripDown,
-  isConnecting
+  isConnecting,
+  onImageClick
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-resize height based on content
-  // Auto-resize height based on content
   // Auto-resize height based on content
   useEffect(() => {
     if (textareaRef.current) {
@@ -56,23 +56,22 @@ export const CardNode: React.FC<CardNodeProps> = ({
       // Calculate content height
       const scrollHeight = textareaRef.current.scrollHeight;
 
-      // Enforce Max Height (Clamping)
-      // If content > 120, we cap it at 120. Textarea will scroll or just hide overflow (overflow-hidden set in class)
-      const MAX_HEIGHT = 120;
-      const targetHeight = Math.min(scrollHeight, MAX_HEIGHT);
+      // Calculate ideal width based on text length
+      const idealWidth = Math.max(200, Math.min(400, card.text.length * 10));
+      const targetWidth = Math.max(card.width, idealWidth);
 
       // Apply height directly
-      textareaRef.current.style.height = targetHeight + 'px';
+      textareaRef.current.style.height = scrollHeight + 'px';
 
       // Sync height to parent state
-      if (Math.abs(targetHeight - card.height) > 5) {
+      if (Math.abs(scrollHeight - card.height) > 5 || Math.abs(targetWidth - card.width) > 5) {
         const timer = setTimeout(() => {
-          onUpdate(card.id, { height: targetHeight });
+          onUpdate(card.id, { height: scrollHeight, width: targetWidth });
         }, 100);
         return () => clearTimeout(timer);
       }
     }
-  }, [card.text, card.style, card.height, isSelected]); // Added isSelected dep
+  }, [card.text, card.style, card.height, card.width, isSelected]); // Added isSelected dep
 
   const updateStyle = (key: keyof CardStyle, value: any) => {
     onUpdate(card.id, { style: { ...card.style, [key]: value } });
@@ -96,7 +95,7 @@ export const CardNode: React.FC<CardNodeProps> = ({
   return (
     <div
       className={`absolute flex flex-col shadow-sm transition-shadow duration-200 group
-        ${isSelected ? 'ring-2 ring-white shadow-xl z-20' : 'hover:shadow-md z-10'}
+        ${isSelected ? 'ring-2 ring-emerald-500 shadow-xl z-20' : 'hover:shadow-md hover:ring-2 hover:ring-[#0055ff] z-10'}
       `}
       style={{
         left: card.x,
@@ -104,7 +103,7 @@ export const CardNode: React.FC<CardNodeProps> = ({
         width: card.width,
         minHeight: card.height,
         backgroundColor: card.color,
-        borderRadius: '12px',
+        borderRadius: '8px',
         transform: `translate(-50%, -50%)`,
         cursor: 'default'
       }}
@@ -210,33 +209,65 @@ export const CardNode: React.FC<CardNodeProps> = ({
         <GripHorizontal className="w-4 h-4 text-gray-400" />
       </div>
 
-      {/* Image Content */}
+      {/* Media Content */}
       {card.image && (
-        <div className="w-full h-32 overflow-hidden border-b border-black/5 bg-gray-50">
-          <img src={card.image} alt="Card attachment" className="w-full h-full object-cover pointer-events-none" />
+        <div 
+          className={`w-full overflow-hidden border-b border-black/5 bg-gray-50 ${card.image.startsWith('data:application/pdf') ? 'flex-1 min-h-[300px]' : 'h-32 cursor-pointer hover:opacity-90 transition-opacity'}`}
+          onMouseDown={(e) => {
+            if (card.image?.startsWith('data:application/pdf')) {
+              e.stopPropagation(); // Allow interacting with the PDF
+            }
+          }}
+          onClick={(e) => {
+            if (!card.image?.startsWith('data:application/pdf')) {
+              e.stopPropagation();
+              onImageClick?.(card.image!);
+            }
+          }}
+        >
+          {card.image.startsWith('data:application/pdf') ? (
+            <iframe src={`${card.image}#toolbar=0`} className="w-full h-full border-none bg-white" title="PDF Viewer" />
+          ) : (
+            <img src={card.image} alt="Card attachment" className="w-full h-full object-cover pointer-events-none" />
+          )}
         </div>
       )}
 
       {/* File Indicator */}
       {card.fileName && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-black/5 mx-3 mt-2 rounded text-xs text-gray-600 overflow-hidden">
-          <FileText className="w-4 h-4 shrink-0" />
-          <span className="truncate">{card.fileName}</span>
+        <div className="flex items-center justify-between px-3 py-2 bg-black/5 mx-3 mt-2 rounded text-xs text-gray-600 overflow-hidden">
+          <div className="flex items-center gap-2 shrink overflow-hidden">
+            <FileText className="w-4 h-4 shrink-0" />
+            <span className="truncate">{card.fileName}</span>
+          </div>
+          {card.image?.startsWith('data:application/pdf') && (
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDoubleClick?.(e, card.id);
+              }}
+              className="flex items-center gap-1 bg-white/80 hover:bg-white text-gray-700 font-medium px-2 py-1 rounded shadow-sm border border-gray-200 shrink-0 transition-colors"
+              title="Open PDF Full Screen"
+            >
+              <Maximize2 className="w-3 h-3" />
+              Open
+            </button>
+          )}
         </div>
       )}
 
       {/* Text Content */}
-      <div className="p-3 flex-grow flex flex-col">
+      <div className={`p-3 flex flex-col ${card.image?.startsWith('data:application/pdf') ? 'shrink-0' : 'flex-grow'}`}>
         <textarea
           ref={textareaRef}
           value={card.text}
           onChange={(e) => onUpdate(card.id, { text: e.target.value })}
           placeholder={card.image ? "Add caption..." : "Enter idea..."}
-          className={`w-full bg-transparent resize-none outline-none text-gray-800 placeholder-gray-400 text-center flex-grow overflow-hidden ${getFontFamily(card.style.fontFamily)}`}
+          className={`w-full bg-transparent resize-none outline-none text-gray-800 placeholder-gray-400 text-center overflow-hidden ${getFontFamily(card.style.fontFamily)} ${card.image?.startsWith('data:application/pdf') ? '' : 'flex-grow'}`}
           style={{
             minHeight: card.image ? '40px' : '60px',
-            // Clamp height to simulate "Title View" (approx 3-4 lines max)
-            maxHeight: '120px',
+            // No maxHeight to allow full visibility of the header text
             fontWeight: card.style.isBold ? 'bold' : 'normal',
             fontStyle: card.style.isItalic ? 'italic' : 'normal',
             fontSize: `${card.style.fontSize}px`
@@ -277,4 +308,20 @@ export const CardNode: React.FC<CardNodeProps> = ({
       </div>
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison function for performance
+  return (
+    prevProps.card.id === nextProps.card.id &&
+    prevProps.card.x === nextProps.card.x &&
+    prevProps.card.y === nextProps.card.y &&
+    prevProps.card.text === nextProps.card.text &&
+    prevProps.card.width === nextProps.card.width &&
+    prevProps.card.height === nextProps.card.height &&
+    prevProps.card.color === nextProps.card.color &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isProcessingAI === nextProps.isProcessingAI &&
+    prevProps.isConnecting === nextProps.isConnecting &&
+    prevProps.scale === nextProps.scale && // Scale is important for potential internal sizing but usually pure CSS transform handles it
+    JSON.stringify(prevProps.card.style) === JSON.stringify(nextProps.card.style)
+  );
+});

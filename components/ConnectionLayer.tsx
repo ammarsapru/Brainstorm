@@ -103,60 +103,11 @@ export const ConnectionLayer: React.FC<ConnectionLayerProps> = ({
   };
 
   // Color Constants
-  const COLOR_DEFAULT = "#10b981"; // Emerald 500 (Matches Tools Bar Hover)
+  const COLOR_DEFAULT = "#3b82f6"; // Blue 500
   const COLOR_SELECTED = "#ffffff"; // White for contrast on dark bg
 
   return (
     <svg className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-visible">
-      <defs>
-        {/* 
-            Standard End Arrow 
-            ViewBox 0 0 20 20. 
-            Arrow geometry: Centered at (10,10).
-            Path: Tips at x=2, y=5 and y=15. Tip at x=14, y=10.
-            This provides padding around the shape to prevent clipping.
-        */}
-        <marker id="marker-arrow-end" markerWidth="20" markerHeight="20" refX="16" refY="10" orient="auto" markerUnits="userSpaceOnUse" overflow="visible">
-          <path d="M2,5 L2,15 L14,10 z" fill={COLOR_DEFAULT} />
-        </marker>
-        <marker id="marker-arrow-end-sel" markerWidth="20" markerHeight="20" refX="16" refY="10" orient="auto" markerUnits="userSpaceOnUse" overflow="visible">
-          <path d="M2,5 L2,15 L14,10 z" fill={COLOR_SELECTED} />
-        </marker>
-
-        {/* 
-            Start Arrow (Reverse) 
-            ViewBox 0 0 20 20.
-            Points Left.
-            Adjusted refX to 4 (was 6) to push tip ~2px away from card edge.
-        */}
-        <marker id="marker-arrow-start" markerWidth="20" markerHeight="20" refX="4" refY="10" orient="auto" markerUnits="userSpaceOnUse" overflow="visible">
-          <path d="M18,5 L18,15 L6,10 z" fill={COLOR_DEFAULT} />
-        </marker>
-        <marker id="marker-arrow-start-sel" markerWidth="20" markerHeight="20" refX="4" refY="10" orient="auto" markerUnits="userSpaceOnUse" overflow="visible">
-          <path d="M18,5 L18,15 L6,10 z" fill={COLOR_SELECTED} />
-        </marker>
-
-        {/* 
-            Circle Start 
-            ViewBox 0 0 20 20.
-            Center 10,10, Radius 4.
-        */}
-        <marker id="marker-circle-start" markerWidth="20" markerHeight="20" refX="10" refY="10" orient="auto" markerUnits="userSpaceOnUse" overflow="visible">
-          <circle cx="10" cy="10" r="4" fill={COLOR_DEFAULT} />
-        </marker>
-        <marker id="marker-circle-start-sel" markerWidth="20" markerHeight="20" refX="10" refY="10" orient="auto" markerUnits="userSpaceOnUse" overflow="visible">
-          <circle cx="10" cy="10" r="4" fill={COLOR_SELECTED} />
-        </marker>
-
-        {/* Circle End */}
-        <marker id="marker-circle-end" markerWidth="20" markerHeight="20" refX="10" refY="10" orient="auto" markerUnits="userSpaceOnUse" overflow="visible">
-          <circle cx="10" cy="10" r="4" fill={COLOR_DEFAULT} />
-        </marker>
-        <marker id="marker-circle-end-sel" markerWidth="20" markerHeight="20" refX="10" refY="10" orient="auto" markerUnits="userSpaceOnUse" overflow="visible">
-          <circle cx="10" cy="10" r="4" fill={COLOR_SELECTED} />
-        </marker>
-      </defs>
-
       {connections.map(conn => {
         const centerStart = getCardCenter(conn.fromId);
         const centerEnd = getCardCenter(conn.toId);
@@ -169,13 +120,11 @@ export const ConnectionLayer: React.FC<ConnectionLayerProps> = ({
 
         const pathD = getPath(start, end);
         const isSelected = selectedConnectionId === conn.id;
-        const color = isSelected ? COLOR_SELECTED : COLOR_DEFAULT;
+        const color = isSelected ? COLOR_SELECTED : (conn.color || COLOR_DEFAULT);
 
         let strokeDasharray = "";
         if (conn.style === ConnectionStyle.DASHED) strokeDasharray = "8,4";
         if (conn.style === ConnectionStyle.DOTTED) strokeDasharray = "2,4";
-
-        const selSuffix = isSelected ? '-sel' : '';
 
         // Determine Markers based on RelationType
         let markerStart = undefined;
@@ -183,16 +132,16 @@ export const ConnectionLayer: React.FC<ConnectionLayerProps> = ({
 
         if (conn.relationType === RelationType.PARENT_TO_CHILD) {
           // Circle at Start, Arrow at End
-          markerStart = `url(#marker-circle-start${selSuffix})`;
-          markerEnd = `url(#marker-arrow-end${selSuffix})`;
+          markerStart = `url(#marker-circle-start-${conn.id})`;
+          markerEnd = `url(#marker-arrow-end-${conn.id})`;
         } else if (conn.relationType === RelationType.CHILD_TO_PARENT) {
           // Arrow at Start, Circle at End
-          markerStart = `url(#marker-arrow-start${selSuffix})`;
-          markerEnd = `url(#marker-circle-end${selSuffix})`;
+          markerStart = `url(#marker-arrow-start-${conn.id})`;
+          markerEnd = `url(#marker-circle-end-${conn.id})`;
         } else {
           // RelationType.EQUIVALENCE or Default: Double Arrow
-          markerStart = `url(#marker-arrow-start${selSuffix})`;
-          markerEnd = `url(#marker-arrow-end${selSuffix})`;
+          markerStart = `url(#marker-arrow-start-${conn.id})`;
+          markerEnd = `url(#marker-arrow-end-${conn.id})`;
         }
 
         return (
@@ -200,6 +149,20 @@ export const ConnectionLayer: React.FC<ConnectionLayerProps> = ({
             onClick={(e) => { e.stopPropagation(); onSelectConnection?.(conn.id); }}
             className="pointer-events-auto cursor-pointer group"
           >
+            <defs>
+              <marker id={`marker-arrow-end-${conn.id}`} markerWidth="20" markerHeight="20" refX="16" refY="10" orient="auto" markerUnits="userSpaceOnUse" overflow="visible">
+                <path d="M2,5 L2,15 L14,10 z" fill={color} />
+              </marker>
+              <marker id={`marker-arrow-start-${conn.id}`} markerWidth="20" markerHeight="20" refX="4" refY="10" orient="auto" markerUnits="userSpaceOnUse" overflow="visible">
+                <path d="M18,5 L18,15 L6,10 z" fill={color} />
+              </marker>
+              <marker id={`marker-circle-start-${conn.id}`} markerWidth="20" markerHeight="20" refX="10" refY="10" orient="auto" markerUnits="userSpaceOnUse" overflow="visible">
+                <circle cx="10" cy="10" r="4" fill={color} />
+              </marker>
+              <marker id={`marker-circle-end-${conn.id}`} markerWidth="20" markerHeight="20" refX="10" refY="10" orient="auto" markerUnits="userSpaceOnUse" overflow="visible">
+                <circle cx="10" cy="10" r="4" fill={color} />
+              </marker>
+            </defs>
             {/* Invisible thicker path for easier hover/selection */}
             <path d={pathD} stroke="transparent" strokeWidth="20" fill="none" />
 

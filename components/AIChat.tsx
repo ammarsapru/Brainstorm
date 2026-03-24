@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Send, Bot, User, ChevronDown, Paperclip, Image as ImageIcon, File, Check, Copy, CheckCircle2 } from 'lucide-react';
+import { X, Send, Bot, User, ChevronDown, Paperclip, Image as ImageIcon, File, Check, Copy, CheckCircle2, Settings } from 'lucide-react';
 import { ChatMessage, ChatAttachment } from '../types';
 
 interface AIChatProps {
     history: ChatMessage[];
-    onSendMessage: (text: string, attachments: ChatAttachment[]) => Promise<void>;
+    onSendMessage: (text: string, attachments: ChatAttachment[], modelId: string) => Promise<void>;
     isProcessing: boolean;
+    onSettingsClick: () => void;
 }
 
 const MODELS = [
@@ -15,7 +16,7 @@ const MODELS = [
     { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'Anthropic', icon: '🎭' },
 ];
 
-export const AIChat: React.FC<AIChatProps> = ({ history, onSendMessage, isProcessing }) => {
+export const AIChat = React.memo<AIChatProps>(({ history, onSendMessage, isProcessing, onSettingsClick }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [input, setInput] = useState('');
     const [selectedModel, setSelectedModel] = useState(MODELS[0]);
@@ -40,10 +41,11 @@ export const AIChat: React.FC<AIChatProps> = ({ history, onSendMessage, isProces
 
         const msg = input;
         const currentAttachments = [...attachments];
+        const modelId = selectedModel.id;
 
         setInput('');
         setAttachments([]);
-        await onSendMessage(msg, currentAttachments);
+        await onSendMessage(msg, currentAttachments, modelId);
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'file') => {
@@ -119,14 +121,25 @@ export const AIChat: React.FC<AIChatProps> = ({ history, onSendMessage, isProces
                         </div>
                     </div>
 
-                    {/* Close Button */}
-                    <button
-                        onClick={() => setIsOpen(false)}
-                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-black"
-                        title="Close Chat"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
+                    <div className="flex items-center">
+                        {/* Settings Button */}
+                        <button
+                            onClick={onSettingsClick}
+                            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-blue-600 mr-1"
+                            title="API Keys & Settings"
+                        >
+                            <Settings className="w-4 h-4" />
+                        </button>
+
+                        {/* Close Button */}
+                        <button
+                            onClick={() => setIsOpen(false)}
+                            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-black"
+                            title="Close Chat"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
 
                     {/* Model Dropdown */}
                     {isModelMenuOpen && (
@@ -309,4 +322,4 @@ export const AIChat: React.FC<AIChatProps> = ({ history, onSendMessage, isProces
             </div>
         </>
     );
-};
+});

@@ -35,7 +35,9 @@ function App() {
     return (saved as AppView) || 'landing';
   });
 
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(() => {
+    return localStorage.getItem('last_active_session_id');
+  });
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
@@ -315,6 +317,7 @@ function App() {
       connections: [],
       fileSystem: initialFileSystem,
       chatHistory: [],
+      strokes: [],
       lastModified: Date.now()
     };
     // Sync to DB immediately (Await this BEFORE updating state to prevent Race Condition with RLS)
@@ -323,6 +326,7 @@ function App() {
         id: newSession.id,
         user_id: user.id,
         name: newSession.name,
+        strokes: [],
         last_modified: new Date(newSession.lastModified).toISOString()
       });
       if (error) {
@@ -360,8 +364,24 @@ function App() {
   };
 
   // Rename session (from dashboard)
-  const handleRenameSession = (id: string, newName: string) => {
+  const handleRenameSession = async (id: string, newName: string) => {
+    // Optimistic update
     setSessions(prev => prev.map(s => s.id === id ? { ...s, name: newName, lastModified: Date.now() } : s));
+
+    if (supabase && user) {
+      const { error } = await supabase
+        .from('sessions')
+        .update({
+          name: newName,
+          last_modified: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error renaming session:', error);
+        // Optionally revert UI or show error
+      }
+    }
   };
 
   // Update session data from Workspace
@@ -369,17 +389,45 @@ function App() {
     setSessions(prev => prev.map(s => s.id === updatedSession.id ? updatedSession : s));
   };
 
-  const handleUpdateSessionImage = (sessionId: string, image: string) => {
+  const handleUpdateSessionImage = async (sessionId: string, image: string) => {
+    // Optimistic Update
     setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, thumbnail: image } : s));
+
+    if (supabase && user) {
+      const { error } = await supabase
+        .from('sessions')
+        .update({ thumbnail: image })
+        .eq('id', sessionId);
+
+      if (error) {
+        console.error('Error updating session thumbnail:', error);
+      }
+    }
   };
 
-  const handleUpdateSessionIcon = (sessionId: string, icon: string) => {
+  const handleUpdateSessionIcon = async (sessionId: string, icon: string) => {
+    // Optimistic Update
     setSessions(prev => prev.map(s => s.id === sessionId ? ({ ...s, icon: icon }) : s));
+
+    if (supabase && user) {
+      const { error } = await supabase
+        .from('sessions')
+        .update({ icon: icon })
+        .eq('id', sessionId);
+
+      if (error) {
+        console.error('Error updating session icon:', error);
+      }
+    }
   };
 
   const handleGoHome = () => {
-    setView('landing');
     setActiveSessionId(null);
+    if (user) {
+      setView('dashboard');
+    } else {
+      setView('landing');
+    }
   };
 
   const activeSession = sessions.find(s => s.id === activeSessionId);
@@ -447,6 +495,7 @@ function App() {
       <Header isWorkspace={false} onGoHome={handleGoHome} user={user} onLogin={handleLogin} onLogout={handleLogout} onSwitchAccount={handleSwitchAccount} />
       <SessionList
         sessions={sessions}
+        isLoading={isLoading}
         onSelect={(s) => { setActiveSessionId(s.id); setView('workspace'); }}
         onCreate={handleCreateSession}
         onDelete={handleDeleteSession}

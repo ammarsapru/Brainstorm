@@ -3,7 +3,7 @@ import {
   ArrowRight, Brain, Zap, Share2, Layout, FileText,
   Users, Lightbulb, Target, Layers, Instagram, Linkedin, Github, Mail,
   CheckCircle2, Globe, Sparkles, MessageCircle, Send, Bot, User, GripHorizontal, Plus, Play,
-  MousePointer2, Network, GitFork, MessageSquareText, Wand2, Maximize2, MousePointerClick
+  MousePointer2, Network, GitFork, MessageSquareText, Wand2, Maximize2, MousePointerClick, Download
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -394,6 +394,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             >
               Start Brainstorming <ArrowRight className="w-5 h-5" />
             </button>
+            {!navigator.userAgent.includes('Electron') && (
+              <a
+                href="/Brainstorm-Windows.zip"
+                download="Brainstorm-Windows.zip"
+                className="px-8 py-4 bg-white text-gray-900 border border-gray-200 rounded-full font-bold text-lg shadow-sm hover:bg-gray-50 hover:border-gray-300 hover:scale-105 transition-all flex items-center gap-2"
+              >
+                <Download className="w-5 h-5" /> Download App (ZIP)
+              </a>
+            )}
           </div>
         </div>
       </main>

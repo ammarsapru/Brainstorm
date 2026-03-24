@@ -15,6 +15,8 @@ interface HeaderProps {
   onSave?: () => void; // Added onSave prop
   onSwitchAccount?: () => void; // New Prop
   isSaving?: boolean;
+  saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
+  error?: string | null;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -29,7 +31,9 @@ export const Header: React.FC<HeaderProps> = ({
   onRename,
   onSave,
   onSwitchAccount,
-  isSaving = false
+  isSaving = false,
+  saveStatus = 'saved',
+  error
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -67,40 +71,32 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <div className="fixed top-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-sm border-b border-gray-200 z-50 flex items-center justify-between px-6 shadow-sm">
 
-      {/* Left Actions (Back, Menu) */}
-      <div className="flex items-center gap-2 w-1/3">
+      {/* Left Actions (Back, Logo) */}
+      <div className="flex items-center gap-3 w-1/3">
         {isWorkspace && onBack && (
           <button
             onClick={onBack}
-            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors mr-1"
+            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             title="Back to Dashboard"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
         )}
 
-        {isWorkspace && onToggleSidebar && (
-          <button
-            onClick={onToggleSidebar}
-            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-        )}
-      </div>
-
-      {/* Center Logo */}
-      <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
-        <div className="flex items-center cursor-pointer group" onClick={onGoHome} title="Go to Home">
+        {/* Logo */}
+        <div className="flex items-center cursor-pointer group shrink-0" onClick={onGoHome} title="Go to Home">
           {/* The B Box */}
           <div className="w-9 h-9 bg-black rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-105 transition-transform z-10">B</div>
           {/* The rest of the word */}
-          <span className="text-xl font-bold text-gray-900 tracking-tight leading-none ml-1 -mt-0.5 group-hover:text-black transition-colors">rainstorm</span>
+          <span className="text-xl font-bold text-gray-900 tracking-tight leading-none ml-1 -mt-0.5 group-hover:text-black transition-colors hidden sm:block">rainstorm</span>
         </div>
+      </div>
 
+      {/* Center Title */}
+      <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
         {/* Session Name (Only in Workspace) */}
         {isWorkspace && sessionName && (
-          <div className="mt-1">
+          <div className="flex items-center">
             {isEditing ? (
               <input
                 ref={inputRef}
@@ -109,16 +105,16 @@ export const Header: React.FC<HeaderProps> = ({
                 onChange={(e) => setEditName(e.target.value)}
                 onBlur={handleNameSubmit}
                 onKeyDown={handleKeyDown}
-                className="text-xs text-center text-gray-600 font-medium leading-none bg-white border border-gray-300 rounded px-1 outline-none min-w-[150px]"
+                className="text-base text-center text-black font-bold bg-white border border-gray-300 rounded px-2 outline-none min-w-[200px]"
               />
             ) : (
               <span
                 onClick={() => onRename && setIsEditing(true)}
-                className="text-xs text-gray-400 font-medium leading-none hover:text-black hover:bg-gray-50 rounded px-2 py-0.5 cursor-text flex items-center justify-center gap-1 transition-colors group"
+                className="text-base text-black font-bold hover:bg-gray-100 rounded px-3 py-1 cursor-text flex items-center gap-2 transition-colors group"
                 title="Click to rename"
               >
                 {sessionName}
-                <Edit2 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100" />
+                <Edit2 className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
               </span>
             )}
           </div>
@@ -131,17 +127,21 @@ export const Header: React.FC<HeaderProps> = ({
           <>
             <button
               onClick={onSave}
-              disabled={isSaving}
-              className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${isSaving ? 'text-gray-400 bg-gray-50 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100'
-                }`}
+              className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${saveStatus === 'error' ? 'text-red-500 hover:bg-red-50' : 'text-gray-600 hover:bg-gray-100'}`}
+              title={error || ''}
             >
-              {isSaving ? (
-                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              <span className="hidden sm:inline">{isSaving ? 'Saving...' : 'Save'}</span>
+              <Save className="w-4 h-4" />
+              <span className="hidden sm:inline">
+                {saveStatus === 'error' ? 'Save Error' : (isSaving ? 'Saving...' : 'Saved')}
+              </span>
             </button>
+            {saveStatus === 'error' && error && (
+              <div className="absolute top-16 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50 shadow-lg max-w-md break-words">
+                <p className="font-bold text-sm">Sync Error</p>
+                <p className="text-xs mt-1">{error}</p>
+                <p className="text-xs font-semibold mt-2">Please tell the assistant this exact error message!</p>
+              </div>
+            )}
 
             <div className="w-px h-6 bg-gray-200 mx-2 hidden sm:block"></div>
           </>

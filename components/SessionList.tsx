@@ -4,6 +4,49 @@ import { Session } from '../types';
 import { CreationModal } from './CreationModal';
 import { generateSessionIcon, generateSessionImage } from '../services/aiService';
 
+const LoadingOverlay = () => {
+  const [status, setStatus] = React.useState('Connecting to secure server...');
+  
+  React.useEffect(() => {
+    const statuses = [
+      'Connecting to secure server...', 
+      'Verifying credentials...', 
+      'Retrieving sessions...', 
+      'Loading canvas data...'
+    ];
+    let i = 0;
+    const interval = setInterval(() => {
+      i = (i + 1) % statuses.length;
+      setStatus(statuses[i]);
+    }, 1200);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center animate-in fade-in duration-500">
+      <div className="relative flex items-center justify-center mb-8">
+        {/* Animated Ring */}
+        <div className="absolute w-24 h-24 border-2 border-white/10 border-t-white rounded-full animate-spin"></div>
+        <div className="absolute w-32 h-32 border border-white/5 border-b-white/30 rounded-full animate-[spin_3s_linear_reverse_infinite]"></div>
+        
+        {/* Brainstorm Logo */}
+        <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-black font-bold text-4xl shadow-[0_0_40px_rgba(255,255,255,0.15)] z-10 transition-transform duration-1000">
+          B
+        </div>
+      </div>
+      <h3 className="text-2xl font-bold text-white font-display tracking-tight flex items-center gap-1">
+        <span>Retrieving sessions</span>
+        <span className="flex gap-0.5">
+          <span className="animate-[bounce_1s_infinite_0ms]">.</span>
+          <span className="animate-[bounce_1s_infinite_200ms]">.</span>
+          <span className="animate-[bounce_1s_infinite_400ms]">.</span>
+        </span>
+      </h3>
+      <p className="text-gray-400 font-medium mt-3 text-sm animate-pulse">{status}</p>
+    </div>
+  );
+};
+
 interface SessionListProps {
   sessions: Session[];
   onSelect: (session: Session) => void;
@@ -12,9 +55,10 @@ interface SessionListProps {
   onRename: (id: string, newName: string) => void;
   onUpdateSessionImage: (sessionId: string, image: string) => void;
   onUpdateSessionIcon: (sessionId: string, icon: string) => void;
+  isLoading?: boolean;
 }
 
-export const SessionList: React.FC<SessionListProps> = ({ sessions, onSelect, onCreate, onDelete, onRename, onUpdateSessionImage, onUpdateSessionIcon }) => {
+export const SessionList: React.FC<SessionListProps> = ({ sessions, onSelect, onCreate, onDelete, onRename, onUpdateSessionImage, onUpdateSessionIcon, isLoading }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedSessionRef = useRef<string | null>(null);
 
@@ -82,8 +126,11 @@ export const SessionList: React.FC<SessionListProps> = ({ sessions, onSelect, on
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-24 px-8 pb-12">
+    <div className="min-h-screen bg-gray-50 pt-24 px-8 pb-12 relative">
       <div className="max-w-7xl mx-auto">
+
+        {/* --- Loading Overlay --- */}
+        {isLoading && <LoadingOverlay />}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-3xl font-bold text-gray-900 font-display text-center md:text-left w-full">Your Sessions (V2 - Secure)</h2>

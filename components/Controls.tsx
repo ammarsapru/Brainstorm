@@ -1,6 +1,6 @@
 import React, { useRef, useState, useMemo } from 'react';
-import { Plus, Move, MousePointer2, Image as ImageIcon, FileText, ChevronLeft, ChevronRight, FolderPlus, FilePlus, ChevronDown, ChevronUp, StickyNote, Folder, PlusCircle } from 'lucide-react';
-import { ToolMode, FileSystemItem, IdeaCard, Connection, Collection } from '../types';
+import { Plus, Move, MousePointer2, Image as ImageIcon, FileText, ChevronLeft, ChevronRight, FolderPlus, FilePlus, ChevronDown, ChevronUp, StickyNote, Folder, PlusCircle, PenTool, Highlighter, Type, MousePointer, Eraser } from 'lucide-react';
+import { ToolMode, FileSystemItem, IdeaCard, Connection, Collection, DrawingTool } from '../types';
 import { FileSystem } from './FileSystem';
 
 interface SidebarProps {
@@ -8,6 +8,12 @@ interface SidebarProps {
   setIsOpen: (open: boolean) => void;
   mode: ToolMode;
   setMode: (m: ToolMode) => void;
+  drawingTool: DrawingTool;
+  setDrawingTool: (t: DrawingTool) => void;
+  strokeColor: string;
+  setStrokeColor: (color: string) => void;
+  strokeRadius: number;
+  setStrokeRadius: (r: number) => void;
   onAddCard: () => void;
   onUploadImage: (file: File) => void;
   onUploadDoc: (file: File) => void;
@@ -32,6 +38,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setIsOpen,
   mode,
   setMode,
+  drawingTool,
+  setDrawingTool,
+  strokeColor,
+  setStrokeColor,
+  strokeRadius,
+  setStrokeRadius,
   onAddCard,
   onUploadImage,
   onUploadDoc,
@@ -169,6 +181,72 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <Move className="w-4 h-4" />
                   Pan Canvas
                 </button>
+                <div className="w-full flex flex-col gap-1 border-t border-gray-100 mt-1 pt-1">
+                  <button
+                    onClick={() => setMode('draw')}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium ${mode === 'draw' ? 'bg-zinc-100 text-black' : 'text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    <PenTool className="w-4 h-4" />
+                    Draw
+                  </button>
+                  
+                  {mode === 'draw' && (
+                    <div className="bg-gray-50 rounded-lg p-2 mt-1 space-y-3 animate-in slide-in-from-top-1 duration-200">
+                      
+                      {/* Tool selection */}
+                      <div className="flex bg-white rounded-md p-0.5 border border-gray-200 shadow-sm">
+                        <button
+                          onClick={() => setDrawingTool('pen')}
+                          className={`flex-1 flex justify-center items-center py-1 rounded text-xs transition-colors ${drawingTool === 'pen' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-500 hover:text-gray-800'}`}
+                        >
+                          Pen
+                        </button>
+                        <button
+                          onClick={() => setDrawingTool('marker')}
+                          className={`flex-1 flex justify-center items-center py-1 rounded text-xs transition-colors ${drawingTool === 'marker' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-500 hover:text-gray-800'}`}
+                        >
+                          <Highlighter className="w-3.5 h-3.5 mr-1" /> Marker
+                        </button>
+                        <button
+                          onClick={() => setDrawingTool('eraser')}
+                          className={`flex-1 flex justify-center items-center py-1 rounded text-xs transition-colors ${drawingTool === 'eraser' ? 'bg-red-50 text-red-600 font-medium' : 'text-gray-500 hover:text-gray-800'}`}
+                        >
+                          <Eraser className="w-3.5 h-3.5 mr-1" /> Eraser
+                        </button>
+                      </div>
+
+                      {/* Radius */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500 font-medium">Size</span>
+                        <input
+                          type="range"
+                          min="1"
+                          max="50"
+                          value={strokeRadius}
+                          onChange={(e) => setStrokeRadius(Number(e.target.value))}
+                          className="w-24 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        />
+                      </div>
+
+                      {/* Colors */}
+                      <div>
+                        <span className="text-xs text-gray-500 font-medium mb-1.5 block">Color</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {['#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#ffffff'].map(c => (
+                            <button
+                              key={c}
+                              onClick={() => setStrokeColor(c)}
+                              className={`w-5 h-5 rounded-full border border-gray-300 shadow-sm transition-transform hover:scale-110 ${strokeColor === c ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}
+                              style={{ backgroundColor: c }}
+                              title={c}
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

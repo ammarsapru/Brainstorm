@@ -77,9 +77,19 @@ export interface Connection {
   arrowEnd: ArrowType;
   label?: string;
   relationType: RelationType;
+  color?: string;
 }
 
-export type ToolMode = 'select' | 'pan' | 'connect';
+export type ToolMode = 'select' | 'pan' | 'connect' | 'draw';
+export type DrawingTool = 'pen' | 'marker' | 'eraser';
+
+export interface Stroke {
+  id: string;
+  tool: DrawingTool;
+  color: string;
+  radius: number;
+  points: Point[];
+}
 
 export interface Viewport {
   x: number;
@@ -126,6 +136,7 @@ export interface Session {
   fileSystem: FileSystemItem[];
   collections?: Collection[]; // List of card collections
   chatHistory: ChatMessage[];
+  strokes?: Stroke[]; // Transient runtime state, synced via hidden file
   lastModified: number;
   thumbnail?: string;
 }

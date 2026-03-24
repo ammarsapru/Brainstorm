@@ -193,6 +193,7 @@ class SyncEngine {
                     viewport_x: this.pendingSession.viewport_x,
                     viewport_y: this.pendingSession.viewport_y,
                     viewport_zoom: this.pendingSession.viewport_zoom,
+                    strokes: this.pendingSession.strokes || [],
                     last_modified: new Date().toISOString()
                 });
                 if (error) throw error;
@@ -274,6 +275,7 @@ class SyncEngine {
                     const isChanged = !last ||
                         last.fromId !== conn.fromId || last.toId !== conn.toId ||
                         last.style !== conn.style || last.relationType !== conn.relationType ||
+                        last.color !== conn.color ||
                         last.arrowStart !== conn.arrowStart || last.arrowEnd !== conn.arrowEnd;
 
                     if (isChanged) {
@@ -288,6 +290,7 @@ class SyncEngine {
                         from_id: c.fromId,
                         to_id: c.toId,
                         style: c.style,
+                        color: c.color,
                         relation_type: c.relationType,
                         arrow_start: c.arrowStart,
                         arrow_end: c.arrowEnd

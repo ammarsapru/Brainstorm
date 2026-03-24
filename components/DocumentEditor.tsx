@@ -5,6 +5,7 @@ import { X, Save, Bold, Italic, Underline, GripVertical, Plus, Trash2, Type, Lis
 interface DocumentEditorProps {
   doc: FileSystemItem;
   onSave: (id: string, content: string, name: string) => void;
+  onChange?: (id: string, content: string, name: string) => void;
   onClose: () => void;
 }
 
@@ -104,7 +105,7 @@ const ContentBlock = React.memo(({
   return true;
 });
 
-export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onClose }) => {
+export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onChange, onClose, className = "w-[900px]", onSwap }) => {
   const [blocks, setBlocks] = useState<DocBlock[]>(() => {
     if (!doc.content) return [{ id: generateId(), text: '', style: { ...DEFAULT_BLOCK_STYLE } }];
     try {
@@ -137,6 +138,13 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
   useEffect(() => {
     blocksRef.current = blocks;
   }, [blocks]);
+
+  // Sync external title changes
+  useEffect(() => {
+    if (doc.name !== title) {
+      setTitle(doc.name);
+    }
+  }, [doc.name]);
 
   useEffect(() => {
     if (focusRef.current) {
@@ -309,6 +317,19 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
   };
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
+    // Check if we are dragging from the content editable text area
+    // If so, we prevent the drag so that text selection works normally
+    let target = e.target as HTMLElement;
+    // e.target can be a text node in older browsers or specific contexts
+    if (target.nodeType === Node.TEXT_NODE) {
+      target = target.parentElement as HTMLElement;
+    }
+
+    if (target.closest && target.closest('[contenteditable="true"]')) {
+      e.preventDefault();
+      return;
+    }
+
     e.stopPropagation();
     setDraggedBlockIndex(index);
     e.dataTransfer.effectAllowed = 'move';
@@ -396,80 +417,48 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-sm animate-in fade-in duration-200"
-      onClick={onClose}
+      className={`${className} h-[95%] bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200 shrink-0`}
+      onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
-      onMouseUp={(e) => e.stopPropagation()}
     >
-      <div
-        className="w-[900px] h-[95%] bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200"
-        onClick={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="h-16 border-b border-gray-100 flex items-center justify-between px-6 bg-white shrink-0 z-10">
-          <div className="flex items-center gap-2">
-            <select
-              value={currentStyle.fontFamily}
-              onChange={(e) => updateActiveBlockStyle('fontFamily', e.target.value)}
-              className="h-8 px-2 border border-gray-200 rounded text-sm text-gray-700 outline-none focus:border-black bg-white"
-            >
-              {FONTS.map(f => (
-                <option key={f.value} value={f.value}>{f.label}</option>
-              ))}
-            </select>
-            <select
-              value={currentStyle.fontSize}
-              onChange={(e) => updateActiveBlockStyle('fontSize', parseInt(e.target.value))}
-              className="h-8 w-16 px-2 border border-gray-200 rounded text-sm text-gray-700 outline-none focus:border-black bg-white"
-            >
-              {[12, 14, 16, 18, 20, 24, 30, 36, 48].map(size => (
-                <option key={size} value={size}>{size}px</option>
-              ))}
-            </select>
-            <div className="w-px h-6 bg-gray-200 mx-1" />
-            <button
-              onMouseDown={(e) => { e.preventDefault(); execFormat('bold'); }}
-              className={`p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-600`}
-              title="Bold"
-            >
-              <Bold className="w-4 h-4" />
-            </button>
-            <button
-              onMouseDown={(e) => { e.preventDefault(); execFormat('italic'); }}
-              className={`p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-600`}
-              title="Italic"
-            >
-              <Italic className="w-4 h-4" />
-            </button>
-            <button
-              onMouseDown={(e) => { e.preventDefault(); execFormat('underline'); }}
-              className={`p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-600`}
-              title="Underline"
-            >
-              <Underline className="w-4 h-4" />
-            </button>
-            <div className="w-px h-6 bg-gray-200 mx-1" />
-            <button
-              onClick={() => toggleList('bullet')}
-              className={`p-1.5 rounded hover:bg-gray-100 transition-colors ${currentStyle.listType === 'bullet' ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
-              title="Bullet List"
-            >
-              <List className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => toggleList('number')}
-              className={`p-1.5 rounded hover:bg-gray-100 transition-colors ${currentStyle.listType === 'number' ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
-              title="Numbered List"
-            >
-              <ListOrdered className="w-4 h-4" />
-            </button>
-          </div>
+      <div className="border-b border-gray-100 flex flex-col bg-white shrink-0 z-10 shadow-sm">
+        {/* Top Row: Title & Actions */}
+        <div className="flex items-start justify-between px-6 pt-4 pb-3 gap-6">
+          <textarea
+            value={title}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setIsSaved(false);
+              e.target.style.height = '0px';
+              e.target.style.height = e.target.scrollHeight + 'px';
+            }}
+            placeholder="Untitled Document"
+            className="w-full text-2xl font-bold text-gray-900 placeholder-gray-300 outline-none border-none bg-transparent resize-none overflow-hidden leading-snug"
+            rows={1}
+            style={{ minHeight: '36px' }}
+            ref={(el) => {
+              if (el && !el.dataset.resized) {
+                el.dataset.resized = 'true';
+                el.style.height = '0px';
+                el.style.height = el.scrollHeight + 'px';
+              }
+            }}
+          />
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 shrink-0 mt-1">
             {isSaved ? (
               <span className="text-xs text-green-500 flex items-center gap-1 font-medium"><Save className="w-3 h-3" /> Saved</span>
             ) : (
               <span className="text-xs text-amber-500 font-medium">Saving...</span>
+            )}
+            {onSwap && (
+              <button
+                onClick={onSwap}
+                className="px-3 py-1.5 text-sm font-medium hover:bg-gray-100 rounded-lg text-gray-600 transition-colors border border-gray-200 hover:border-gray-300"
+                title="Swap Card"
+              >
+                Swap
+              </button>
             )}
             <button
               onClick={onClose}
@@ -480,122 +469,174 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-8 py-8 bg-gray-50/30">
-          <div className="max-w-3xl mx-auto bg-white min-h-[800px] shadow-sm border border-gray-100 p-12 rounded-lg">
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => { setTitle(e.target.value); setIsSaved(false); }}
-              placeholder="Untitled Document"
-              className="w-full text-4xl font-bold text-gray-900 placeholder-gray-300 outline-none border-none bg-transparent mb-8 font-serif"
-            />
-            <div className="flex flex-col gap-1">
-              {(() => {
-                let listCounter = 0;
-                return blocks.map((block, index) => {
-                  if (block.style.listType !== 'number') {
-                    listCounter = 0;
-                  } else {
-                    listCounter++;
-                  }
+        {/* Bottom Row: Formatting Tools */}
+        <div className="flex items-center gap-2 px-6 pb-3 overflow-x-auto no-scrollbar">
+          <select
+            value={currentStyle.fontFamily}
+            onChange={(e) => updateActiveBlockStyle('fontFamily', e.target.value)}
+            className="h-8 px-2 border border-gray-200 rounded text-sm text-gray-700 outline-none focus:border-black bg-white"
+          >
+            {FONTS.map(f => (
+              <option key={f.value} value={f.value}>{f.label}</option>
+            ))}
+          </select>
+          <select
+            value={currentStyle.fontSize}
+            onChange={(e) => updateActiveBlockStyle('fontSize', parseInt(e.target.value))}
+            className="h-8 w-16 px-2 border border-gray-200 rounded text-sm text-gray-700 outline-none focus:border-black bg-white"
+          >
+            {[12, 14, 16, 18, 20, 24, 30, 36, 48].map(size => (
+              <option key={size} value={size}>{size}px</option>
+            ))}
+          </select>
+          <div className="w-px h-6 bg-gray-200 mx-1" />
+          <button
+            onMouseDown={(e) => { e.preventDefault(); execFormat('bold'); }}
+            className={`p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-600`}
+            title="Bold"
+          >
+            <Bold className="w-4 h-4" />
+          </button>
+          <button
+            onMouseDown={(e) => { e.preventDefault(); execFormat('italic'); }}
+            className={`p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-600`}
+            title="Italic"
+          >
+            <Italic className="w-4 h-4" />
+          </button>
+          <button
+            onMouseDown={(e) => { e.preventDefault(); execFormat('underline'); }}
+            className={`p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-600`}
+            title="Underline"
+          >
+            <Underline className="w-4 h-4" />
+          </button>
+          <div className="w-px h-6 bg-gray-200 mx-1" />
+          <button
+            onClick={() => toggleList('bullet')}
+            className={`p-1.5 rounded hover:bg-gray-100 transition-colors ${currentStyle.listType === 'bullet' ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
+            title="Bullet List"
+          >
+            <List className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => toggleList('number')}
+            className={`p-1.5 rounded hover:bg-gray-100 transition-colors ${currentStyle.listType === 'number' ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
+            title="Numbered List"
+          >
+            <ListOrdered className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
 
-                  // Determine distinct style for drop target
-                  const isDropTarget = dropTarget?.index === index;
-                  const dropStyle = isDropTarget ? (dropTarget.position === 'top' ? 'border-t-2 border-blue-500' : 'border-b-2 border-blue-500') : '';
+      <div className="flex-1 overflow-y-auto px-8 py-8 bg-gray-50/30">
+        <div className="max-w-3xl mx-auto bg-white min-h-[800px] shadow-sm border border-gray-100 p-12 rounded-lg">
+          <div className="flex flex-col gap-1">
+            {(() => {
+              let listCounter = 0;
+              return blocks.map((block, index) => {
+                if (block.style.listType !== 'number') {
+                  listCounter = 0;
+                } else {
+                  listCounter++;
+                }
 
-                  return (
+                // Determine distinct style for drop target
+                const isDropTarget = dropTarget?.index === index;
+                const dropStyle = isDropTarget ? (dropTarget.position === 'top' ? 'border-t-2 border-blue-500' : 'border-b-2 border-blue-500') : '';
+
+                return (
+                  <div
+                    key={block.id}
+                    className={`group relative flex items-start -ml-8 pr-4 transition-all ${dropStyle}`}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, index)}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDrop={(e) => handleDrop(e, index)}
+                    onDragEnd={handleDragEnd}
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      // Ensure we don't trigger drag on text selection unless clicking the grip
+                    }}
+                  >
                     <div
-                      key={block.id}
-                      className={`group relative flex items-start -ml-8 pr-4 transition-all ${dropStyle}`}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, index)}
-                      onDragOver={(e) => handleDragOver(e, index)}
-                      onDrop={(e) => handleDrop(e, index)}
-                      onDragEnd={handleDragEnd}
-                      onClick={(e) => e.stopPropagation()}
+                      className="w-8 h-full flex items-start pt-1 justify-center opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity select-none text-gray-300 hover:text-gray-500"
                       onMouseDown={(e) => {
-                        e.stopPropagation();
-                        // Ensure we don't trigger drag on text selection unless clicking the grip
+                        // This is the only place drag should start
                       }}
                     >
-                      <div
-                        className="w-8 h-full flex items-start pt-1 justify-center opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity select-none text-gray-300 hover:text-gray-500"
-                        onMouseDown={(e) => {
-                          // This is the only place drag should start
-                        }}
-                      >
-                        <GripVertical className="w-4 h-4" />
-                      </div>
-
-                      {block.style.listType === 'bullet' && (
-                        <div
-                          className="w-6 flex justify-center select-none text-gray-800 shrink-0"
-                          style={{ fontSize: `${block.style.fontSize}px`, lineHeight: 1.625 }}
-                        >
-                          •
-                        </div>
-                      )}
-                      {block.style.listType === 'number' && (
-                        <div
-                          className="w-6 flex justify-end pr-1 select-none text-gray-800 shrink-0 font-medium"
-                          style={{ fontSize: `${block.style.fontSize}px`, lineHeight: 1.625 }}
-                        >
-                          {listCounter}.
-                        </div>
-                      )}
-
-                      <ContentBlock
-                        id={block.id}
-                        html={block.text}
-                        className={`flex-1 bg-transparent outline-none border-none text-gray-800 leading-relaxed ${getFontFamilyClass(block.style.fontFamily)}`}
-                        style={{
-                          fontSize: `${block.style.fontSize}px`,
-                          fontWeight: block.style.bold ? 'bold' : 'normal',
-                          fontStyle: block.style.italic ? 'italic' : 'normal',
-                          textDecoration: block.style.underline ? 'underline' : 'none',
-                          minHeight: '1.625em'
-                        }}
-                        onChange={handleBlockChange}
-                        onKeyDown={handleKeyDown}
-                        onFocus={memoizedSetActiveBlockId}
-                      />
-
-                      {blocks.length > 1 && (
-                        <button
-                          onClick={() => {
-                            const newBlocks = blocks.filter(b => b.id !== block.id);
-                            setBlocks(newBlocks);
-                            setIsSaved(false);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 p-1 text-gray-300 hover:text-red-400 transition-opacity absolute right-0 top-0"
-                          title="Delete block"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      )}
+                      <GripVertical className="w-4 h-4" />
                     </div>
-                  );
-                });
-              })()}
 
-              <div
-                className="h-24 cursor-text"
-                onClick={() => {
-                  const lastBlock = blocks[blocks.length - 1];
-                  if (lastBlock.text.trim() !== "" && lastBlock.text !== "<br>") {
-                    const newBlock = { id: generateId(), text: '', style: { ...DEFAULT_BLOCK_STYLE } };
-                    setBlocks([...blocks, newBlock]);
-                    focusRef.current = { id: newBlock.id, cursor: 'start' };
-                  } else {
-                    document.getElementById(`block-${lastBlock.id}`)?.focus();
-                  }
-                }}
-              />
-            </div>
+                    {block.style.listType === 'bullet' && (
+                      <div
+                        className="w-6 flex justify-center select-none text-gray-800 shrink-0"
+                        style={{ fontSize: `${block.style.fontSize}px`, lineHeight: 1.625 }}
+                      >
+                        •
+                      </div>
+                    )}
+                    {block.style.listType === 'number' && (
+                      <div
+                        className="w-6 flex justify-end pr-1 select-none text-gray-800 shrink-0 font-medium"
+                        style={{ fontSize: `${block.style.fontSize}px`, lineHeight: 1.625 }}
+                      >
+                        {listCounter}.
+                      </div>
+                    )}
+
+                    <ContentBlock
+                      id={block.id}
+                      html={block.text}
+                      className={`flex-1 bg-transparent outline-none border-none text-gray-800 leading-relaxed ${getFontFamilyClass(block.style.fontFamily)}`}
+                      style={{
+                        fontSize: `${block.style.fontSize}px`,
+                        fontWeight: block.style.bold ? 'bold' : 'normal',
+                        fontStyle: block.style.italic ? 'italic' : 'normal',
+                        textDecoration: block.style.underline ? 'underline' : 'none',
+                        minHeight: '1.625em'
+                      }}
+                      onChange={handleBlockChange}
+                      onKeyDown={handleKeyDown}
+                      onFocus={memoizedSetActiveBlockId}
+                    />
+
+                    {blocks.length > 1 && (
+                      <button
+                        onClick={() => {
+                          const newBlocks = blocks.filter(b => b.id !== block.id);
+                          setBlocks(newBlocks);
+                          setIsSaved(false);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 text-gray-300 hover:text-red-400 transition-opacity absolute right-0 top-0"
+                        title="Delete block"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                );
+              });
+            })()}
+
+            <div
+              className="h-24 cursor-text"
+              onClick={() => {
+                const lastBlock = blocks[blocks.length - 1];
+                if (lastBlock.text.trim() !== "" && lastBlock.text !== "<br>") {
+                  const newBlock = { id: generateId(), text: '', style: { ...DEFAULT_BLOCK_STYLE } };
+                  setBlocks([...blocks, newBlock]);
+                  focusRef.current = { id: newBlock.id, cursor: 'start' };
+                } else {
+                  document.getElementById(`block-${lastBlock.id}`)?.focus();
+                }
+              }}
+            />
           </div>
-          <div className="max-w-3xl mx-auto mt-4 text-right text-xs text-gray-400 px-12">
-            {blocks.length} blocks
-          </div>
+        </div>
+        <div className="max-w-3xl mx-auto mt-4 text-right text-xs text-gray-400 px-12">
+          {blocks.length} blocks
         </div>
       </div>
     </div>

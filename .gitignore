@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Build Artifacts
+dist-electron/
+public/Brainstorm-Windows.zip
+electron_build_output.txt
+tsc_output.txt
