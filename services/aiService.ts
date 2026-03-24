@@ -7,7 +7,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 export const generateRelatedIdeas = async (contextText: string, existingIdeas: string[]): Promise<string[]> => {
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.0-flash',
       contents: `
         You are a brainstorming assistant.
         The user has an idea: "${contextText}".
@@ -139,10 +139,10 @@ ${boardContext}`;
 
       // Map UI models to actual Google SDK models
       const mapping: Record<string, string> = {
-        'gemini-3-flash': 'gemini-1.5-flash',
-        'gemini-3-pro': 'gemini-1.5-pro'
+        'gemini-3-flash': 'gemini-2.0-flash',
+        'gemini-3-pro': 'gemini-2.0-pro-exp'
       };
-      const actualModel = mapping[modelId] || 'gemini-1.5-flash';
+      const actualModel = mapping[modelId] || 'gemini-2.0-flash';
 
       const chat = activeAi.chats.create({
         model: actualModel,

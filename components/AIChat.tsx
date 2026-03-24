@@ -10,10 +10,30 @@ interface AIChatProps {
 }
 
 const MODELS = [
-    { id: 'gemini-3-flash', name: 'Gemini 3.0 Flash', provider: 'Google', icon: '⚡' },
-    { id: 'gemini-3-pro', name: 'Gemini 3.0 Pro', provider: 'Google', icon: '🧠' },
-    { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI', icon: '🤖' },
-    { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'Anthropic', icon: '🎭' },
+    { 
+        id: 'gemini-3-flash', 
+        name: 'Gemini 2.0 Flash', 
+        provider: 'Google', 
+        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-black"><path d="M12 3v18M3 12h18M12 3c-4.97 0-9 4.03-9 9M21 12c0-4.97-4.03-9-9-9" /></svg> 
+    },
+    { 
+        id: 'gemini-3-pro', 
+        name: 'Gemini 2.0 Pro', 
+        provider: 'Google', 
+        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-black"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg> 
+    },
+    { 
+        id: 'gpt-4o', 
+        name: 'GPT-4o', 
+        provider: 'OpenAI', 
+        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-black"><path d="M12 2a10 10 0 1 0 10 10H12V2zM12 12L4.93 4.93M12 12l7.07 7.07M12 12l-7.07 7.07M12 12l7.07-7.07" /></svg> 
+    },
+    { 
+        id: 'claude-3-5-sonnet', 
+        name: 'Claude 3.5 Sonnet', 
+        provider: 'Anthropic', 
+        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-black"><path d="M20 12h-8M12 4v16M4 12h8" /><circle cx="12" cy="12" r="8" /></svg> 
+    },
 ];
 
 export const AIChat = React.memo<AIChatProps>(({ history, onSendMessage, isProcessing, onSettingsClick }) => {
