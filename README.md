@@ -1,3 +1,25 @@
+<img width="1896" height="892" alt="Screenshot 2026-03-12 174802" src="https://github.com/user-attachments/assets/53bb686c-ddb6-4d87-bbb5-b835001ceb4b" />
+<img width="1912" height="889" alt="Screenshot 2026-03-12 174737" src="https://github.com/user-attachments/assets/4c9439d4-8a81-4b14-bf44-11ee222d5dff" />
+<img width="1899" height="458" alt="Screenshot 2026-03-12 174854" src="https://github.com/user-attachments/assets/ffbaabdc-99d0-4f7b-b928-776f752e36bb" />
+<img width="1896" height="559" alt="Screenshot 2026-03-12 174844" src="https://github.com/user-attachments/assets/19db1b61-17bb-4fbe-a538-9023d561b0a8" />
+<img width="1898" height="600" alt="Screenshot 2026-03-12 174820" src="https://github.com/user-attachments/assets/f187894e-3a2b-47ab-bdea-26d3263cd429" />
+<img width="1895" height="555" alt="Screenshot 2026-03-12 174813" src="https://github.com/user-attachments/assets/ccfb3e14-7aba-4ebb-aad9-cd61e7bdb620" />
+<img width="1885" height="881" alt="Screenshot 2026-05-01 222405 - Copy" src="https://github.com/user-attachments/assets/9d9395b1-ff9c-4789-9260-9426dda6b881" />
+<img width="1909" height="886" alt="Screenshot 2026-05-01 222558 - Copy" src="https://github.com/user-attachments/assets/e362a8ff-cba8-405c-87a8-254ffd46c589" />
+<img width="1918" height="890" alt="Screenshot 2026-05-01 222905" src="https://github.com/user-attachments/assets/28eec7cd-f6d6-45ae-a066-bc0fe80aa937" />
+<img width="1912" height="897" alt="Screenshot 2026-05-01 222832" src="https://github.com/user-attachments/assets/7aa054f4-ef8e-4bb9-976e-6d1ee738c06f" />
+<img width="1909" height="886" alt="Screenshot 2026-05-01 222558" src="https://github.com/user-attachments/assets/8d8e3851-4d0e-4806-b13c-f5d675058a19" />
+<img width="1912" height="886" alt="Screenshot 2026-05-01 222549" src="https://github.com/user-attachments/assets/52f34357-7da4-46ce-a558-d747f4c23ab3" />
+<img width="1916" height="881" alt="Screenshot 2026-05-01 222521" src="https://github.com/user-attachments/assets/ced542b9-fd1f-4dd8-bade-fcfca9107f8f" />
+<img width="1915" height="889" alt="Screenshot 2026-05-01 222502" src="https://github.com/user-attachments/assets/ade23031-f328-4401-bdef-ac1ef3ebb2c4" />
+<img width="1919" height="890" alt="Screenshot 2026-05-01 222454" src="https://github.com/user-attachments/assets/c10e343b-bc4d-4e06-ab58-6d089175e303" />
+<img width="1915" height="683" alt="Screenshot 2026-05-01 222436" src="https://github.com/user-attachments/assets/fc85009f-79ed-4592-a15a-eb90acfc0343" />
+<img width="1885" height="881" alt="Screenshot 2026-05-01 222405" src="https://github.com/user-attachments/assets/887a94ed-4e10-4b3a-9bd0-ed14570767f6" />
+<img width="1912" height="886" alt="Screenshot 2026-05-01 222549 - Copy" src="https://github.com/user-attachments/assets/20c697ce-d1e8-41c9-936c-7754026b6a8c" />
+<img width="1916" height="881" alt="Screenshot 2026-05-01 222521 - Copy" src="https://github.com/user-attachments/assets/dc1e3bb5-4425-46bf-8dca-f3ae3c753e36" />
+<img width="1915" height="889" alt="Screenshot 2026-05-01 222502 - Copy" src="https://github.com/user-attachments/assets/d49ef3ad-95dd-4df9-a177-a942b180b4b8" />
+<img width="1919" height="890" alt="Screenshot 2026-05-01 222454 - Copy" src="https://github.com/user-attachments/assets/6670fe9a-ef5f-479b-b033-fad74a273e4d" />
+<img width="1915" height="683" alt="Screenshot 2026-05-01 222436 - Copy" src="https://github.com/user-attachments/assets/5bc3f5ef-ef61-4ab3-b1f9-f09f3828a284" />
 # 🧠 Brainstorm
 
 Brainstorm is a visual note-taking and idea-creation application. It allows users to work on multiple ideas simultaneously, providing a spatial canvas to record, visualize, and connect secondary or supporting concepts. 
