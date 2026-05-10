@@ -1,4 +1,5 @@
-#Landing page visuals below
+# Landing page visuals below
+
 <img width="1896" height="892" alt="Screenshot 2026-03-12 174802" src="https://github.com/user-attachments/assets/53bb686c-ddb6-4d87-bbb5-b835001ceb4b" />
 <img width="1912" height="889" alt="Screenshot 2026-03-12 174737" src="https://github.com/user-attachments/assets/4c9439d4-8a81-4b14-bf44-11ee222d5dff" />
 <img width="1899" height="458" alt="Screenshot 2026-03-12 174854" src="https://github.com/user-attachments/assets/ffbaabdc-99d0-4f7b-b928-776f752e36bb" />
@@ -6,14 +7,15 @@
 <img width="1898" height="600" alt="Screenshot 2026-03-12 174820" src="https://github.com/user-attachments/assets/f187894e-3a2b-47ab-bdea-26d3263cd429" />
 <img width="1895" height="555" alt="Screenshot 2026-03-12 174813" src="https://github.com/user-attachments/assets/ccfb3e14-7aba-4ebb-aad9-cd61e7bdb620" />
 
-#application visuals
-<img width="1885" height="881" alt="Screenshot 2026-05-01 222405 - Copy" src="https://github.com/user-attachments/assets/9d9395b1-ff9c-4789-9260-9426dda6b881" />
-<img width="1912" height="886" alt="Screenshot 2026-05-01 222549" src="https://github.com/user-attachments/assets/52f34357-7da4-46ce-a558-d747f4c23ab3" />
-<img width="1909" height="886" alt="Screenshot 2026-05-01 222558 - Copy" src="https://github.com/user-attachments/assets/e362a8ff-cba8-405c-87a8-254ffd46c589" />
+# application visuals
 <img width="1918" height="890" alt="Screenshot 2026-05-01 222905" src="https://github.com/user-attachments/assets/28eec7cd-f6d6-45ae-a066-bc0fe80aa937" />
 <img width="1912" height="897" alt="Screenshot 2026-05-01 222832" src="https://github.com/user-attachments/assets/7aa054f4-ef8e-4bb9-976e-6d1ee738c06f" />
 <!-- <img width="1909" height="886" alt="Screenshot 2026-05-01 222558" src="https://github.com/user-attachments/assets/8d8e3851-4d0e-4806-b13c-f5d675058a19" /> -->
 <img width="1915" height="683" alt="Screenshot 2026-05-01 222436" src="https://github.com/user-attachments/assets/fc85009f-79ed-4592-a15a-eb90acfc0343" />
+<img width="1885" height="881" alt="Screenshot 2026-05-01 222405 - Copy" src="https://github.com/user-attachments/assets/9d9395b1-ff9c-4789-9260-9426dda6b881" />
+<img width="1912" height="886" alt="Screenshot 2026-05-01 222549" src="https://github.com/user-attachments/assets/52f34357-7da4-46ce-a558-d747f4c23ab3" />
+<img width="1909" height="886" alt="Screenshot 2026-05-01 222558 - Copy" src="https://github.com/user-attachments/assets/e362a8ff-cba8-405c-87a8-254ffd46c589" />
+
 
 # 🧠 Brainstorm
 
