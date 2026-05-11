@@ -1,163 +1,66 @@
-# Brainstorm
+# Landing page visuals below
 
-A collaborative brainstorming application with real-time sync capabilities powered by Supabase.
+<img width="1896" height="892" alt="Screenshot 2026-03-12 174802" src="https://github.com/user-attachments/assets/53bb686c-ddb6-4d87-bbb5-b835001ceb4b" />
+<img width="1912" height="889" alt="Screenshot 2026-03-12 174737" src="https://github.com/user-attachments/assets/4c9439d4-8a81-4b14-bf44-11ee222d5dff" />
+<img width="1899" height="458" alt="Screenshot 2026-03-12 174854" src="https://github.com/user-attachments/assets/ffbaabdc-99d0-4f7b-b928-776f752e36bb" />
+<img width="1896" height="559" alt="Screenshot 2026-03-12 174844" src="https://github.com/user-attachments/assets/19db1b61-17bb-4fbe-a538-9023d561b0a8" />
+<img width="1898" height="600" alt="Screenshot 2026-03-12 174820" src="https://github.com/user-attachments/assets/f187894e-3a2b-47ab-bdea-26d3263cd429" />
+<img width="1895" height="555" alt="Screenshot 2026-03-12 174813" src="https://github.com/user-attachments/assets/ccfb3e14-7aba-4ebb-aad9-cd61e7bdb620" />
 
-## Features
+# application visuals
+<img width="1918" height="890" alt="Screenshot 2026-05-01 222905" src="https://github.com/user-attachments/assets/28eec7cd-f6d6-45ae-a066-bc0fe80aa937" />
+<img width="1912" height="897" alt="Screenshot 2026-05-01 222832" src="https://github.com/user-attachments/assets/7aa054f4-ef8e-4bb9-976e-6d1ee738c06f" />
+<!-- <img width="1909" height="886" alt="Screenshot 2026-05-01 222558" src="https://github.com/user-attachments/assets/8d8e3851-4d0e-4806-b13c-f5d675058a19" /> -->
+<img width="1915" height="683" alt="Screenshot 2026-05-01 222436" src="https://github.com/user-attachments/assets/fc85009f-79ed-4592-a15a-eb90acfc0343" />
+<img width="1885" height="881" alt="Screenshot 2026-05-01 222405 - Copy" src="https://github.com/user-attachments/assets/9d9395b1-ff9c-4789-9260-9426dda6b881" />
+<img width="1912" height="886" alt="Screenshot 2026-05-01 222549" src="https://github.com/user-attachments/assets/52f34357-7da4-46ce-a558-d747f4c23ab3" />
+<img width="1909" height="886" alt="Screenshot 2026-05-01 222558 - Copy" src="https://github.com/user-attachments/assets/e362a8ff-cba8-405c-87a8-254ffd46c589" />
 
-- 🎨 Visual brainstorming canvas
-- 🔄 Real-time synchronization
-- 🔐 Authentication (Email/Password, Magic Links, Google OAuth)
-- 💾 Persistent storage with Supabase
-- 📁 File system organization
-- 🎯 Collections and connections
 
-## Setup Instructions
+# 🧠 Brainstorm
 
-### Prerequisites
+Brainstorm is a visual note-taking and idea-creation application. It allows users to work on multiple ideas simultaneously, providing a spatial canvas to record, visualize, and connect secondary or supporting concepts. 
 
-- Node.js 16+ and npm
-- A Supabase account (free tier available at [supabase.com](https://supabase.com))
+When working on complex projects or assignments founded on several fundamental concepts, it can be difficult to see how different ideas relate and the significance each holds. Brainstorm solves this by allowing deep customization of cards and their connections, enabling a significant number of visual combinations unique to each user's analytical thinking process.
 
-### 1. Clone the Repository
+## 🛠️ Tech Stack & Architecture
+* **Frontend & Styling:** Next.js, TypeScript, JavaScript, Tailwind CSS.
+* **Backend & Auth:** Supabase (PostgreSQL).
+* **Storage:** S3 Buckets for file/image storage.
+* **Vectorization & RAG (Upcoming):** Implementing `pgvector` to allow users to talk to the AI about specific canvas elements or the entire session. This will utilize a temporary session cache vector—ensuring the AI only accesses relevant content to reduce hallucinations without making the pipeline unbearably slow.
 
-```bash
-git clone https://github.com/ammarsapru/Brainstorm.git
-cd Brainstorm
-```
+## 🗂️ Application Flow & Core Features
 
-### 2. Install Dependencies
+The application is structured hierarchically: **Sessions ➔ Folders ➔ Cards**. 
 
-```bash
-npm install
-```
+### 🎨 Sessions & The Canvas
+* **Customizable Sessions:** Users can create multiple sessions and personalize them by setting a session logo, background paper, and title.
+* **Pannable Canvas:** Each session opens into a fully traversable canvas. 
+* **Drag-and-Drop Media:** Any file or image can be dropped directly into the canvas to be loaded and viewed.
+* **The Central Idea:** Every canvas starts with a singular 'central idea' card to ground the session.
 
-### 3. Configure Environment Variables
+### 📄 Versatile Cards
+Cards are the main objects of the application and are inherently versatile:
+* **Dynamic Sizing:** In minimized form, only the card's title appears. Double-clicking opens a text document that dynamically increases in size based on its content.
+* **Rich Text Editing:** Supports bold, italic, underline, and bullet/numbered lists.
+* **Visual Connections:** Connect multiple cards to show relationships. The connecting lines can be dashed, utilize arrowheads, and be color-coded to provide visual cues showing the exact correlation between ideas.
+* **The Three-Window Structure:** When a card is in text view, a plus sign allows you to open a second card side-by-side. Combined with the AI chat, this creates a strict three-window (MAX) structure to rapidly work on, improve, and brainstorm ideas without context-switching.
 
-Create a `.env.local` file in the root directory:
+### 🤖 AI Integration & Automation (Bring Your Own Key)
+Currently, AI access is handled temporarily via individual API keys. Users can choose between **Claude, Gemini, and ChatGPT** (all versions supported, though currently optimized for Gemini due to the Agentic Sub-Feature).
 
-```bash
-cp .env.example .env.local
-```
+* **AI Sub-Feature (Agentic Automation):** Beyond standard chat, the AI serves as a point of automation. Anything the user can perform manually—creating, deleting, or connecting cards—can be executed automatically by commanding the LLM in the chat.
+* **The "Purple AI" Idea Generator:** When you get stuck, select a card and click the purple AI button. The LLM will autonomously generate new cards attached to yours with supporting information. This allows you to progress through a domain of knowledge extremely fast and interpret the relationships between components of a concept instantly.
+* **Asset Generation:** The AI can also be used to generate fictional logos and background banners for the sessions page.
 
-Edit `.env.local` and add your Supabase credentials:
+## 🚀 Getting Started
 
-```bash
-VITE_SUPABASE_URL=https://your-project-id.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key-here
-GEMINI_API_KEY=your-gemini-api-key-here
-```
+Brainstorm is available to run on your local device or via the web on GitHub Pages (once the repository is optimized). While there is a free tier for a set amount of sessions and cards, moving to local storage allows you to bypass limits using your own API keys.
 
-#### Where to Find Supabase Credentials:
+**Local Setup:**
+1. Clone the repository.
+2. Review `.env.example` and set up your own Supabase instance, S3 bucket, and LLM API keys.
+3. Run `npm install` followed by `npm run dev`.
 
-1. Go to [app.supabase.com](https://app.supabase.com)
-2. Select your project (or create a new one)
-3. Go to **Settings** → **API**
-4. Copy:
-   - **Project URL** → `VITE_SUPABASE_URL`
-   - **anon/public key** → `VITE_SUPABASE_ANON_KEY`
-
-### 4. Set Up Supabase Database
-
-Run the SQL commands in `SUPABASE_UPDATE.sql` in your Supabase SQL Editor:
-
-1. Go to your Supabase project dashboard
-2. Click on **SQL Editor**
-3. Create a new query
-4. Copy and paste the contents of `SUPABASE_UPDATE.sql`
-5. Click **Run** to create the necessary tables and schemas
-
-### 5. Configure Authentication Providers
-
-#### Email/Password & Magic Links
-
-These are enabled by default in Supabase.
-
-#### Google OAuth (Optional)
-
-1. Go to **Authentication** → **Providers** in your Supabase dashboard
-2. Enable Google provider
-3. Add your Google OAuth credentials
-4. Set the redirect URL to: `https://your-project-id.supabase.co/auth/v1/callback`
-
-### 6. Configure Redirect URLs
-
-For production deployment, add your domain to allowed redirect URLs:
-
-1. Go to **Authentication** → **URL Configuration**
-2. Add your site URL(s) to **Site URL** and **Redirect URLs**
-3. For GitHub Pages: `https://yourusername.github.io/Brainstorm`
-
-### 7. Run Development Server
-
-```bash
-npm run dev
-```
-
-The app will be available at `http://localhost:5173`
-
-### 8. Build for Production
-
-```bash
-npm run build
-```
-
-The production build will be in the `dist/` directory.
-
-## Deployment
-
-### GitHub Pages
-
-1. **Set GitHub Secrets**:
-   - Go to your repository **Settings** → **Secrets and variables** → **Actions**
-   - Add these secrets:
-     - `VITE_SUPABASE_URL`: Your Supabase project URL
-     - `VITE_SUPABASE_ANON_KEY`: Your Supabase anon key
-     - `GEMINI_API_KEY`: Your Gemini API key
-
-2. **Configure Supabase Redirect URLs**:
-   - Add `https://yourusername.github.io/Brainstorm` to allowed redirect URLs in Supabase
-
-3. **Deploy**:
-   - Push to main branch to trigger automatic deployment
-   - Or manually trigger the workflow from Actions tab
-
-### Other Platforms
-
-The app can be deployed to any static hosting service:
-
-- Vercel
-- Netlify
-- Cloudflare Pages
-- AWS S3 + CloudFront
-
-Make sure to:
-1. Set the environment variables in your hosting platform
-2. Add your deployment URL to Supabase redirect URLs
-
-## Troubleshooting
-
-### "Supabase is not configured" Warning
-
-- Ensure `.env.local` file exists and contains valid credentials
-- Restart the dev server after creating/editing `.env.local`
-- Check that variable names start with `VITE_` prefix
-
-### "Multiple GoTrueClient instances" Warning
-
-This issue has been fixed by consolidating to a single Supabase client in `lib/supabase.ts`.
-
-### Build Errors
-
-- Run `npm install` to ensure all dependencies are installed
-- Clear the build cache: `rm -rf dist node_modules/.vite`
-- Rebuild: `npm run build`
-
-### Authentication Not Working
-
-- Verify Supabase credentials are correct
-- Check that redirect URLs are properly configured
-- Ensure the authentication provider is enabled in Supabase
-
-## License
-
-MIT
+---
+*For a deeper dive into current limits and upcoming additions, visit the Features page on the Brainstorm website.*
