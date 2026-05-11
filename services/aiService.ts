@@ -1,13 +1,16 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { IdeaCard, Connection, FileSystemItem, ChatMessage } from "../types";
 import { APIKeys } from '../components/APIKeyModal';
+import { uploadFileToS3 } from '../lib/supabase';
+import { embeddingService } from './embeddingService';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const defaultKey = import.meta.env.VITE_GOOGLE_API_KEY || 'MISSING_KEY';
+const ai = new GoogleGenAI({ apiKey: defaultKey });
 
 export const generateRelatedIdeas = async (contextText: string, existingIdeas: string[]): Promise<string[]> => {
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       contents: `
         You are a brainstorming assistant.
         The user has an idea: "${contextText}".
@@ -51,112 +54,191 @@ export const getChatResponse = async (
 Your Goal: Help the user expand their thinking, structurally organize ideas, and find connections they missed.
 
 Adhere to these Guidelines:
-1. **Formatting**: Provide your response in PLAIN TEXT ONLY. Do NOT use Markdown formatting characters (like #, *, **, or - for bullets). Use standard numbering (1., 2.) for lists if needed, or simple hyphens with spaces. Do NOT use bold or italics.
-2. **Tone**: Energetic, concise, and professional. Avoid "fluff" or generic greetings.
-3. **Context**: Use the provided board context (cards and connections) to anchor your answers in reality.
-4. **Action-Oriented**: Suggest concrete next steps or new cards they could add.
+1. Avoid "fluff" or generic greetings. Be energetic, concise, and professional.
+2. Context: Use the provided board context (cards and connections) to anchor your answers in reality.
 
 **CAPABILITIES (FUNCTION CALLING)**:
-- You have the ability to CREATE CARDS on the board.
-- If the user asks you to create cards, add ideas, or visual elements, you MUST return the card data in a specific strict format embedded in your response.
-- Use the tag [CREATE_CARDS] followed by a minified JSON array of card objects, and close with [/CREATE_CARDS].
-- Structure: [CREATE_CARDS] [{"text": "Idea 1", "color": "#ffffff"}, {"text": "Idea 2", "color": "#ffeba8"}] [/CREATE_CARDS]
-- You can mix this with normal text. For example: "Sure, I've added those cards for you. [CREATE_CARDS] ... [/CREATE_CARDS]"
-- Allowed colors: #ffffff (White), #ffeba8 (Yellow), #ffcaca (Red), #e9f5db (Green), #e0f2fe (Blue), #f3e8ff (Purple). Default to #ffffff.
+You have the ability to manipulate the canvas. You must output exactly ONE valid JSON object when you want to take an action. 
+Do NOT wrap the JSON in Markdown formatting characters if it is the ONLY thing you are outputting.
+You can output normal text to talk to the user, and if you want to execute an action, place the JSON object at the end of your message.
+
+Valid Actions Schema (Always include an outer \`actions\` array):
+{
+  "actions": [
+    {
+      "type": "search_cards",  // Use this to find cards if you don't know their exact IDs
+      "query": "marketing"
+    },
+    {
+      "type": "read_card",     // Use this to read the full rich text content of a specific card
+      "id": "card-123"
+    },
+    {
+      "type": "create_cards",
+      "cards": [ {"text": "Card Title", "content": "Full detailed rich text", "color": "#ffffff"} ]
+    },
+    {
+      "type": "update_cards",
+      "updates": [ {"id": "card-123", "text": "New Title", "content": "Updated rich text", "color": "#ffffff"} ] // Overwrites the card fields
+    },
+    {
+      "type": "delete_cards",
+      "ids": ["card-123", "card-456"]
+    },
+    {
+      "type": "connect_cards",
+      "connections": [ {"fromId": "card-123", "toId": "card-456"} ]
+    }
+  ]
+}
+
+If you do not need to take any action, you can omit the JSON completely.
+Colors available: #ffffff (White), #ffeba8 (Yellow), #ffcaca (Red), #e9f5db (Green), #e0f2fe (Blue), #f3e8ff (Purple).
 
 Current Board Context:
 ${boardContext}`;
 
-  try {
-    if (modelId === 'gpt-4o') {
-      if (!apiKeys.openai) return "Please add your OpenAI API Key in Settings (⚙️).";
-      
-      const messages = [
-        { role: 'system', content: sysPrompt },
-        ...history.map(msg => ({
-          role: msg.role === 'model' ? 'assistant' : 'user',
-          content: msg.text
-        })),
-        { role: 'user', content: newMessage }
-      ];
+  const executeAttempt = async (currentMessage: string, depth: number = 0): Promise<string> => {
+    if (depth > 3) return "I've reached my maximum thinking depth.";
+    
+    let resultText = "";
+    
+    try {
+      if (modelId === 'gpt-4o') {
+        if (!apiKeys.openai) return "Please add your OpenAI API Key in Settings (⚙️).";
+        
+        const messages = [
+          { role: 'system', content: sysPrompt },
+          ...history.map(msg => ({
+            role: msg.role === 'model' ? 'assistant' : 'user',
+            content: msg.text
+          })),
+          { role: 'user', content: currentMessage }
+        ];
 
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKeys.openai}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages
-        })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
-      return data.choices?.[0]?.message?.content || "No response.";
-    } 
-    else if (modelId === 'claude-3-5-sonnet') {
-      if (!apiKeys.anthropic) return "Please add your Anthropic API Key in Settings (⚙️).";
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKeys.openai}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            messages
+          })
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error.message);
+        resultText = data.choices?.[0]?.message?.content || "No response.";
+      } 
+      else if (modelId === 'claude-3-5-sonnet') {
+        if (!apiKeys.anthropic) return "Please add your Anthropic API Key in Settings (⚙️).";
 
-      const messages = [
-        ...history.map(msg => ({
-          role: msg.role === 'model' ? 'assistant' : 'user',
-          content: msg.text
-        })),
-        { role: 'user', content: newMessage }
-      ];
+        const messages = [
+          ...history.map(msg => ({
+            role: msg.role === 'model' ? 'assistant' : 'user',
+            content: msg.text
+          })),
+          { role: 'user', content: currentMessage }
+        ];
 
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKeys.anthropic,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true' // Crucial to bypass CORS on Anthropic
-        },
-        body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
-          system: sysPrompt,
-          messages,
-          max_tokens: 1024
-        })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
-      return data.content?.[0]?.text || "No response.";
-    }
-    else {
-      // Gemini fallback
-      let activeAi = ai;
-      if (apiKeys.gemini) {
-        activeAi = new GoogleGenAI({ apiKey: apiKeys.gemini });
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKeys.anthropic,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true' // Crucial to bypass CORS on Anthropic
+          },
+          body: JSON.stringify({
+            model: 'claude-3-5-sonnet-20241022',
+            system: sysPrompt,
+            messages,
+            max_tokens: 1024
+          })
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error.message);
+        resultText = data.content?.[0]?.text || "No response.";
       }
+      else {
+        // Gemini fallback
+        const userKey = apiKeys.gemini && apiKeys.gemini.trim() ? apiKeys.gemini.trim() : null;
+        const envKey = import.meta.env.VITE_GOOGLE_API_KEY;
+        const targetApiKey = userKey || envKey;
 
-      const chatHistory = history.map(msg => ({
-        role: msg.role,
-        parts: [{ text: msg.text }]
-      }));
+        if (!targetApiKey) {
+          return "Please add your Google Gemini API Key in Settings (⚙️).";
+        }
+        
+        const activeAi = new GoogleGenAI({ apiKey: targetApiKey });
 
-      // Map UI models to actual Google SDK models
-      const mapping: Record<string, string> = {
-        'gemini-3-flash': 'gemini-2.0-flash',
-        'gemini-3-pro': 'gemini-2.0-pro-exp'
-      };
-      const actualModel = mapping[modelId] || 'gemini-2.0-flash';
+        const chatHistory = history.map(msg => ({
+          role: msg.role,
+          parts: [{ text: msg.text }]
+        }));
 
-      const chat = activeAi.chats.create({
-        model: actualModel,
-        history: chatHistory,
-        config: { systemInstruction: sysPrompt }
-      });
+        const TargetModel = 'gemini-2.5-flash';
 
-      const result = await chat.sendMessage({ message: newMessage });
-      return result.text || "I didn't catch that.";
+        const chat = activeAi.chats.create({
+          model: TargetModel,
+          history: chatHistory,
+          config: { systemInstruction: sysPrompt }
+        });
+
+        const result = await chat.sendMessage({ message: currentMessage });
+        resultText = result.text || "I didn't catch that.";
+      }
+      
+      // RLM Loop Interception Logic
+      // Check if the AI returned a JSON with a "search_cards" action
+      try {
+         // A naive parse to see if there's a JSON block
+         const jsonMatch = resultText.match(/\{[\s\S]*"actions"[\s\S]*\}/);
+         if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.actions && Array.isArray(parsed.actions)) {
+                const searchAction = parsed.actions.find((a: any) => a.type === 'search_cards');
+                if (searchAction && searchAction.query) {
+                    // Execute local RAG
+                    const results = await embeddingService.searchSimilar(searchAction.query);
+                    const contextString = results.map(r => `[ID: ${r.card.id}, Text: ${r.card.text}, Content Snippet: ${(r.card.content || '').substring(0, 100)}, Color: ${r.card.color}]`).join('\\n');
+                    
+                    const internalSystemResponse = `(System): Search results for "${searchAction.query}":\n${contextString}\nPlease proceed with the user's original request using this new context.`;
+                    
+                    // Recursive RLM call
+                    return await executeAttempt(internalSystemResponse, depth + 1);
+                }
+
+                const readAction = parsed.actions.find((a: any) => a.type === 'read_card');
+                if (readAction && readAction.id) {
+                    const cardData = await embeddingService.getCardById(readAction.id);
+                    if (cardData) {
+                        const internalSystemResponse = `(System): Full content for card ${readAction.id}:\nTitle: ${cardData.text}\nColor: ${cardData.color}\nContent: ${cardData.content || 'None'}\nPlease proceed with the user's original request using this new context.`;
+                        return await executeAttempt(internalSystemResponse, depth + 1);
+                    } else {
+                        const internalSystemResponse = `(System): Card with ID ${readAction.id} not found.`;
+                        return await executeAttempt(internalSystemResponse, depth + 1);
+                    }
+                }
+            }
+         }
+      } catch(e) {
+          // If JSON parse fails or no actions found, we just return the result to the UI
+          console.warn("No RLM JSON intercepted, passing text to UI");
+      }
+      
+      return resultText;
+
+    } catch (error: any) {
+      console.error("Chat attempt failed", error);
+      let errorMsg = error.message || 'Unknown error. Check the console.';
+      if (errorMsg.includes("API key not valid")) return "Your API key is not valid.";
+      return `Sorry, I encountered an error: ${errorMsg}`;
     }
-  } catch (error: any) {
-    console.error("Chat failed", error);
-    return `Sorry, I encountered an error: ${error.message || 'Unknown error. Check the console.'}`;
-  }
+  };
+
+  return await executeAttempt(newMessage, 0);
 }
 
 export const generateSessionIcon = async (sessionName: string, cardTexts: string[]): Promise<string> => {
@@ -180,7 +262,17 @@ export const generateSessionIcon = async (sessionName: string, cardTexts: string
 
     for (const part of response.candidates[0].content.parts) {
       if (part.inlineData) {
-        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        const dataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        try {
+          const res = await fetch(dataUrl);
+          const blob = await res.blob();
+          (blob as any).name = `ai-icon-${Date.now()}.${(part.inlineData.mimeType.split('/')[1] || 'png')}`;
+          const s3Url = await uploadFileToS3(blob);
+          if (s3Url) return s3Url;
+        } catch (e) {
+          console.error("Failed to upload AI icon to S3:", e);
+        }
+        return dataUrl;
       }
     }
     return "💡";
@@ -210,7 +302,17 @@ export const generateSessionImage = async (sessionName: string, cardTexts: strin
 
     for (const part of response.candidates[0].content.parts) {
       if (part.inlineData) {
-        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        const dataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        try {
+          const res = await fetch(dataUrl);
+          const blob = await res.blob();
+          (blob as any).name = `ai-session-img-${Date.now()}.${(part.inlineData.mimeType.split('/')[1] || 'png')}`;
+          const s3Url = await uploadFileToS3(blob);
+          if (s3Url) return s3Url;
+        } catch (e) {
+          console.error("Failed to upload AI session image to S3:", e);
+        }
+        return dataUrl;
       }
     }
     return null;

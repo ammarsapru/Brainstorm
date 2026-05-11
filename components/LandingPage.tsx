@@ -8,6 +8,7 @@ import {
 
 interface LandingPageProps {
   onGetStarted: () => void;
+  onGoShards?: () => void;
 }
 
 // --- Custom Hooks for Animation ---
@@ -308,7 +309,7 @@ const ChatPreview = () => {
 };
 
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onGoShards }) => {
   useScrollReveal();
 
   const scrollToSection = (id: string) => (e: React.MouseEvent) => {
@@ -344,12 +345,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             <a href="#deep-dive" onClick={scrollToSection('deep-dive')} className="hover:text-black transition-colors">Deep Dive</a>
             <a href="#chat" onClick={scrollToSection('chat')} className="hover:text-black transition-colors">Chat</a>
           </div>
-          <button
+          <div className="flex items-center gap-4">
+            {onGoShards && (
+              <button onClick={onGoShards} className="text-gray-500 hover:text-black transition-colors hidden sm:flex items-center gap-1" title="Extensions">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.952.151-1.251.583a1.738 1.738 0 0 0 .172 2.15l1.01 1.01c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.047 1.047c-.47.47-1.087.706-1.704.706s-1.233-.235-1.704-.706l-1.25-1.25a.98.98 0 0 0-1.428-.016c-.43.342-.644.88-.567 1.41.053.364-.065.731-.32 1l-1.464 1.464c-.47.47-1.087.706-1.704.706s-1.233-.235-1.704-.706M9.544 3.013c.47-.47 1.087-.706 1.704-.706s1.233.235 1.704.706l1.373 1.373c.277.277.66.388 1.034.29a1.74 1.74 0 0 1 1.83 1.259c.123.366.425.642.8.72a.98.98 0 0 0 1.008-.344l1.31-1.31M15.439 12.15l-8.625 8.625c-.47.47-1.087.706-1.704.706s-1.233-.235-1.704-.706l-1.047-1.047c-.47-.47-.706-1.087-.706-1.704s.235-1.233.706-1.704l8.625-8.625"/></svg>
+                <span className="text-sm font-medium">Shards</span>
+              </button>
+            )}
+            <button
             onClick={onGetStarted}
             className="px-5 py-2 bg-black text-white rounded-full font-semibold text-sm hover:bg-gray-800 transition-all hover:scale-105 active:scale-95 shadow-lg"
           >
             Launch App
           </button>
+        </div>
         </div>
       </nav>
 
@@ -396,11 +405,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             </button>
             {!navigator.userAgent.includes('Electron') && (
               <a
-                href="/Brainstorm-Windows.zip"
-                download="Brainstorm-Windows.zip"
+                href="/Brainstorm-Setup.exe"
+                download="Brainstorm-Setup.exe"
                 className="px-8 py-4 bg-white text-gray-900 border border-gray-200 rounded-full font-bold text-lg shadow-sm hover:bg-gray-50 hover:border-gray-300 hover:scale-105 transition-all flex items-center gap-2"
               >
-                <Download className="w-5 h-5" /> Download App (ZIP)
+                <Download className="w-5 h-5" /> Download App (Windows)
               </a>
             )}
           </div>

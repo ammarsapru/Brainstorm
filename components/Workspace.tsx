@@ -10,51 +10,54 @@ import { APIKeyModal, APIKeys } from './APIKeyModal';
 
 import { CreationModal } from './CreationModal';
 import { CollectionSelectorModal } from './CollectionSelectorModal';
+import { FolderSelectorModal } from './FolderSelectorModal';
 import { DrawingLayer } from './DrawingLayer';
 import { IdeaCard, Connection, Viewport, ToolMode, Point, ConnectionStyle, ArrowType, FileSystemItem, Session, RelationType, ChatMessage, ChatAttachment, Collection, UserProfile, Stroke, DrawingTool } from '../types';
 import { DEFAULT_CONNECTION_STYLE, DEFAULT_ARROW_END, DEFAULT_ARROW_START, DEFAULT_RELATION_TYPE, CARD_WIDTH, CARD_HEIGHT, DEFAULT_CARD_STYLE, DEFAULT_COLLECTION_ID, INITIAL_COLLECTIONS } from '../constants';
 import { generateRelatedIdeas, getChatResponse } from '../services/aiService';
 import { Minus, Plus, RefreshCcw, Save, Cloud, CheckCircle, AlertCircle, X } from 'lucide-react';
 import { useWorkspace } from '../src/integrations/supabase/hooks/use-workspace';
-
+import { supabase, uploadFileToS3 } from '../lib/supabase';
+import { embeddingService } from '../services/embeddingService';
 
 const generateId = () => crypto.randomUUID();
 
-const FullScreenImageOverlay = ({ src, onClose }: { src: string, onClose: () => void }) => {
-  const [scale, setScale] = useState(1);
-  const containerRef = useRef<HTMLDivElement>(null);
+const FullScreenImageOverlay = ({ src, onClose }: { src: string, onClose: () => void }) => {//takes parameters src and onclose, src as a string and onlcose as a empty arrow function returning void
+  const [scale, setScale] = useState(1);//set the scale of the image to 1, useState variables trigger a re render when updated, useref does not upadte
+  const containerRef = useRef<HTMLDivElement>(null);//set the container ref to a div element, can reference a specific DOM element for direct manipulation
+  //null repersents the intentional absence of a object, as when the component first runs the dom element hasnt been created yet, so it creates a ref to it
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const handleWheel = (e: WheelEvent) => {
-      e.stopPropagation();
-      e.preventDefault();
+  useEffect(() => {//use effect is a hook that runs after the component renders, it takes a callback function and a dependency array, can also be used to synchronize a component with a external system primarily used to handle side effects happening outside the standard rendering process
+    const el = containerRef.current;//set the container ref to a div element
+    if (!el) return;//if the container ref is null, return
+    const handleWheel = (e: WheelEvent) => {//set the handlewheel function to a empty arrow function taking a wheel event as a parameter
+      e.stopPropagation();//stop the event from bubbling up , this prevents the event from triggering any parent components event listeners
+      e.preventDefault();//prevent the default behavior of the event, this prevents the event from triggering any parent components event listeners
       setScale(s => Math.min(Math.max(0.1, s - e.deltaY * 0.003), 20));
     };
     el.addEventListener('wheel', handleWheel, { passive: false });
     return () => el.removeEventListener('wheel', handleWheel);
-  }, []);
+  }, []);//function handles the event listener for the wheel event when scrolling into and out of a image, handlewheel listens for any device that simulates a scroll action like the scroll bar on mouse or zooming in and out from a touchpad using two finger gestures
 
-  return (
-    <div 
-      ref={containerRef}
+  return (//returns the UI for a image when openned
+    <div
+      ref={containerRef}//references the container ref element
       className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-8 animate-in fade-in duration-200"
       onClick={onClose}
     >
-      <img 
-        src={src} 
-        alt="Full screen view" 
-        className="max-w-[90vw] max-h-[90vh] object-contain shadow-2xl rounded"
-        style={{ transform: `scale(${scale})`, transition: 'transform 0.05s linear' }}
-        onClick={(e) => e.stopPropagation()}
+      <img
+        src={src}
+        alt="Full screen view"//alt text for image
+        className="max-w-[90vw] max-h-[90vh] object-contain shadow-2xl rounded"//sets the width and height of a image
+        style={{ transform: `scale(${scale})`, transition: 'transform 0.05s linear' }}//sets the scale of the image as well as the transition
+        onClick={(e) => e.stopPropagation()}//stops the event from bubbling up , this prevents the event from triggering any parent components event listeners
       />
-      <button 
+      <button
         className="absolute top-4 right-4 text-white/70 hover:text-white p-3 bg-black/50 hover:bg-black/80 rounded-full transition-colors"
-        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        onClick={(e) => { e.stopPropagation(); onClose(); }}//stops the event from bubbling up , this prevents the event from triggering any parent components event listeners, this is the X button that closes the image.
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M18 6L6 18M6 6l12 12"/>
+          <path d="M18 6L6 18M6 6l12 12" />
         </svg>
       </button>
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white/80 px-4 py-2 rounded-full text-sm backdrop-blur pointer-events-none">
@@ -64,12 +67,15 @@ const FullScreenImageOverlay = ({ src, onClose }: { src: string, onClose: () => 
   );
 };
 
-const FullScreenPdfOverlay = ({ src, title, onClose }: { src: string, title?: string, onClose: () => void }) => {
+import { usePdfBlobUrl } from './CardNode';
+
+const FullScreenPdfOverlay = ({ src, title, onClose }: { src: string, title?: string, onClose: () => void }) => {//handles pdf overlay
+  const pdfBlobUrl = usePdfBlobUrl(src);//object handling pdf file.
   return (
     <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col p-8 animate-in fade-in duration-200" onClick={onClose}>
       <div className="flex justify-between items-center text-white mb-4 shrink-0 px-4 w-full max-w-6xl mx-auto" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-xl font-medium truncate pr-4">{title || 'PDF Document'}</h2>
-        <button 
+        <button
           className="text-white/70 hover:text-white p-2 bg-black/50 hover:bg-black/80 rounded-full transition-colors shrink-0"
           onClick={onClose}
         >
@@ -77,7 +83,7 @@ const FullScreenPdfOverlay = ({ src, title, onClose }: { src: string, title?: st
         </button>
       </div>
       <div className="flex-1 w-full max-w-6xl mx-auto bg-white rounded-lg overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <iframe src={`${src}#toolbar=1`} className="w-full h-full border-none bg-white" title="PDF Viewer" />
+        <embed src={pdfBlobUrl || src} type="application/pdf" className="w-full h-full border-none bg-white" title="PDF Viewer" />
       </div>
     </div>
   );
@@ -92,9 +98,10 @@ interface WorkspaceProps {
   onLogin: () => void;
   onLogout: () => void;
   onSwitchAccount: () => void;
+  onGoShards?: () => void;
 }
 
-export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, onGoHome, user, onLogin, onLogout, onSwitchAccount }) => {
+export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, onGoHome, user, onLogin, onLogout, onSwitchAccount, onGoShards }) => {
   // --- State Initialized from Session ---
   const [sessionName, setSessionName] = useState(session.name);
   const [cards, setCards] = useState<IdeaCard[]>(session.cards);
@@ -112,7 +119,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   // Performance Optimization: Refs for state access in event handlers without triggering re-renders of callbacks
   const cardsRef = useRef(cards);
   const connectionsRef = useRef(connections);
-  useEffect(() => { cardsRef.current = cards; }, [cards]);
+  
+  useEffect(() => { 
+     cardsRef.current = cards;
+     // Mirror cards to our local vector store for fast Semantic searching
+     embeddingService.syncCards(cards).catch(console.error);
+  }, [cards]);
+  
   useEffect(() => { connectionsRef.current = connections; }, [connections]);
 
   // Ensure we have at least one collection and cards are assigned
@@ -156,7 +169,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   const [mode, setMode] = useState<ToolMode>('select');
   const modeRef = useRef(mode);
   useEffect(() => { modeRef.current = mode; }, [mode]);
-  
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -177,7 +190,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   // Summary State
 
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
-  const [fullScreenPdf, setFullScreenPdf] = useState<{src: string, title?: string} | null>(null);
+  const [fullScreenPdf, setFullScreenPdf] = useState<{ src: string, title?: string } | null>(null);
 
   // Creation Modal State (Folders/Files/Collection creation)
   const [creationModal, setCreationModal] = useState<{
@@ -204,6 +217,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     isOpen: boolean;
     pendingCard?: Partial<IdeaCard>;
     pendingPos?: Point;
+  }>({ isOpen: false });
+
+  const [folderSelectModal, setFolderSelectModal] = useState<{
+    isOpen: boolean;
+    pendingFileId?: string;
   }>({ isOpen: false });
 
   // Chat State
@@ -266,6 +284,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     }, 500); // Debounce saves by 500ms
     return () => clearTimeout(timer);
   }, [sessionName, cards, connections, fileSystem, collections, chatHistory, strokes, session, onSave, viewport, saveWorkspace]);
+
 
 
   // --- Helpers ---
@@ -383,7 +402,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       collectionId: collectionId,
       ...partial
     };
-    setCards(prev => [...prev, newCard]);
+    cardsRef.current = [...cardsRef.current, newCard]; // Synchronous update for loop operations
+    setCards(prev => {
+        // Only append if it's not already in the array (prevents duplicate adds in strict mode or parallel updates)
+        if (prev.find(c => c.id === newCard.id)) return prev;
+        return [...prev, newCard];
+    });
     setSelectedId(newCard.id);
     setSelectedConnectionId(null);
   }, []);
@@ -437,15 +461,24 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     setFileSystem(prev => updateFileSystem(prev, id, item => ({ ...item, isOpen: !item.isOpen })));
   }, []);
 
-
-
-
-
-
-
-  const handleMoveCardToCollection = useCallback((cardId: string, collectionId: string) => {
-    setCards(prev => prev.map(c => c.id === cardId ? { ...c, collectionId } : c));
-  }, []);
+  const removeFileSystemItem = (items: FileSystemItem[], targetId: string): { removed: FileSystemItem | null, newItems: FileSystemItem[] } => {
+    let removed: FileSystemItem | null = null;
+    const newItems = items.filter(item => {
+      if (item.id === targetId) {
+        removed = item;
+        return false;
+      }
+      return true;
+    }).map(item => {
+      if (item.children) {
+        const result = removeFileSystemItem(item.children, targetId);
+        if (result.removed) removed = result.removed;
+        return { ...item, children: result.newItems };
+      }
+      return item;
+    });
+    return { removed, newItems };
+  };
 
   const insertItemIntoFileSystem = (items: FileSystemItem[], parentId: string | null, newItem: FileSystemItem): FileSystemItem[] => {
     if (parentId === null) {
@@ -469,6 +502,103 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       return item;
     });
   };
+
+  const handleMoveFileSystemItem = useCallback((sourceId: string, targetFolderId: string) => {
+    setFileSystem(prev => {
+      const result = removeFileSystemItem(prev, sourceId);
+      if (!result.removed) return prev;
+      return insertItemIntoFileSystem(result.newItems, targetFolderId, result.removed);
+    });
+  }, []);
+
+  const handleUploadToFolder = useCallback(async (file: File, folderId: string) => {
+    const url = await uploadFileToS3(file);
+    if (url) {
+      const newItem: FileSystemItem = {
+        id: generateId(),
+        type: 'file',
+        name: file.name,
+        content: url,
+        mediaType: file.type || 'application/octet-stream',
+        createdAt: Date.now()
+      };
+      setFileSystem(prev => insertItemIntoFileSystem(prev, folderId, newItem));
+    }
+  }, []);
+
+  const handleInitiateMoveFile = useCallback((fileId: string) => {
+    setFolderSelectModal({ isOpen: true, pendingFileId: fileId });
+  }, []);
+
+  const handleFolderSelect = (folderId: string) => {
+    if (folderSelectModal.pendingFileId) {
+      handleMoveFileSystemItem(folderSelectModal.pendingFileId, folderId);
+    }
+    setFolderSelectModal({ isOpen: false });
+  };
+
+  const handleMoveCardToCollection = useCallback((cardId: string, collectionId: string) => {
+    setCards(prev => prev.map(c => c.id === cardId ? { ...c, collectionId } : c));
+  }, []);
+
+  // insertItemIntoFileSystem moved up
+
+  const addImageToFileSystem = useCallback((items: FileSystemItem[], dataUrl: string, mediaType: string = 'image/png'): FileSystemItem[] => {
+    let newItems = [...items];
+    let imagesFolder = newItems.find(item => item.type === 'folder' && item.name.toLowerCase() === 'images');
+
+    if (!imagesFolder) {
+      imagesFolder = {
+        id: generateId(),
+        type: 'folder',
+        name: 'Images',
+        children: [],
+        isOpen: true,
+        createdAt: Date.now()
+      };
+      newItems.push(imagesFolder);
+    }
+
+    let maxNum = 0;
+    const scanForMaxImageName = (fsItems: FileSystemItem[]) => {
+      fsItems.forEach(item => {
+        if (item.type === 'file') {
+          const match = item.name.match(/^Image (\d+)(\.\w+)?$/i);
+          if (match) {
+            maxNum = Math.max(maxNum, parseInt(match[1], 10));
+          }
+        }
+        if (item.children) {
+          scanForMaxImageName(item.children);
+        }
+      });
+    };
+    scanForMaxImageName(newItems);
+
+    const ext = mediaType === 'image/jpeg' ? '.jpg' : mediaType === 'image/png' ? '.png' : mediaType === 'image/gif' ? '.gif' : '.png';
+    const newName = `Image ${maxNum + 1}${ext}`;
+
+    const newItem: FileSystemItem = {
+      id: generateId(),
+      type: 'file',
+      name: newName,
+      content: dataUrl,
+      mediaType: mediaType,
+      createdAt: Date.now()
+    };
+
+    return newItems.map(item => {
+      if (item.id === imagesFolder!.id) {
+        return {
+          ...item,
+          isOpen: true,
+          children: [...(item.children || []), newItem]
+        };
+      }
+      return item;
+    });
+  }, []);
+
 
   const handleConfirmCreation = (name: string) => {
     const { type, parentId } = creationModal;
@@ -509,60 +639,46 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     setFileSystem(prev => updateFileSystem(prev, id, item => ({ ...item, content, name })));
   };
 
-  const handleUploadImage = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target?.result) {
-        const dataUrl = e.target.result as string;
-        handleAddCard(window.innerWidth / 2, window.innerHeight / 2, {
-          image: dataUrl,
-          height: 200,
-          style: { ...DEFAULT_CARD_STYLE }
-        });
 
-        const newItem: FileSystemItem = {
-          id: generateId(),
-          type: 'file',
-          name: file.name,
-          content: dataUrl,
-          mediaType: file.type,
-          createdAt: Date.now()
-        };
-        setFileSystem(prev => [...prev, newItem]);
-      }
-    };
-    reader.readAsDataURL(file);
+
+  const handleUploadImage = async (file: File) => {
+    const publicUrl = await uploadFileToS3(file);
+    if (!publicUrl) return;
+
+    handleAddCard(window.innerWidth / 2, window.innerHeight / 2, {
+      image: publicUrl,
+      height: 200,
+      style: { ...DEFAULT_CARD_STYLE }
+    });
+
+    // Set file system
+    setFileSystem(prev => addImageToFileSystem(prev, publicUrl, file.type));
   };
 
-  const handleUploadDoc = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target?.result) {
-        const dataUrl = e.target.result as string;
+  const handleUploadDoc = async (file: File) => {
+    const publicUrl = await uploadFileToS3(file);
+    if (!publicUrl) return;
 
-        const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-        
-        handleAddCard(window.innerWidth / 2, window.innerHeight / 2, {
-          fileName: file.name,
-          text: isPdf ? '' : `Document: ${file.name}`,
-          image: isPdf ? dataUrl : undefined,
-          width: isPdf ? 400 : undefined,
-          height: isPdf ? 500 : undefined,
-          color: '#f3f4f6'
-        });
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
-        const newItem: FileSystemItem = {
-          id: generateId(),
-          type: 'file',
-          name: file.name,
-          content: dataUrl,
-          mediaType: file.type || 'application/octet-stream',
-          createdAt: Date.now()
-        };
-        setFileSystem(prev => [...prev, newItem]);
-      }
+    handleAddCard(window.innerWidth / 2, window.innerHeight / 2, {
+      fileName: file.name,
+      text: isPdf ? '' : `Document: ${file.name}`,
+      image: isPdf ? publicUrl : undefined,
+      width: isPdf ? 400 : undefined,
+      height: isPdf ? 500 : undefined,
+      color: '#f3f4f6'
+    });
+
+    const newItem: FileSystemItem = {
+      id: generateId(),
+      type: 'file',
+      name: file.name,
+      content: publicUrl,
+      mediaType: file.type || 'application/octet-stream',
+      createdAt: Date.now()
     };
-    reader.readAsDataURL(file);
+    setFileSystem(prev => [...prev, newItem]);
   };
 
   const handleOpenFile = useCallback((item: FileSystemItem) => {
@@ -577,7 +693,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       } else if (type.includes('text/plain')) {
         // Fall back to writing to window for generic stuff or just download
       }
-      
+
       const link = document.createElement('a');
       link.href = item.content;
       link.download = item.name;
@@ -628,91 +744,77 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       timestamp: Date.now(),
       attachments
     };
-    // Note: We depend on chatHistory here. 
-    // This is unavoidable unless we use ref for chatHistory too, 
-    // but AIChat only needs this function to change when history changes anyway.
     const updatedHistory = [...chatHistory, newUserMsg];
     setChatHistory(updatedHistory);
 
-    const context = `
-      Cards on Board:
-      ${cardsRef.current.map(c => `- ${c.text || c.fileName || 'Untitled Card'}`).join('\n')}
-    `;
+    // Compress tokens: Only send a small snippet of the text inside the prompt to save hitting the quota fast!
+    // The AI will utilize 'search_cards' organically if it needs to scan the full internal text body.
+    const truncate = (str: string, max = 50) => str.length > max ? str.substring(0, max).replace(/\n/g, ' ') + '...' : str.replace(/\n/g, ' ');
+    const context = `Cards on Board:\n${cardsRef.current.map(c => `- ID: ${c.id} | Snippet: ${truncate(c.text || c.fileName || 'Untitled')} | Color: ${c.color}`).join('\n')}`;
 
-    const responseText = await getChatResponse(updatedHistory, text, context, apiKeys, modelId);
+    // Pass only the last 10 messages to save heavy token accumulation on long sessions
+    const truncatedHistory = updatedHistory.slice(-10);
 
-    // Parse for [CREATE_CARDS] tag
+    const responseText = await getChatResponse(truncatedHistory, text, context, apiKeys, modelId);
+
     let finalDisplayMsg = responseText;
-    const createTag = '[CREATE_CARDS]';
-    const endTag = '[/CREATE_CARDS]';
-    const startIndex = responseText.indexOf(createTag);
-    const endIndex = responseText.indexOf(endTag);
-
-    if (startIndex !== -1 && endIndex !== -1) {
-      const jsonString = responseText.substring(startIndex + createTag.length, endIndex);
-      try {
-        const cardsToCreate = JSON.parse(jsonString);
-        if (Array.isArray(cardsToCreate)) {
-          // Identify a starting position for new cards (center of screen, scattered)
-          // Use viewportRef for center calculation
-          const v = viewportRef.current;
-          const centerX = v.x + (window.innerWidth / (2 * v.scale));
-          const centerY = v.y + (window.innerHeight / (2 * v.scale));
-
-          const newCards: IdeaCard[] = [];
-
-          // We can't use collections ref easily, let's just use empty check or default
-          // Or we can rely on collections state since creating cards via AI is rare event.
-          // But to stabilize callback, let's default to DEFAULT if we want to avoid dep.
-          // But collections is low frequency update.
-          const targetCollectionId = DEFAULT_COLLECTION_ID; // Simplified for stability
-
-          cardsToCreate.forEach((cardData: any, index: number) => {
-            // Offset slightly so they don't stack perfectly
-            const offset = (index * 20);
-
-            // Screen center converted to world using screenToWorld (which uses Ref)
-            // But we can't call screenToWorld inside loop if we want to avoid dep? 
-            // screenToWorld is memoized []. So it's safe.
-
-            const centerWorld = screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
-            const pos = findEmptyPosition(centerWorld.x + (index * (CARD_WIDTH + 20)), centerWorld.y);
-
-            newCards.push({
-              id: generateId(),
-              x: pos.x,
-              y: pos.y,
-              text: cardData.text || 'New Idea',
-              width: CARD_WIDTH,
-              height: CARD_HEIGHT,
-              color: cardData.color || '#ffffff',
-              style: { ...DEFAULT_CARD_STYLE },
-              collectionId: targetCollectionId
-            });
-          });
-
-          setCards(prev => [...prev, ...newCards]);
-
-          // Remove the JSON block from the displayed message
-          finalDisplayMsg = responseText.substring(0, startIndex) + responseText.substring(endIndex + endTag.length);
-          if (!finalDisplayMsg.trim()) {
-            finalDisplayMsg = `I've created ${newCards.length} new cards for you.`;
-          }
+    
+    try {
+        const jsonMatch = responseText.match(/\{[\s\S]*"actions"[\s\S]*\}/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.actions && Array.isArray(parsed.actions)) {
+                // Remove the JSON string from display message
+                finalDisplayMsg = responseText.replace(jsonMatch[0], '').trim();
+                
+                parsed.actions.forEach((action: any) => {
+                    if (action.type === 'create_cards' && Array.isArray(action.cards)) {
+                        action.cards.forEach((cardData: any) => {
+                             handleAddCard(window.innerWidth / 2, window.innerHeight / 2, { 
+                                text: cardData.text || 'New Idea', 
+                                content: cardData.content,
+                                color: cardData.color || '#ffffff'
+                             });
+                        });
+                    }
+                    if (action.type === 'update_cards' && Array.isArray(action.updates)) {
+                        action.updates.forEach((updateData: any) => {
+                             if (updateData.id) handleUpdateCard(updateData.id, updateData);
+                        });
+                    }
+                    if (action.type === 'delete_cards' && Array.isArray(action.ids)) {
+                        action.ids.forEach((id: string) => handleDeleteCard(id));
+                    }
+                    if (action.type === 'connect_cards' && Array.isArray(action.connections)) {
+                        action.connections.forEach((conn: any) => {
+                             if (conn.fromId && conn.toId) {
+                                 setConnections(prev => [...prev, {
+                                     id: generateId(),
+                                     fromId: conn.fromId,
+                                     toId: conn.toId,
+                                     style: DEFAULT_CONNECTION_STYLE,
+                                     arrowStart: DEFAULT_ARROW_START,
+                                     arrowEnd: DEFAULT_ARROW_END,
+                                     relationType: DEFAULT_RELATION_TYPE
+                                 }]);
+                             }
+                        });
+                    }
+                });
+            }
         }
-      } catch (e) {
-        console.error("Failed to parse AI card creation JSON", e);
-      }
+    } catch(e) { 
+        console.error("Failed to parse JSON actions payload from AI", e); 
     }
-
-    const newAiMsg: ChatMessage = {
-      id: generateId(),
-      role: 'model',
-      text: finalDisplayMsg.trim(),
-      timestamp: Date.now()
-    };
-    setChatHistory([...updatedHistory, newAiMsg]);
+    
+    if (!finalDisplayMsg) finalDisplayMsg = "I've successfully updated your canvas!";
+    
     setIsChatProcessing(false);
-  }, [chatHistory, screenToWorld, findEmptyPosition]);
+    setChatHistory(prev => [...prev, {
+       id: generateId(), role: 'model', text: finalDisplayMsg, timestamp: Date.now(), model: modelId
+    }]);
+
+  }, [chatHistory, apiKeys, handleAddCard, handleUpdateCard, handleDeleteCard]);
 
   // Canvas Handlers
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -726,6 +828,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       const target = e.target as HTMLElement;
       const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
+      // Ignore paste events if focus is on an input or textarea, let the component handle it natively
+      if (isInput) return;
+
       if (e.clipboardData) {
         const items = e.clipboardData.items;
 
@@ -734,10 +839,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
           if (items[i].type.indexOf('image') !== -1) {
             const blob = items[i].getAsFile();
             if (blob) {
-              const reader = new FileReader();
-              reader.onload = (event) => {
-                const dataUrl = event.target?.result as string;
-                if (dataUrl) {
+              uploadFileToS3(blob).then(publicUrl => {
+                if (publicUrl) {
                   // Place at center of viewport
                   const center = screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
                   const pos = findEmptyPosition(center.x, center.y);
@@ -745,32 +848,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
                   handleAddCard(undefined, undefined, {
                     x: pos.x,
                     y: pos.y,
-                    image: dataUrl,
+                    image: publicUrl,
                     height: 200,
                     style: { ...DEFAULT_CARD_STYLE }
                   });
 
                   // Add to file system so it works exactly like uploaded images
-                  const newItem: FileSystemItem = {
-                    id: generateId(),
-                    type: 'file',
-                    name: `Pasted Image ${new Date().toLocaleTimeString().replace(/:/g, '-')}.png`,
-                    content: dataUrl,
-                    mediaType: blob.type,
-                    createdAt: Date.now()
-                  };
-                  setFileSystem(prev => [...prev, newItem]);
+                  setFileSystem(prev => addImageToFileSystem(prev, publicUrl, blob.type));
                 }
-              };
-              reader.readAsDataURL(blob);
+              });
               e.preventDefault(); // Prevent default paste behavior
               return; // Stop after finding an image
             }
           }
         }
-
-        // Ignore text paste events if focus is on an input or textarea
-        if (isInput) return;
 
         // 2. Handle Text (if no image processed)
         // Check for text data
@@ -793,7 +884,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
 
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [handleAddCard, screenToWorld, findEmptyPosition, setFileSystem]);
+  }, [handleAddCard, screenToWorld, findEmptyPosition, setFileSystem, addImageToFileSystem]);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -839,78 +930,56 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     // 2. Handle External Files
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       Array.from(e.dataTransfer.files).forEach((file: File, index: number) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          if (ev.target?.result) {
-            const result = ev.target.result as string;
-            // Offset subsequent drops slightly
-            const dropX = e.clientX + (index * 20);
-            const dropY = e.clientY + (index * 20);
+        uploadFileToS3(file).then(publicUrl => {
+          if (!publicUrl) return;
 
-            if (file.type.startsWith('image/')) {
-              handleAddCard(dropX, dropY, {
-                image: result,
-                height: 200,
-                style: { ...DEFAULT_CARD_STYLE }
-              });
-            } else if (file.type === 'text/plain' || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
-              // Text file content
-              // Note: readAsDataURL returns data:url, we might want readAsText for text files
-              // But here result is dataURL because we used readAsDataURL? 
-              // Actually we should create a new reader or just use readAsText if we want text content.
-              // Let's stick to consistent file attachment logic: everything is a file card unless we parse it.
-              // But user asked "if user pastes text...". For drops, usually file -> file card. 
-              // For drag 'onto canvas as form of input', implies file card or content.
-              // Let's duplicate the handleUploadDoc logic basically.
+          // Offset subsequent drops slightly
+          const dropX = e.clientX + (index * 20);
+          const dropY = e.clientY + (index * 20);
 
-              handleAddCard(dropX, dropY, {
-                fileName: file.name,
-                text: `Document: ${file.name}`,
-                color: '#f3f4f6'
-              });
-
-              // Also add to file system for persistence? 
-              // The user didn't explicitly ask for file system sync for drops, but it's good practice.
-              // However, `handleAddCard` doesn't return the ID easily here to link it.
-            } else if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-              handleAddCard(dropX, dropY, {
-                fileName: file.name,
-                image: result,
-                text: '',
-                width: 400,
-                height: 500,
-                color: '#f3f4f6'
-              });
-            } else {
-              // Generic file
-              handleAddCard(dropX, dropY, {
-                fileName: file.name,
-                text: `File: ${file.name}`,
-                color: '#f3f4f6'
-              });
-            }
-
-            // Also add to fileSystem for generic files dropped this way (optional but helps consistency)
-            if (!file.type.startsWith('image/')) {
-               const newItem: FileSystemItem = {
-                 id: generateId(),
-                 type: 'file',
-                 name: file.name,
-                 content: result,
-                 mediaType: file.type || 'application/octet-stream',
-                 createdAt: Date.now()
-               };
-               setFileSystem(prev => [...prev, newItem]);
-            }
-
-            // Note: We are NOT adding to fileSystem state here automatically, 
-            // which might be inconsistent with handleUploadDoc. 
-            // Ideally we should refactor upload logic to be reusable.
-            // But for now, fulfilling the visual request:
+          if (file.type.startsWith('image/')) {
+            handleAddCard(dropX, dropY, {
+              image: publicUrl,
+              height: 200,
+              style: { ...DEFAULT_CARD_STYLE }
+            });
+            setFileSystem(prev => addImageToFileSystem(prev, publicUrl, file.type));
+          } else if (file.type === 'text/plain' || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
+            handleAddCard(dropX, dropY, {
+              fileName: file.name,
+              text: `Document: ${file.name}`,
+              color: '#f3f4f6'
+            });
+          } else if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+            handleAddCard(dropX, dropY, {
+              fileName: file.name,
+              image: publicUrl,
+              text: '',
+              width: 400,
+              height: 500,
+              color: '#f3f4f6'
+            });
+          } else {
+            // Generic file
+            handleAddCard(dropX, dropY, {
+              fileName: file.name,
+              text: `File: ${file.name}`,
+              color: '#f3f4f6'
+            });
           }
-        };
-        // We read as Data URL to support images and generic file download links
-        reader.readAsDataURL(file);
+
+          if (!file.type.startsWith('image/')) {
+            const newItem: FileSystemItem = {
+              id: generateId(),
+              type: 'file',
+              name: file.name,
+              content: publicUrl,
+              mediaType: file.type || 'application/octet-stream',
+              createdAt: Date.now()
+            };
+            setFileSystem(prev => [...prev, newItem]);
+          }
+        });
       });
     }
   };
@@ -918,7 +987,21 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   const handleMouseDownCanvas = useCallback((e: React.MouseEvent) => {
     setClickPopup(null);
     if (connectingFromId) {
+      const newCardId = generateId();
+      handleAddCard(e.clientX, e.clientY, { id: newCardId });
+
+      const newConnId = generateId();
+      setConnections(prev => [...prev, {
+        id: newConnId,
+        fromId: connectingFromId,
+        toId: newCardId,
+        style: DEFAULT_CONNECTION_STYLE,
+        arrowStart: DEFAULT_ARROW_START,
+        arrowEnd: DEFAULT_ARROW_END,
+        relationType: DEFAULT_RELATION_TYPE
+      }]);
       setConnectingFromId(null);
+      setSelectedConnectionId(newConnId);
       return;
     }
 
@@ -930,7 +1013,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       if (mode === 'draw') {
         const worldMouse = screenToWorld(e.clientX, e.clientY);
         if (drawingTool === 'eraser') {
-            setMousePos(worldMouse);
+          setMousePos(worldMouse);
         }
 
         setIsDragging(true);
@@ -1018,7 +1101,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       if (mode === 'draw' && drawingTool === 'eraser') {
         setMousePos(worldMouse);
       }
-      
+
       // Drag logic...
       if (mode === 'draw' && currentStroke) {
         setCurrentStroke(prev => prev ? { ...prev, points: [...prev.points, worldMouse] } : null);
@@ -1101,7 +1184,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       if ((e.key === 'Delete' || e.key === 'Backspace')) {
         // Prevent deletion if an editor, image viewer, or modal is open
         if (activeDocId !== null || fullScreenImage !== null || creationModal.isOpen || collectionSelectModal.isOpen || isApiKeyModalOpen) return;
-        
+
         // Prevent deletion if the user is interacting with UI overlays
         if (target.closest('.sidebar') || target.closest('.header') || target.closest('.aichat') || target.closest('button')) return;
 
@@ -1132,7 +1215,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     const c1 = cards.find(c => c.id === selectedConnection.fromId);
     const c2 = cards.find(c => c.id === selectedConnection.toId);
     if (c1 && c2) {
-      const getEdge = (center: {x:number, y:number}, target: {x:number, y:number}, c: any) => {
+      const getEdge = (center: { x: number, y: number }, target: { x: number, y: number }, c: any) => {
         const w = c.width || 256;
         const h = c.height || 100;
         const dx = target.x - center.x;
@@ -1226,7 +1309,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
           // Smoother zoom: mouse wheel in pan mode uses extremely fluid sensitivity 
           const sensitivity = (modeRef.current === 'pan' && !e.ctrlKey && !e.metaKey) ? 0.0015 : 0.003;
           const newScale = Math.min(Math.max(0.1, prev.scale - e.deltaY * sensitivity), 5); // Expanded bounds to 5x inline with smooth zoom
-          
+
           // Optional: Zoom toward mouse position. Keeping it simple globally for now.
           return { ...prev, scale: newScale };
         });
@@ -1246,6 +1329,58 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       if (el) el.removeEventListener('wheel', handleWheel);
     };
   }, []);
+
+  // --- Shards IPC Integration ---
+  useEffect(() => {
+    if (!(window as any).require) return;
+    
+    try {
+      const { ipcRenderer } = (window as any).require('electron');
+
+      const handleTextClipper = async () => {
+        const saved = localStorage.getItem('brainstorm_shards_config');
+        if (saved) {
+          const config = JSON.parse(saved);
+          if (!config.textClipper) return;
+          try {
+            const text = await navigator.clipboard.readText();
+            if (text) {
+              handleAddCard(window.innerWidth / 2, window.innerHeight / 2, { text });
+            }
+          } catch(e) { console.error("Text clipper error", e); }
+        }
+      };
+
+      const handleImageClipper = async () => {
+        const saved = localStorage.getItem('brainstorm_shards_config');
+        if (saved) {
+          const config = JSON.parse(saved);
+          if (!config.screenshotClipper) return;
+          try {
+            const clipboardItems = await navigator.clipboard.read();
+            for (const item of clipboardItems) {
+              for (const type of item.types) {
+                if (type.startsWith('image/')) {
+                  const blob = await item.getType(type);
+                  const file = new File([blob], `Screenshot-${Date.now()}.png`, { type });
+                  handleUploadImage(file);
+                  return;
+                }
+              }
+            }
+          } catch(e) { console.error("Image clipper error", e); }
+        }
+      };
+
+      ipcRenderer.on('shard-clip-text', handleTextClipper);
+      ipcRenderer.on('shard-clip-image', handleImageClipper);
+
+      return () => {
+        ipcRenderer.removeListener('shard-clip-text', handleTextClipper);
+        ipcRenderer.removeListener('shard-clip-image', handleImageClipper);
+      };
+    } catch(e) {}
+  }, [handleAddCard, handleUploadImage]);
 
   return (
     <div
@@ -1309,6 +1444,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
           onLogin={onLogin}
           onLogout={onLogout}
           onSwitchAccount={onSwitchAccount}
+          onGoShards={onGoShards}
           isSaving={isSaving || hasUnsavedChanges}
           saveStatus={saveStatus}
           error={error}
@@ -1344,9 +1480,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       >
         {/* XY Axis Texturing Removed per user request */}
 
-        <DrawingLayer 
-          strokes={strokes} 
-          currentStroke={currentStroke} 
+        <DrawingLayer
+          strokes={strokes}
+          currentStroke={currentStroke}
           viewport={viewport}
           mousePos={(mode === 'draw' && drawingTool === 'eraser') ? mousePos : null}
           eraserRadius={strokeRadius}
@@ -1372,91 +1508,91 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-1 bg-white p-1.5 rounded-lg shadow-xl border border-gray-200 animate-in fade-in zoom-in duration-200">
-            {/* Relationship Toggle */}
-            <button
-              onClick={() => {
-                const isParentChild = selectedConnection.relationType === RelationType.PARENT_TO_CHILD || selectedConnection.relationType === RelationType.CHILD_TO_PARENT;
-                handleUpdateConnection(selectedConnection.id, {
-                  relationType: isParentChild ? RelationType.EQUIVALENCE : RelationType.PARENT_TO_CHILD
-                });
-              }}
-              className="p-1 hover:bg-gray-100 rounded text-xs font-medium px-2"
-            >
-              {(selectedConnection.relationType === RelationType.PARENT_TO_CHILD || selectedConnection.relationType === RelationType.CHILD_TO_PARENT)
-                ? 'Parent-Child'
-                : 'Equivalence'}
-            </button>
-
-            {/* Flip Button (Only for Parent-Child) */}
-            {(selectedConnection.relationType === RelationType.PARENT_TO_CHILD || selectedConnection.relationType === RelationType.CHILD_TO_PARENT) && (
+              {/* Relationship Toggle */}
               <button
                 onClick={() => {
-                  const newType = selectedConnection.relationType === RelationType.PARENT_TO_CHILD
-                    ? RelationType.CHILD_TO_PARENT
-                    : RelationType.PARENT_TO_CHILD;
-                  handleUpdateConnection(selectedConnection.id, { relationType: newType });
+                  const isParentChild = selectedConnection.relationType === RelationType.PARENT_TO_CHILD || selectedConnection.relationType === RelationType.CHILD_TO_PARENT;
+                  handleUpdateConnection(selectedConnection.id, {
+                    relationType: isParentChild ? RelationType.EQUIVALENCE : RelationType.PARENT_TO_CHILD
+                  });
                 }}
-                className="p-1 hover:bg-gray-100 rounded"
-                title="Flip Direction"
+                className="p-1 hover:bg-gray-100 rounded text-xs font-medium px-2"
               >
-                <RefreshCcw className="w-4 h-4" />
+                {(selectedConnection.relationType === RelationType.PARENT_TO_CHILD || selectedConnection.relationType === RelationType.CHILD_TO_PARENT)
+                  ? 'Parent-Child'
+                  : 'Equivalence'}
               </button>
-            )}
 
-            <button
-              onClick={() => handleUpdateConnection(selectedConnection.id, { style: selectedConnection.style === ConnectionStyle.SOLID ? ConnectionStyle.DASHED : ConnectionStyle.SOLID })}
-              className="p-1 hover:bg-gray-100 rounded text-xs font-medium px-2"
-            >
-              {selectedConnection.style === ConnectionStyle.SOLID ? 'Solid' : 'Dashed'}
-            </button>
-
-            <div className="w-px h-4 bg-gray-200 mx-1"></div>
-
-            {/* Color Picker Toggle */}
-            <div className="relative flex items-center">
-              <button
-                onClick={() => setConnColorPickerOpen(v => !v)}
-                className="w-5 h-5 rounded-full border-2 border-gray-300 shadow-sm transition-transform hover:scale-110"
-                style={{ backgroundColor: selectedConnection.color || '#3b82f6' }}
-                title="Change Line Color"
-              />
-              {connColorPickerOpen && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white p-2 rounded-lg shadow-xl border border-gray-200 flex gap-2 z-50">
-                  {['#3b82f6', '#ef4444', '#f97316', '#22c55e', '#ffffff'].map(c => (
-                    <button
-                      key={c}
-                      onClick={() => { handleUpdateConnection(selectedConnection.id, { color: c }); setConnColorPickerOpen(false); }}
-                      className="w-6 h-6 rounded-full border border-gray-300 shadow-sm transition-transform hover:scale-110"
-                      style={{ backgroundColor: c }}
-                      title={c}
-                    />
-                  ))}
-                  <div className="w-px h-6 bg-gray-200 mx-1"></div>
-                  <label className="w-6 h-6 rounded-full border border-gray-300 shadow-sm flex items-center justify-center cursor-pointer relative overflow-hidden transition-transform hover:scale-110" title="Custom Color">
-                    <input 
-                      type="color" 
-                      value={selectedConnection.color || '#3b82f6'} 
-                      onChange={(e) => handleUpdateConnection(selectedConnection.id, { color: e.target.value })}
-                      className="opacity-0 absolute w-[200%] h-[200%] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
-                    />
-                    <div className="bg-gradient-to-tr from-rose-400 via-purple-400 to-blue-400 w-full h-full pointer-events-none absolute inset-0 mix-blend-multiply opacity-50"></div>
-                  </label>
-                </div>
+              {/* Flip Button (Only for Parent-Child) */}
+              {(selectedConnection.relationType === RelationType.PARENT_TO_CHILD || selectedConnection.relationType === RelationType.CHILD_TO_PARENT) && (
+                <button
+                  onClick={() => {
+                    const newType = selectedConnection.relationType === RelationType.PARENT_TO_CHILD
+                      ? RelationType.CHILD_TO_PARENT
+                      : RelationType.PARENT_TO_CHILD;
+                    handleUpdateConnection(selectedConnection.id, { relationType: newType });
+                  }}
+                  className="p-1 hover:bg-gray-100 rounded"
+                  title="Flip Direction"
+                >
+                  <RefreshCcw className="w-4 h-4" />
+                </button>
               )}
-            </div>
 
-            <div className="w-px h-4 bg-gray-200 mx-1"></div>
+              <button
+                onClick={() => handleUpdateConnection(selectedConnection.id, { style: selectedConnection.style === ConnectionStyle.SOLID ? ConnectionStyle.DASHED : ConnectionStyle.SOLID })}
+                className="p-1 hover:bg-gray-100 rounded text-xs font-medium px-2"
+              >
+                {selectedConnection.style === ConnectionStyle.SOLID ? 'Solid' : 'Dashed'}
+              </button>
 
-            <button
-              onClick={() => {
-                deleteConnection(selectedConnection.id);
-                setConnections(prev => prev.filter(c => c.id !== selectedConnection.id));
-                setSelectedConnectionId(null);
-              }}
-              className="p-1 hover:bg-red-50 text-red-500 rounded"
-            >
-              <Minus className="w-4 h-4" />
-            </button>
+              <div className="w-px h-4 bg-gray-200 mx-1"></div>
+
+              {/* Color Picker Toggle */}
+              <div className="relative flex items-center">
+                <button
+                  onClick={() => setConnColorPickerOpen(v => !v)}
+                  className="w-5 h-5 rounded-full border-2 border-gray-300 shadow-sm transition-transform hover:scale-110"
+                  style={{ backgroundColor: selectedConnection.color || '#3b82f6' }}
+                  title="Change Line Color"
+                />
+                {connColorPickerOpen && (
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white p-2 rounded-lg shadow-xl border border-gray-200 flex gap-2 z-50">
+                    {['#3b82f6', '#ef4444', '#f97316', '#22c55e', '#ffffff'].map(c => (
+                      <button
+                        key={c}
+                        onClick={() => { handleUpdateConnection(selectedConnection.id, { color: c }); setConnColorPickerOpen(false); }}
+                        className="w-6 h-6 rounded-full border border-gray-300 shadow-sm transition-transform hover:scale-110"
+                        style={{ backgroundColor: c }}
+                        title={c}
+                      />
+                    ))}
+                    <div className="w-px h-6 bg-gray-200 mx-1"></div>
+                    <label className="w-6 h-6 rounded-full border border-gray-300 shadow-sm flex items-center justify-center cursor-pointer relative overflow-hidden transition-transform hover:scale-110" title="Custom Color">
+                      <input
+                        type="color"
+                        value={selectedConnection.color || '#3b82f6'}
+                        onChange={(e) => handleUpdateConnection(selectedConnection.id, { color: e.target.value })}
+                        className="opacity-0 absolute w-[200%] h-[200%] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
+                      />
+                      <div className="bg-gradient-to-tr from-rose-400 via-purple-400 to-blue-400 w-full h-full pointer-events-none absolute inset-0 mix-blend-multiply opacity-50"></div>
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              <div className="w-px h-4 bg-gray-200 mx-1"></div>
+
+              <button
+                onClick={() => {
+                  deleteConnection(selectedConnection.id);
+                  setConnections(prev => prev.filter(c => c.id !== selectedConnection.id));
+                  setSelectedConnectionId(null);
+                }}
+                className="p-1 hover:bg-red-50 text-red-500 rounded"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}
@@ -1540,6 +1676,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
           };
           setFileSystem(prev => filterRecursive(prev, id));
         }}
+        onInitiateMoveFile={handleInitiateMoveFile}
+        onUploadToFolder={handleUploadToFolder}
+        onMoveFileSystemItem={handleMoveFileSystemItem}
       />
 
       {/* Modals, etc. */}
@@ -1563,8 +1702,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
         onSelect={handleCollectionSelect}
       />
 
+      {folderSelectModal.isOpen && (
+        <FolderSelectorModal
+          isOpen={folderSelectModal.isOpen}
+          onClose={() => setFolderSelectModal({ isOpen: false })}
+          onSelect={handleFolderSelect}
+          fileSystem={fileSystem}
+        />
+      )}
+
       {activeDocId && activeDoc && (
-        <div 
+        <div
           className="fixed inset-0 z-[60] flex flex-row items-center justify-center p-4 gap-4 bg-black/20 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => { setActiveDocId(null); setSecondaryDocId(null); setSplitDropdownOpen(null); }}
         >
@@ -1579,78 +1727,78 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
             />
             {!secondaryDocId && (
               <div className="absolute top-1/2 -right-4 translate-x-full -translate-y-1/2 flex items-center justify-center ml-2">
-                 <button onClick={(e) => { e.stopPropagation(); setSplitDropdownOpen(prev => prev === 'primary' ? null : 'primary'); }} className="p-3 bg-white/50 backdrop-blur rounded-full shadow-lg hover:bg-white/90 border border-gray-200 transition-all text-gray-600 hover:text-black">
-                   <Plus className="w-6 h-6" />
-                 </button>
-                 {splitDropdownOpen === 'primary' && (
-                   <div className="absolute left-14 top-1/2 -translate-y-1/2 bg-white rounded-xl shadow-2xl border border-gray-200 w-64 max-h-[80vh] overflow-y-auto z-[70]" onClick={(e) => e.stopPropagation()}>
-                     <div className="p-3 border-b text-sm font-semibold text-gray-700">Select a Card</div>
-                     <div className="p-2 flex flex-col gap-1">
-                       {collections.map(col => {
-                         const colCards = cards.filter(c => c.collectionId === col.id && `card-${c.id}` !== activeDocId);
-                         if (colCards.length === 0) return null;
-                         return (
-                           <details key={col.id} className="group outline-none">
-                             <summary className="cursor-pointer text-sm font-medium text-gray-800 p-2 hover:bg-gray-100 rounded list-none flex items-center justify-between outline-none">
-                               {col.name} <span className="text-xs text-gray-400">{colCards.length}</span>
-                             </summary>
-                             <div className="pl-4 py-1 flex flex-col gap-1">
-                               {colCards.map(c => (
-                                 <button key={c.id} onClick={() => { setSecondaryDocId(`card-${c.id}`); setSplitDropdownOpen(null); }} className="text-left text-sm text-gray-600 hover:text-black hover:bg-gray-50 p-1.5 rounded truncate w-full outline-none">
-                                   {c.text.substring(0, 30) || 'Untitled'}
-                                 </button>
-                               ))}
-                             </div>
-                           </details>
-                         );
-                       })}
-                     </div>
-                   </div>
-                 )}
+                <button onClick={(e) => { e.stopPropagation(); setSplitDropdownOpen(prev => prev === 'primary' ? null : 'primary'); }} className="p-3 bg-white/50 backdrop-blur rounded-full shadow-lg hover:bg-white/90 border border-gray-200 transition-all text-gray-600 hover:text-black">
+                  <Plus className="w-6 h-6" />
+                </button>
+                {splitDropdownOpen === 'primary' && (
+                  <div className="absolute left-14 top-1/2 -translate-y-1/2 bg-white rounded-xl shadow-2xl border border-gray-200 w-64 max-h-[80vh] overflow-y-auto z-[70]" onClick={(e) => e.stopPropagation()}>
+                    <div className="p-3 border-b text-sm font-semibold text-gray-700">Select a Card</div>
+                    <div className="p-2 flex flex-col gap-1">
+                      {collections.map(col => {
+                        const colCards = cards.filter(c => c.collectionId === col.id && `card-${c.id}` !== activeDocId);
+                        if (colCards.length === 0) return null;
+                        return (
+                          <details key={col.id} className="group outline-none">
+                            <summary className="cursor-pointer text-sm font-medium text-gray-800 p-2 hover:bg-gray-100 rounded list-none flex items-center justify-between outline-none">
+                              {col.name} <span className="text-xs text-gray-400">{colCards.length}</span>
+                            </summary>
+                            <div className="pl-4 py-1 flex flex-col gap-1">
+                              {colCards.map(c => (
+                                <button key={c.id} onClick={() => { setSecondaryDocId(`card-${c.id}`); setSplitDropdownOpen(null); }} className="text-left text-sm text-gray-600 hover:text-black hover:bg-gray-50 p-1.5 rounded truncate w-full outline-none">
+                                  {c.text.substring(0, 30) || 'Untitled'}
+                                </button>
+                              ))}
+                            </div>
+                          </details>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
           {/* Secondary View container */}
           {secondaryDocId && secondaryDoc && (
-             <div className="relative flex h-[95%] transition-all duration-300 w-[50%] max-w-[800px]" onClick={(e) => e.stopPropagation()}>
-               <DocumentEditor
-                 doc={secondaryDoc}
-                 className="w-full flex-1"
-                 onClose={() => setSecondaryDocId(null)}
-                 onSave={handleSaveDoc}
-                 onChange={handleSaveDoc}
-                 onSwap={() => setSplitDropdownOpen(prev => prev === 'secondary' ? null : 'secondary')}
-               />
-               {splitDropdownOpen === 'secondary' && (
-                   <div className="absolute right-0 top-16 bg-white rounded-xl shadow-2xl border border-gray-200 w-64 max-h-[80vh] overflow-y-auto z-[70]" onClick={(e) => e.stopPropagation()}>
-                     <div className="p-3 border-b text-sm font-semibold text-gray-700 flex justify-between items-center">
-                       <span>Swap Card</span>
-                       <button onClick={() => setSplitDropdownOpen(null)} className="hover:bg-gray-100 p-1 rounded transition-colors"><X className="w-4 h-4 text-gray-400" /></button>
-                     </div>
-                     <div className="p-2 flex flex-col gap-1">
-                       {collections.map(col => {
-                         const colCards = cards.filter(c => c.collectionId === col.id && `card-${c.id}` !== secondaryDocId && `card-${c.id}` !== activeDocId);
-                         if (colCards.length === 0) return null;
-                         return (
-                           <details key={col.id} className="group outline-none" open>
-                             <summary className="cursor-pointer text-sm font-medium text-gray-800 p-2 hover:bg-gray-100 rounded list-none flex items-center justify-between outline-none">
-                               {col.name} <span className="text-xs text-gray-400">{colCards.length}</span>
-                             </summary>
-                             <div className="pl-4 py-1 flex flex-col gap-1">
-                               {colCards.map(c => (
-                                 <button key={c.id} onClick={() => { setSecondaryDocId(`card-${c.id}`); setSplitDropdownOpen(null); }} className="text-left text-sm text-gray-600 hover:text-black hover:bg-gray-50 p-1.5 rounded truncate w-full outline-none">
-                                   {c.text.substring(0, 30) || 'Untitled'}
-                                 </button>
-                               ))}
-                             </div>
-                           </details>
-                         );
-                       })}
-                     </div>
-                   </div>
-                 )}
-             </div>
+            <div className="relative flex h-[95%] transition-all duration-300 w-[50%] max-w-[800px]" onClick={(e) => e.stopPropagation()}>
+              <DocumentEditor
+                doc={secondaryDoc}
+                className="w-full flex-1"
+                onClose={() => setSecondaryDocId(null)}
+                onSave={handleSaveDoc}
+                onChange={handleSaveDoc}
+                onSwap={() => setSplitDropdownOpen(prev => prev === 'secondary' ? null : 'secondary')}
+              />
+              {splitDropdownOpen === 'secondary' && (
+                <div className="absolute right-0 top-16 bg-white rounded-xl shadow-2xl border border-gray-200 w-64 max-h-[80vh] overflow-y-auto z-[70]" onClick={(e) => e.stopPropagation()}>
+                  <div className="p-3 border-b text-sm font-semibold text-gray-700 flex justify-between items-center">
+                    <span>Swap Card</span>
+                    <button onClick={() => setSplitDropdownOpen(null)} className="hover:bg-gray-100 p-1 rounded transition-colors"><X className="w-4 h-4 text-gray-400" /></button>
+                  </div>
+                  <div className="p-2 flex flex-col gap-1">
+                    {collections.map(col => {
+                      const colCards = cards.filter(c => c.collectionId === col.id && `card-${c.id}` !== secondaryDocId && `card-${c.id}` !== activeDocId);
+                      if (colCards.length === 0) return null;
+                      return (
+                        <details key={col.id} className="group outline-none" open>
+                          <summary className="cursor-pointer text-sm font-medium text-gray-800 p-2 hover:bg-gray-100 rounded list-none flex items-center justify-between outline-none">
+                            {col.name} <span className="text-xs text-gray-400">{colCards.length}</span>
+                          </summary>
+                          <div className="pl-4 py-1 flex flex-col gap-1">
+                            {colCards.map(c => (
+                              <button key={c.id} onClick={() => { setSecondaryDocId(`card-${c.id}`); setSplitDropdownOpen(null); }} className="text-left text-sm text-gray-600 hover:text-black hover:bg-gray-50 p-1.5 rounded truncate w-full outline-none">
+                                {c.text.substring(0, 30) || 'Untitled'}
+                              </button>
+                            ))}
+                          </div>
+                        </details>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -1662,11 +1810,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
         isProcessing={isChatProcessing}
         onSettingsClick={() => setIsApiKeyModalOpen(true)}
       />
-      <APIKeyModal 
-        isOpen={isApiKeyModalOpen} 
-        onClose={() => setIsApiKeyModalOpen(false)} 
-        onSave={handleSaveApiKeys} 
-        currentKeys={apiKeys} 
+      <APIKeyModal
+        isOpen={isApiKeyModalOpen}
+        onClose={() => setIsApiKeyModalOpen(false)}
+        onSave={handleSaveApiKeys}
+        currentKeys={apiKeys}
       />
 
       {/* Full Screen Image Overlay */}

@@ -34,6 +34,13 @@ export interface CardStyle {
   isItalic: boolean;
   fontFamily: 'sans' | 'serif' | 'mono' | 'cursive';
   fontSize: number;
+  textAlign?: 'left' | 'center' | 'right';
+  isHeader?: boolean;
+}
+
+export interface ShardsConfig {
+  textClipper: boolean;
+  screenshotClipper: boolean;
 }
 
 export interface FileSystemItem {

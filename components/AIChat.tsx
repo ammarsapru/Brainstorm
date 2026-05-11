@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Bot, User, ChevronDown, Paperclip, Image as ImageIcon, File, Check, Copy, CheckCircle2, Settings } from 'lucide-react';
 import { ChatMessage, ChatAttachment } from '../types';
+import { uploadFileToS3 } from '../lib/supabase';
 
 interface AIChatProps {
     history: ChatMessage[];
@@ -11,29 +12,11 @@ interface AIChatProps {
 
 const MODELS = [
     { 
-        id: 'gemini-3-flash', 
-        name: 'Gemini 2.0 Flash', 
+        id: 'gemini-2.5-flash', 
+        name: 'Gemini 2.5 Flash', 
         provider: 'Google', 
         icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-black"><path d="M12 3v18M3 12h18M12 3c-4.97 0-9 4.03-9 9M21 12c0-4.97-4.03-9-9-9" /></svg> 
-    },
-    { 
-        id: 'gemini-3-pro', 
-        name: 'Gemini 2.0 Pro', 
-        provider: 'Google', 
-        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-black"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg> 
-    },
-    { 
-        id: 'gpt-4o', 
-        name: 'GPT-4o', 
-        provider: 'OpenAI', 
-        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-black"><path d="M12 2a10 10 0 1 0 10 10H12V2zM12 12L4.93 4.93M12 12l7.07 7.07M12 12l-7.07 7.07M12 12l7.07-7.07" /></svg> 
-    },
-    { 
-        id: 'claude-3-5-sonnet', 
-        name: 'Claude 3.5 Sonnet', 
-        provider: 'Anthropic', 
-        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-black"><path d="M20 12h-8M12 4v16M4 12h8" /><circle cx="12" cy="12" r="8" /></svg> 
-    },
+    }
 ];
 
 export const AIChat = React.memo<AIChatProps>(({ history, onSendMessage, isProcessing, onSettingsClick }) => {
@@ -42,6 +25,38 @@ export const AIChat = React.memo<AIChatProps>(({ history, onSendMessage, isProce
     const [selectedModel, setSelectedModel] = useState(MODELS[0]);
     const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
     const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+    
+    // Resize State
+    const [width, setWidth] = useState(450);
+    const [isResizing, setIsResizing] = useState(false);
+
+    const startResizing = React.useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsResizing(true);
+    }, []);
+
+    useEffect(() => {
+        if (!isResizing) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            const newWidth = window.innerWidth - e.clientX;
+            // constraints: min 300px, max 1200px (or window width - margin)
+            if (newWidth > 300 && newWidth < Math.min(1200, window.innerWidth - 50)) {
+                setWidth(newWidth);
+            }
+        };
+
+        const handleMouseUp = () => {
+            setIsResizing(false);
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isResizing]);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,23 +83,20 @@ export const AIChat = React.memo<AIChatProps>(({ history, onSendMessage, isProce
         await onSendMessage(msg, currentAttachments, modelId);
     };
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'file') => {
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'file') => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                if (ev.target?.result) {
-                    const newAttachment: ChatAttachment = {
-                        id: Math.random().toString(36).substr(2, 9),
-                        type,
-                        url: ev.target.result as string,
-                        name: file.name,
-                        mimeType: file.type
-                    };
-                    setAttachments(prev => [...prev, newAttachment]);
-                }
-            };
-            reader.readAsDataURL(file);
+            const url = await uploadFileToS3(file);
+            if (url) {
+                const newAttachment: ChatAttachment = {
+                    id: Math.random().toString(36).substr(2, 9),
+                    type,
+                    url,
+                    name: file.name,
+                    mimeType: file.type
+                };
+                setAttachments(prev => [...prev, newAttachment]);
+            }
         }
         e.target.value = '';
     };
@@ -118,11 +130,19 @@ export const AIChat = React.memo<AIChatProps>(({ history, onSendMessage, isProce
 
             {/* Chat Panel - Full height sidebar */}
             <div
-                className={`fixed right-0 top-0 h-full z-[70] pointer-events-auto w-80 sm:w-[450px] bg-black shadow-2xl border-l border-zinc-800 overflow-hidden transition-transform duration-300 ease-in-out flex flex-col ${isOpen
+                className={`fixed right-0 top-0 h-full z-[70] pointer-events-auto bg-black shadow-2xl border-l border-zinc-800 overflow-hidden transition-transform duration-300 ease-in-out flex flex-col ${isOpen
                     ? 'translate-x-0'
                     : 'translate-x-full'
                     }`}
+                style={{ width: `${width}px` }}
             >
+                {/* Resize Handle */}
+                <div 
+                    onMouseDown={startResizing}
+                    className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize z-50 hover:bg-zinc-700/50 active:bg-zinc-600 transition-colors"
+                    title="Drag to resize"
+                />
+
                 {/* Header with Model Selector */}
                 <div className="p-3 border-b border-gray-100 bg-white flex items-center justify-between relative z-20">
                     <div className="flex items-center gap-2">
@@ -231,10 +251,10 @@ export const AIChat = React.memo<AIChatProps>(({ history, onSendMessage, isProce
                                         {msg.role === 'model' && (
                                             <button
                                                 onClick={() => handleCopy(msg.text)}
-                                                className="absolute top-2 right-2 p-1 text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="absolute top-2 right-2 p-1.5 bg-gray-50 border border-gray-100 rounded text-gray-400 hover:text-black hover:bg-gray-100 transition-colors shadow-sm"
                                                 title="Copy"
                                             >
-                                                <Copy className="w-3 h-3" />
+                                                <Copy className="w-3.5 h-3.5" />
                                             </button>
                                         )}
                                     </div>

@@ -19,6 +19,30 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = (supabaseUrl && supabaseAnonKey)
   ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+  : null as any;
 
 export const isSupabaseConfigured = () => !!supabase;
+
+export const uploadFileToS3 = async (file: File | Blob): Promise<string | null> => {
+  if (!supabase) return null;
+
+  // Since it can be a file or blob from clipboard, handle missing names
+  const originalName = (file as File).name || 'pasted-image.png';
+  const safeName = originalName.replace(/[^a-zA-Z0-9.\-_]/g, '');
+  const fileName = `public/${Date.now()}-${safeName}`;
+
+  const { data, error } = await supabase.storage
+    .from('workspace-files')
+    .upload(fileName, file);
+
+  if (error) {
+    console.error("Supabase upload error:", error);
+    return null;
+  }
+
+  const { data: urlData } = supabase.storage
+    .from('workspace-files')
+    .getPublicUrl(fileName);
+
+  return urlData.publicUrl;
+};

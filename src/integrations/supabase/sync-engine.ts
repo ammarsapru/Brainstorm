@@ -12,10 +12,9 @@ interface SyncState {
     error?: string;
 }
 
-type SyncListener = (state: SyncState) => void;
+export type SyncListener = (state: SyncState) => void;
 
-class SyncEngine {
-    private static instance: SyncEngine;
+export class SyncEngine {
     private listeners: Set<SyncListener> = new Set();
 
     private dirtyCards: Map<string, IdeaCard> = new Map();
@@ -38,14 +37,7 @@ class SyncEngine {
         lastSaved: Date.now()
     };
 
-    private constructor() { }
-
-    static getInstance(): SyncEngine {
-        if (!SyncEngine.instance) {
-            SyncEngine.instance = new SyncEngine();
-        }
-        return SyncEngine.instance;
-    }
+    constructor() { }
 
     subscribe(listener: SyncListener) {
         this.listeners.add(listener);
@@ -373,4 +365,3 @@ class SyncEngine {
     }
 }
 
-export const syncEngine = SyncEngine.getInstance();

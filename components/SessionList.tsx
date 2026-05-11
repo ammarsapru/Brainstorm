@@ -3,6 +3,7 @@ import { Plus, Clock, FileText, Trash2, LayoutGrid, Upload, Pencil, MessageSquar
 import { Session } from '../types';
 import { CreationModal } from './CreationModal';
 import { generateSessionIcon, generateSessionImage } from '../services/aiService';
+import { uploadFileToS3 } from '../lib/supabase';
 
 const LoadingOverlay = () => {
   const [status, setStatus] = React.useState('Connecting to secure server...');
@@ -76,16 +77,15 @@ export const SessionList: React.FC<SessionListProps> = ({ sessions, onSelect, on
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && selectedSessionRef.current) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        if (ev.target?.result) {
-          onUpdateSessionImage(selectedSessionRef.current!, ev.target.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
+      const url = await uploadFileToS3(file);
+      if (url) {
+        onUpdateSessionImage(selectedSessionRef.current, url);
+      } else {
+        alert("Failed to upload image. Please try again.");
+      }
     }
     e.target.value = '';
   };

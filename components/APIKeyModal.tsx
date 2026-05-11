@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Settings, X, Save, Key, AlertCircle } from 'lucide-react';
 
 export interface APIKeys {
-  openai: string;
-  anthropic: string;
+  openai?: string;
+  anthropic?: string;
   gemini: string;
 }
 
@@ -81,33 +81,7 @@ export const APIKeyModal: React.FC<APIKeyModalProps> = ({ isOpen, onClose, onSav
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="font-semibold text-gray-700 flex justify-between items-center">
-                <span>OpenAI API Key <span className="text-gray-400 font-normal ml-1">(Optional)</span></span>
-                <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline">Get Key</a>
-              </label>
-              <input 
-                type="password"
-                placeholder="sk-..."
-                value={keys.openai}
-                onChange={e => setKeys(prev => ({ ...prev, openai: e.target.value }))}
-                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-gray-400 font-mono text-xs"
-              />
-            </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="font-semibold text-gray-700 flex justify-between items-center">
-                <span>Anthropic API Key <span className="text-gray-400 font-normal ml-1">(Optional)</span></span>
-                <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline">Get Key</a>
-              </label>
-              <input 
-                type="password"
-                placeholder="sk-ant-..."
-                value={keys.anthropic}
-                onChange={e => setKeys(prev => ({ ...prev, anthropic: e.target.value }))}
-                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-gray-400 font-mono text-xs"
-              />
-            </div>
           </div>
 
           <div className="mt-8">

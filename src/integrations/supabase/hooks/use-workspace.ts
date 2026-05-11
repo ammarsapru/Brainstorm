@@ -1,7 +1,6 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../../lib/supabase';
-import { syncEngine } from '../sync-engine';
+import { SyncEngine } from '../sync-engine';
 import { Session, IdeaCard, Connection, FileSystemItem, ArrowType } from '@/types';
 import { buildFileSystemTree } from '../utils/tree-transformer';
 import { INITIAL_CARDS } from '@/constants';
@@ -21,6 +20,7 @@ interface UseWorkspaceResult {
 }
 
 export function useWorkspace(sessionId: string | null): UseWorkspaceResult {
+    const [syncEngine] = useState(() => new SyncEngine());
     const [session, setSession] = useState<Session | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [syncState, setSyncState] = useState({

@@ -31,6 +31,9 @@ interface SidebarProps {
   onMoveCardToCollection: (cardId: string, collectionId: string) => void;
   onRenameFile?: (id: string, newName: string) => void; // New
   onDeleteFile?: (id: string) => void; // New
+  onInitiateMoveFile?: (fileId: string) => void;
+  onUploadToFolder?: (file: File, folderId: string) => void;
+  onMoveFileSystemItem?: (sourceId: string, targetFolderId: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -59,7 +62,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCreateCollection,
   onMoveCardToCollection,
   onRenameFile,
-  onDeleteFile
+  onDeleteFile,
+  onInitiateMoveFile,
+  onUploadToFolder,
+  onMoveFileSystemItem
 }) => {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
@@ -141,6 +147,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Sidebar Container */}
       <div
         onWheel={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerMove={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
+        onDoubleClick={(e) => e.stopPropagation()}
+        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); }}
         className={`fixed left-4 top-20 bottom-8 w-72 bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border-4 transition-all duration-300 ease-in-out z-50 flex flex-col group ${isOpen ? 'translate-x-0' : '-translate-x-[120%]'
           } ${'border-transparent hover:border-emerald-500 shadow-emerald-500/0 hover:shadow-emerald-500/10'
           }`}
@@ -350,6 +362,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onCreateFolder={onCreateFolder}
                     onRename={onRenameFile}
                     onDelete={onDeleteFile}
+                    onInitiateMoveFile={onInitiateMoveFile}
+                    onUploadToFolder={onUploadToFolder}
+                    onMoveItem={onMoveFileSystemItem}
                   />
                   {fileSystem.length === 0 && (
                     <div className="p-4 text-center text-xs text-gray-400">

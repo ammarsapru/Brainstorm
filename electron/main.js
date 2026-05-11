@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, globalShortcut } from 'electron';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import pkg from 'electron-updater';
@@ -35,7 +35,7 @@ function createWindow() {
   // We can use an env var or a simple try catch. Alternatively, we just check if it's packed.
   if (!app.isPackaged) {
     // Development
-    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.loadURL('http://localhost:3000');
     mainWindow.webContents.openDevTools();
   } else {
     // Production
@@ -51,6 +51,22 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow();
 
+  // Register Shard Global Shortcuts
+  const sendToRenderer = (channel) => {
+    const windows = BrowserWindow.getAllWindows();
+    if (windows.length > 0) {
+      windows[0].webContents.send(channel);
+    }
+  };
+
+  globalShortcut.register('CommandOrControl+Shift+C', () => {
+    sendToRenderer('shard-clip-text');
+  });
+
+  globalShortcut.register('CommandOrControl+Shift+S', () => {
+    sendToRenderer('shard-clip-image');
+  });
+
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -58,4 +74,9 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('will-quit', () => {
+  // Unregister all shortcuts.
+  globalShortcut.unregisterAll();
 });

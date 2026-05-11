@@ -1,6 +1,9 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { IdeaCard, CardStyle } from '../types';
-import { Trash2, GripHorizontal, Sparkles, Bold, Italic, Type, Image as ImageIcon, FileText, Maximize2 } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import { Trash2, GripHorizontal, Sparkles, Bold, Italic, Type, Image as ImageIcon, FileText, Maximize2, Download, AlignLeft, AlignCenter, AlignRight, Heading } from 'lucide-react';
+import { uploadFileToS3 } from '../lib/supabase';
 
 interface CardNodeProps {
   card: IdeaCard;
@@ -30,6 +33,37 @@ const FONTS = [
   { value: 'comic', label: 'Comic Neue' },
 ];
 
+export const usePdfBlobUrl = (dataUrl: string | undefined) => {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (dataUrl && dataUrl.startsWith('data:application/pdf')) {
+      try {
+        const [header, data] = dataUrl.split(',');
+        const mime = header.split(':')[1].split(';')[0];
+        const byteString = atob(data);
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+          ia[i] = byteString.charCodeAt(i);
+        }
+        const blob = new Blob([ab], { type: mime });
+        const url = URL.createObjectURL(blob);
+        setBlobUrl(url);
+
+        return () => URL.revokeObjectURL(url);
+      } catch (e) {
+        console.error("Failed to create blob for PDF", e);
+        setBlobUrl(dataUrl); // Fallback
+      }
+    } else {
+      setBlobUrl(null);
+    }
+  }, [dataUrl]);
+
+  return blobUrl;
+};
+
 export const CardNode = React.memo<CardNodeProps>(({
   card,
   isSelected,
@@ -46,32 +80,70 @@ export const CardNode = React.memo<CardNodeProps>(({
   onImageClick
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const pdfBlobUrl = usePdfBlobUrl(card.image);
+
+  const handleExportPDF = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!cardRef.current) return;
+
+    try {
+      setIsExporting(true);
+      // Brief delay to allow UI to update (e.g. hiding selection rings if we wanted to)
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      const canvas = await html2canvas(cardRef.current, {
+        useCORS: true,
+        scale: 2, // High resolution
+        backgroundColor: card.color || '#ffffff',
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'l' : 'p',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`${card.fileName || 'brainstorm-card'}.pdf`);
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Auto-resize height based on content
   useEffect(() => {
-    if (textareaRef.current) {
-      // Reset height to auto to correctly measure
+    if (textareaRef.current && cardRef.current) {
+      // Reset height to auto to correctly measure text area
       textareaRef.current.style.height = 'auto';
 
-      // Calculate content height
+      // Calculate content height for the textarea itself
       const scrollHeight = textareaRef.current.scrollHeight;
 
       // Calculate ideal width based on text length
       const idealWidth = Math.max(200, Math.min(400, card.text.length * 10));
       const targetWidth = Math.max(card.width, idealWidth);
 
-      // Apply height directly
+      // Apply height directly to textarea
       textareaRef.current.style.height = scrollHeight + 'px';
 
-      // Sync height to parent state
-      if (Math.abs(scrollHeight - card.height) > 5 || Math.abs(targetWidth - card.width) > 5) {
+      // Measure the TRUE full height of the rendered component
+      const fullHeight = cardRef.current.offsetHeight;
+
+      // Sync the true outer dimensions to the parent state so connections calculate correctly.
+      if (Math.abs(fullHeight - card.height) > 5 || Math.abs(targetWidth - card.width) > 5) {
         const timer = setTimeout(() => {
-          onUpdate(card.id, { height: scrollHeight, width: targetWidth });
+          onUpdate(card.id, { height: fullHeight, width: targetWidth });
         }, 100);
         return () => clearTimeout(timer);
       }
     }
-  }, [card.text, card.style, card.height, card.width, isSelected]); // Added isSelected dep
+  }, [card.text, card.style, card.height, card.width, isSelected, card.image, card.fileName]);
 
   const updateStyle = (key: keyof CardStyle, value: any) => {
     onUpdate(card.id, { style: { ...card.style, [key]: value } });
@@ -94,6 +166,7 @@ export const CardNode = React.memo<CardNodeProps>(({
 
   return (
     <div
+      ref={cardRef}
       className={`absolute flex flex-col shadow-sm transition-shadow duration-200 group
         ${isSelected ? 'ring-2 ring-emerald-500 shadow-xl z-20' : 'hover:shadow-md hover:ring-2 hover:ring-[#0055ff] z-10'}
       `}
@@ -101,7 +174,6 @@ export const CardNode = React.memo<CardNodeProps>(({
         left: card.x,
         top: card.y,
         width: card.width,
-        minHeight: card.height,
         backgroundColor: card.color,
         borderRadius: '8px',
         transform: `translate(-50%, -50%)`,
@@ -113,6 +185,8 @@ export const CardNode = React.memo<CardNodeProps>(({
       {/* Connection Selection Overlay */}
       {isConnecting && (
         <div
+          data-html2canvas-ignore="true"
+
           className="absolute inset-0 z-50 rounded-xl cursor-crosshair bg-transparent"
           onClick={(e) => {
             // We want to trigger the card selection logic, basically acting as if we clicked the card body
@@ -128,6 +202,7 @@ export const CardNode = React.memo<CardNodeProps>(({
       {/* Formatting Toolbar - Now attached to the card so it moves instantly */}
       {isSelected && (
         <div
+          data-html2canvas-ignore="true"
           className="absolute flex items-center gap-1 bg-white p-1.5 rounded-lg shadow-xl border border-gray-200 z-50 animate-in fade-in zoom-in duration-200"
           style={{
             top: -50,
@@ -151,6 +226,41 @@ export const CardNode = React.memo<CardNodeProps>(({
           >
             <Italic className="w-4 h-4" />
           </button>
+          
+          <div className="w-px h-4 bg-gray-200 mx-1" />
+
+          <button
+            onClick={() => updateStyle('textAlign', 'left')}
+            className={`p-1.5 rounded hover:bg-gray-100 ${card.style.textAlign === 'left' ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
+            title="Align Left"
+          >
+            <AlignLeft className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => updateStyle('textAlign', 'center')}
+            className={`p-1.5 rounded hover:bg-gray-100 ${card.style.textAlign === 'center' || !card.style.textAlign ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
+            title="Align Center"
+          >
+            <AlignCenter className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => updateStyle('textAlign', 'right')}
+            className={`p-1.5 rounded hover:bg-gray-100 ${card.style.textAlign === 'right' ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
+            title="Align Right"
+          >
+            <AlignRight className="w-4 h-4" />
+          </button>
+
+          <div className="w-px h-4 bg-gray-200 mx-1" />
+
+          <button
+            onClick={() => updateStyle('isHeader', !card.style.isHeader)}
+            className={`p-1.5 rounded hover:bg-gray-100 ${card.style.isHeader ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
+            title="Header"
+          >
+            <Heading className="w-4 h-4" />
+          </button>
+
           <div className="w-px h-4 bg-gray-200 mx-1" />
 
           <select
@@ -200,6 +310,7 @@ export const CardNode = React.memo<CardNodeProps>(({
 
       {/* Drag Handle */}
       <div
+        data-html2canvas-ignore="true"
         onMouseDown={(e) => {
           // Trigger mode switch if provided
           onGripDown?.(e, card.id);
@@ -211,7 +322,7 @@ export const CardNode = React.memo<CardNodeProps>(({
 
       {/* Media Content */}
       {card.image && (
-        <div 
+        <div
           className={`w-full overflow-hidden border-b border-black/5 bg-gray-50 ${card.image.startsWith('data:application/pdf') ? 'flex-1 min-h-[300px]' : 'h-32 cursor-pointer hover:opacity-90 transition-opacity'}`}
           onMouseDown={(e) => {
             if (card.image?.startsWith('data:application/pdf')) {
@@ -226,7 +337,7 @@ export const CardNode = React.memo<CardNodeProps>(({
           }}
         >
           {card.image.startsWith('data:application/pdf') ? (
-            <iframe src={`${card.image}#toolbar=0`} className="w-full h-full border-none bg-white" title="PDF Viewer" />
+            <embed src={pdfBlobUrl || card.image} type="application/pdf" className="w-full h-full border-none bg-white" title="PDF Viewer" />
           ) : (
             <img src={card.image} alt="Card attachment" className="w-full h-full object-cover pointer-events-none" />
           )}
@@ -242,7 +353,9 @@ export const CardNode = React.memo<CardNodeProps>(({
           </div>
           {card.image?.startsWith('data:application/pdf') && (
             <button
+              data-html2canvas-ignore="true"
               onMouseDown={(e) => e.stopPropagation()}
+
               onClick={(e) => {
                 e.stopPropagation();
                 onDoubleClick?.(e, card.id);
@@ -259,26 +372,85 @@ export const CardNode = React.memo<CardNodeProps>(({
 
       {/* Text Content */}
       <div className={`p-3 flex flex-col ${card.image?.startsWith('data:application/pdf') ? 'shrink-0' : 'flex-grow'}`}>
-        <textarea
-          ref={textareaRef}
-          value={card.text}
-          onChange={(e) => onUpdate(card.id, { text: e.target.value })}
-          placeholder={card.image ? "Add caption..." : "Enter idea..."}
-          className={`w-full bg-transparent resize-none outline-none text-gray-800 placeholder-gray-400 text-center overflow-hidden ${getFontFamily(card.style.fontFamily)} ${card.image?.startsWith('data:application/pdf') ? '' : 'flex-grow'}`}
-          style={{
-            minHeight: card.image ? '40px' : '60px',
-            // No maxHeight to allow full visibility of the header text
-            fontWeight: card.style.isBold ? 'bold' : 'normal',
-            fontStyle: card.style.isItalic ? 'italic' : 'normal',
-            fontSize: `${card.style.fontSize}px`
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-        />
+        {isExporting ? (
+          <div
+            className={`w-full bg-transparent text-gray-800 whitespace-pre-wrap break-words ${getFontFamily(card.style.fontFamily)} ${card.image?.startsWith('data:application/pdf') ? '' : 'flex-grow'}`}
+            style={{
+              minHeight: card.image ? '40px' : '60px',
+              fontWeight: card.style.isHeader ? '800' : card.style.isBold ? 'bold' : 'normal',
+              fontStyle: card.style.isItalic ? 'italic' : 'normal',
+              fontSize: card.style.isHeader ? '24px' : `${card.style.fontSize}px`,
+              textAlign: card.style.textAlign || 'center'
+            }}
+          >
+            {card.text || ' '}
+          </div>
+        ) : (
+          <textarea
+            ref={textareaRef}
+            value={card.text}
+            onChange={(e) => onUpdate(card.id, { text: e.target.value })}
+            onPaste={(e) => {
+              const items = e.clipboardData?.items;
+              if (items) {
+                for (let i = 0; i < items.length; i++) {
+                  if (items[i].type.indexOf('image') !== -1) {
+                    const blob = items[i].getAsFile();
+                    if (blob) {
+                      uploadFileToS3(blob).then(url => {
+                        if (url) {
+                          onUpdate(card.id, { image: url });
+                        }
+                      });
+                      e.preventDefault();
+                      e.stopPropagation();
+                      return;
+                    }
+                  }
+                }
+              }
+            }}
+            onDragOver={(e) => {
+              // Needed to allow dropping if Workspace doesn't catch it
+              e.stopPropagation();
+              // Don't preventDefault if we want default text dragging? No, prevent default to allow drop.
+              e.preventDefault();
+            }}
+            onDrop={(e) => {
+              e.stopPropagation();
+              const files = e.dataTransfer.files;
+              if (files && files.length > 0) {
+                const file = files[0];
+                if (file.type.startsWith('image/')) {
+                  uploadFileToS3(file).then(url => {
+                    if (url) {
+                      onUpdate(card.id, { image: url, height: Math.max(card.height, 200) });
+                    }
+                  });
+                  e.preventDefault();
+                }
+              } else {
+                // Allow text drops to act normally
+              }
+            }}
+            placeholder={card.image ? "Add caption..." : "Enter idea..."}
+            className={`w-full bg-transparent resize-none outline-none text-gray-800 placeholder-gray-400 overflow-hidden ${getFontFamily(card.style.fontFamily)} ${card.image?.startsWith('data:application/pdf') ? '' : 'flex-grow'}`}
+            style={{
+              minHeight: card.image ? '40px' : '60px',
+              fontWeight: card.style.isHeader ? '800' : card.style.isBold ? 'bold' : 'normal',
+              fontStyle: card.style.isItalic ? 'italic' : 'normal',
+              fontSize: card.style.isHeader ? '24px' : `${card.style.fontSize}px`,
+              textAlign: card.style.textAlign || 'center'
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+          />
+        )}
       </div>
 
       {/* Action Bar */}
-      <div className={`absolute -bottom-5 left-1/2 -translate-x-1/2 translate-y-full flex gap-2 transition-opacity duration-200 ${isSelected ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+      <div data-html2canvas-ignore="true" className={`absolute -bottom-5 left-1/2 -translate-x-1/2 translate-y-full flex gap-2 transition-opacity duration-200 ${isSelected ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
         <button
+
           onClick={(e) => { e.stopPropagation(); onConnectStart(e, card.id); }}
           className="p-2 bg-white rounded-full shadow-md hover:bg-gray-50 text-black border border-gray-100"
           title="Connect"
@@ -296,6 +468,15 @@ export const CardNode = React.memo<CardNodeProps>(({
           disabled={isProcessingAI}
         >
           <Sparkles className="w-4 h-4" />
+        </button>
+
+        <button
+          onClick={handleExportPDF}
+          className={`p-2 bg-white rounded-full shadow-md hover:bg-green-50 text-green-600 border border-green-100 ${isExporting ? 'animate-pulse' : ''}`}
+          title="Export as PDF"
+          disabled={isExporting}
+        >
+          <Download className="w-4 h-4" />
         </button>
 
         <button

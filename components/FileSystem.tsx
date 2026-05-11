@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Folder, FolderOpen, FileText, ChevronRight, ChevronDown, Plus, FilePlus, MoreHorizontal, Pencil, Trash2, X } from 'lucide-react';
+import { Folder, FolderOpen, FileText, ChevronRight, ChevronDown, Plus, FilePlus, MoreHorizontal, Pencil, Trash2, X, Upload, Move } from 'lucide-react';
 import { FileSystemItem } from '../types';
 
 interface FileSystemProps {
@@ -11,6 +11,9 @@ interface FileSystemProps {
   onCreateFolder: (parentId: string) => void;
   onRename?: (id: string, newName: string) => void;
   onDelete?: (id: string) => void;
+  onMoveItem?: (sourceId: string, targetFolderId: string) => void;
+  onUploadToFolder?: (file: File, folderId: string) => void;
+  onInitiateMoveFile?: (fileId: string) => void;
 }
 
 export const FileSystem: React.FC<FileSystemProps> = ({
@@ -21,12 +24,16 @@ export const FileSystem: React.FC<FileSystemProps> = ({
   onCreateFile,
   onCreateFolder,
   onRename,
-  onDelete
+  onDelete,
+  onMoveItem,
+  onUploadToFolder,
+  onInitiateMoveFile
 }) => {
 
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -79,7 +86,7 @@ export const FileSystem: React.FC<FileSystemProps> = ({
       {items.map(item => (
         <div key={item.id} className="relative">
           <div
-            className={`flex items-center gap-1 py-1 px-2 rounded-md hover:bg-gray-100 cursor-pointer group transition-colors relative`}
+            className={`flex items-center gap-1 py-1 px-2 rounded-md cursor-pointer group transition-colors relative ${dragOverId === item.id ? 'bg-blue-50 ring-2 ring-blue-500 ring-inset' : 'hover:bg-gray-100'}`}
             style={{ paddingLeft: `${level * 12 + 8}px` }}
             onClick={(e) => {
               // If clicking anywhere on the row, we toggle folder or open file
@@ -103,6 +110,33 @@ export const FileSystem: React.FC<FileSystemProps> = ({
             }}
             draggable={item.type === 'file'}
             onDragStart={(e) => handleDragStart(e, item)}
+            onDragOver={(e) => {
+              if (item.type === 'folder') {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragOverId(item.id);
+              }
+            }}
+            onDragLeave={(e) => {
+              if (item.type === 'folder') {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragOverId(null);
+              }
+            }}
+            onDrop={(e) => {
+              if (item.type === 'folder') {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragOverId(null);
+                const draggedId = e.dataTransfer.getData('application/react-dnd-doc-id');
+                if (draggedId && draggedId !== item.id) {
+                  onMoveItem?.(draggedId, item.id);
+                } else if (e.dataTransfer.files?.length > 0) {
+                  onUploadToFolder?.(e.dataTransfer.files[0], item.id);
+                }
+              }
+            }}
           >
             {/* Folder Arrow */}
             {item.type === 'folder' && (
@@ -213,6 +247,37 @@ export const FileSystem: React.FC<FileSystemProps> = ({
                   >
                     <Plus className="w-3 h-3" /> New Folder
                   </button>
+                  <button
+                    onClick={() => { 
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.onchange = (e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0];
+                        if (file && onUploadToFolder) {
+                          onUploadToFolder(file, item.id);
+                        }
+                      };
+                      input.click();
+                      setMenuOpenId(null); 
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <Upload className="w-3 h-3" /> Upload File
+                  </button>
+                </>
+              )}
+              {item.type === 'file' && (
+                <>
+                  <div className="h-px bg-gray-100 my-1"></div>
+                  <button
+                    onClick={() => { 
+                      onInitiateMoveFile?.(item.id); 
+                      setMenuOpenId(null); 
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <Move className="w-3 h-3" /> Move to Folder...
+                  </button>
                 </>
               )}
             </div>
@@ -229,6 +294,9 @@ export const FileSystem: React.FC<FileSystemProps> = ({
               onCreateFolder={onCreateFolder}
               onRename={onRename}
               onDelete={onDelete}
+              onMoveItem={onMoveItem}
+              onUploadToFolder={onUploadToFolder}
+              onInitiateMoveFile={onInitiateMoveFile}
             />
           )}
         </div>

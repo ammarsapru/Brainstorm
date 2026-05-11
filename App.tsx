@@ -3,6 +3,7 @@ import { Workspace } from './components/Workspace';
 import { SessionList } from './components/SessionList';
 import { Header } from './components/Header';
 import { LandingPage } from './components/LandingPage';
+import { ShardsPage } from './components/ShardsPage';
 import { Session, UserProfile } from './types';
 import { INITIAL_CARDS } from './constants';
 import { supabase } from './lib/supabase';
@@ -24,7 +25,7 @@ const DEFAULT_FILE_SYSTEM = [
   }
 ];
 
-type AppView = 'landing' | 'dashboard' | 'workspace';
+type AppView = 'landing' | 'dashboard' | 'workspace' | 'shards';
 
 function App() {
   // No local storage for sessions anymore
@@ -464,7 +465,7 @@ function App() {
           } else {
             handleLogin();
           }
-        }} />
+        }} onGoShards={() => setView('shards')} />
         <AuthModal
           isOpen={isAuthModalOpen}
           onClose={() => setIsAuthModalOpen(false)}
@@ -477,6 +478,7 @@ function App() {
   if (view === 'workspace' && activeSession) {
     return (
       <Workspace
+        key={activeSession.id}
         session={activeSession}
         onSave={handleSaveSession}
         onBack={() => { setActiveSessionId(null); setView('dashboard'); }}
@@ -485,14 +487,23 @@ function App() {
         onLogin={handleLogin}
         onLogout={handleLogout}
         onSwitchAccount={handleSwitchAccount}
+        onGoShards={() => setView('shards')}
       />
     );
   }
 
-  // 3. Dashboard View - Global Header
+  // 3. Shards View
+  if (view === 'shards') {
+    return <ShardsPage onBack={() => {
+      // Go back to workspace if we have an active session, else dashboard
+      setView(activeSessionId ? 'workspace' : 'dashboard');
+    }} />;
+  }
+
+  // 4. Dashboard View - Global Header
   return (
     <>
-      <Header isWorkspace={false} onGoHome={handleGoHome} user={user} onLogin={handleLogin} onLogout={handleLogout} onSwitchAccount={handleSwitchAccount} />
+      <Header isWorkspace={false} onGoHome={handleGoHome} user={user} onLogin={handleLogin} onLogout={handleLogout} onSwitchAccount={handleSwitchAccount} onGoShards={() => setView('shards')} />
       <SessionList
         sessions={sessions}
         isLoading={isLoading}
