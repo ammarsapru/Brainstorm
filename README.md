@@ -1,66 +1,276 @@
-# Landing page visuals below
+<!-- <p align="center">
+  <img src="brainstorm_banner.svg" alt="Brainstorm — Think bigger. Connect better." width="100%"/>
+</p> -->
 
-<img width="1896" height="892" alt="Screenshot 2026-03-12 174802" src="https://github.com/user-attachments/assets/53bb686c-ddb6-4d87-bbb5-b835001ceb4b" />
-<img width="1912" height="889" alt="Screenshot 2026-03-12 174737" src="https://github.com/user-attachments/assets/4c9439d4-8a81-4b14-bf44-11ee222d5dff" />
-<img width="1899" height="458" alt="Screenshot 2026-03-12 174854" src="https://github.com/user-attachments/assets/ffbaabdc-99d0-4f7b-b928-776f752e36bb" />
-<img width="1896" height="559" alt="Screenshot 2026-03-12 174844" src="https://github.com/user-attachments/assets/19db1b61-17bb-4fbe-a538-9023d561b0a8" />
-<img width="1898" height="600" alt="Screenshot 2026-03-12 174820" src="https://github.com/user-attachments/assets/f187894e-3a2b-47ab-bdea-26d3263cd429" />
-<img width="1895" height="555" alt="Screenshot 2026-03-12 174813" src="https://github.com/user-attachments/assets/ccfb3e14-7aba-4ebb-aad9-cd61e7bdb620" />
-
-# application visuals
-<img width="1918" height="890" alt="Screenshot 2026-05-01 222905" src="https://github.com/user-attachments/assets/28eec7cd-f6d6-45ae-a066-bc0fe80aa937" />
-<img width="1912" height="897" alt="Screenshot 2026-05-01 222832" src="https://github.com/user-attachments/assets/7aa054f4-ef8e-4bb9-976e-6d1ee738c06f" />
-<!-- <img width="1909" height="886" alt="Screenshot 2026-05-01 222558" src="https://github.com/user-attachments/assets/8d8e3851-4d0e-4806-b13c-f5d675058a19" /> -->
-<img width="1915" height="683" alt="Screenshot 2026-05-01 222436" src="https://github.com/user-attachments/assets/fc85009f-79ed-4592-a15a-eb90acfc0343" />
-<img width="1885" height="881" alt="Screenshot 2026-05-01 222405 - Copy" src="https://github.com/user-attachments/assets/9d9395b1-ff9c-4789-9260-9426dda6b881" />
-<img width="1912" height="886" alt="Screenshot 2026-05-01 222549" src="https://github.com/user-attachments/assets/52f34357-7da4-46ce-a558-d747f4c23ab3" />
-<img width="1909" height="886" alt="Screenshot 2026-05-01 222558 - Copy" src="https://github.com/user-attachments/assets/e362a8ff-cba8-405c-87a8-254ffd46c589" />
-
-
-# 🧠 Brainstorm
-
-Brainstorm is a visual note-taking and idea-creation application. It allows users to work on multiple ideas simultaneously, providing a spatial canvas to record, visualize, and connect secondary or supporting concepts. 
-
-When working on complex projects or assignments founded on several fundamental concepts, it can be difficult to see how different ideas relate and the significance each holds. Brainstorm solves this by allowing deep customization of cards and their connections, enabling a significant number of visual combinations unique to each user's analytical thinking process.
-
-## 🛠️ Tech Stack & Architecture
-* **Frontend & Styling:** Next.js, TypeScript, JavaScript, Tailwind CSS.
-* **Backend & Auth:** Supabase (PostgreSQL).
-* **Storage:** S3 Buckets for file/image storage.
-* **Vectorization & RAG (Upcoming):** Implementing `pgvector` to allow users to talk to the AI about specific canvas elements or the entire session. This will utilize a temporary session cache vector—ensuring the AI only accesses relevant content to reduce hallucinations without making the pipeline unbearably slow.
-
-## 🗂️ Application Flow & Core Features
-
-The application is structured hierarchically: **Sessions ➔ Folders ➔ Cards**. 
-
-### 🎨 Sessions & The Canvas
-* **Customizable Sessions:** Users can create multiple sessions and personalize them by setting a session logo, background paper, and title.
-* **Pannable Canvas:** Each session opens into a fully traversable canvas. 
-* **Drag-and-Drop Media:** Any file or image can be dropped directly into the canvas to be loaded and viewed.
-* **The Central Idea:** Every canvas starts with a singular 'central idea' card to ground the session.
-
-### 📄 Versatile Cards
-Cards are the main objects of the application and are inherently versatile:
-* **Dynamic Sizing:** In minimized form, only the card's title appears. Double-clicking opens a text document that dynamically increases in size based on its content.
-* **Rich Text Editing:** Supports bold, italic, underline, and bullet/numbered lists.
-* **Visual Connections:** Connect multiple cards to show relationships. The connecting lines can be dashed, utilize arrowheads, and be color-coded to provide visual cues showing the exact correlation between ideas.
-* **The Three-Window Structure:** When a card is in text view, a plus sign allows you to open a second card side-by-side. Combined with the AI chat, this creates a strict three-window (MAX) structure to rapidly work on, improve, and brainstorm ideas without context-switching.
-
-### 🤖 AI Integration & Automation (Bring Your Own Key)
-Currently, AI access is handled temporarily via individual API keys. Users can choose between **Claude, Gemini, and ChatGPT** (all versions supported, though currently optimized for Gemini due to the Agentic Sub-Feature).
-
-* **AI Sub-Feature (Agentic Automation):** Beyond standard chat, the AI serves as a point of automation. Anything the user can perform manually—creating, deleting, or connecting cards—can be executed automatically by commanding the LLM in the chat.
-* **The "Purple AI" Idea Generator:** When you get stuck, select a card and click the purple AI button. The LLM will autonomously generate new cards attached to yours with supporting information. This allows you to progress through a domain of knowledge extremely fast and interpret the relationships between components of a concept instantly.
-* **Asset Generation:** The AI can also be used to generate fictional logos and background banners for the sessions page.
-
-## 🚀 Getting Started
-
-Brainstorm is available to run on your local device or via the web on GitHub Pages (once the repository is optimized). While there is a free tier for a set amount of sessions and cards, moving to local storage allows you to bypass limits using your own API keys.
-
-**Local Setup:**
-1. Clone the repository.
-2. Review `.env.example` and set up your own Supabase instance, S3 bucket, and LLM API keys.
-3. Run `npm install` followed by `npm run dev`.
+<p align="center">
+  <a href="https://ammarsapru.github.io/Brainstorm/"><img src="https://img.shields.io/badge/Web_App-Live-4ade80?style=flat-square&logoColor=white" alt="Web App"/></a>
+  <img src="https://img.shields.io/badge/Desktop-Electron-818cf8?style=flat-square&logo=electron&logoColor=white" alt="Electron"/>
+  <img src="https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js&logoColor=white" alt="Next.js"/>
+  <img src="https://img.shields.io/badge/TypeScript-blue?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"/>
+  <img src="https://img.shields.io/badge/Supabase-S3_Storage-3ecf8e?style=flat-square&logo=supabase&logoColor=white" alt="Supabase"/>
+  <img src="https://img.shields.io/badge/AI-BYOK_(Claude_·_Gemini_·_GPT)-f472b6?style=flat-square" alt="AI"/>
+  <img src="https://img.shields.io/badge/Privacy-On--Device_RAG-22d3ee?style=flat-square" alt="Privacy"/>
+  <img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="MIT"/>
+</p>
 
 ---
-*For a deeper dive into current limits and upcoming additions, visit the Features page on the Brainstorm website.*
+
+## What is Brainstorm?
+
+Most note-taking apps force your ideas into lists. Brainstorm doesn't.
+
+**Brainstorm** is a canvas-based visual thinking and note-taking application where ideas live as interconnected cards on an infinite spatial canvas. You place them, connect them, color them, and expand any card into a full rich-text document all without ever leaving your workspace.
+
+It reimagines the relationship between thought and structure: instead of organizing ideas after the fact, Brainstorm lets you think spatially and visually from the start, mapping out how concepts relate, cause, or build on each other in real time.
+
+An AI assistant with full canvas awareness sits alongside your work. It can read your cards, understand your session context entirely on-device, and perform any action you can — creating cards, connecting ideas, and expanding content — all from a single natural language instruction.
+
+---
+
+## The Problem It Solves
+
+When working across complex projects, assignments, or research involving several interconnected concepts, it becomes genuinely difficult to see how ideas relate and what significance each holds. Traditional note-taking forces a linear structure onto inherently non-linear thinking.
+
+Brainstorm solves this by:
+- Giving every idea its own card with spatial position on an infinite canvas
+- Letting you define the *type* of relationship between any two ideas not just draw a line
+- Expanding any card into a full document without losing your spatial overview
+- Letting AI see exactly what you see and act on the canvas on your behalf
+
+---
+
+## Stack & Architecture
+
+| Layer | Technology |
+|---|---|
+| **Frontend** | Next.js 15, TypeScript, JavaScript, Tailwind CSS |
+| **Backend & Auth** | Supabase (PostgreSQL, Auth) |
+| **File & Image Storage** | S3 Buckets via Supabase |
+| **On-Device AI/RAG** | `@xenova/transformers` (Transformers.js) — runs entirely in-browser |
+| **LLM Integration** |  Gemini API (BYOK) |
+| **Desktop Packaging** | Electron + electron-builder |
+| **Deployment** | GitHub Pages (web) + `.exe` executable (desktop) |
+
+> **Privacy by design:** Session vectorization runs entirely on your device using `@xenova/transformers`. Your canvas content is never sent to an external embedding API or stored in a remote vector database. The AI sees your cards in real time through a local, in-memory vector store that syncs instantly as you edit.
+
+---
+
+## Getting Started
+
+Brainstorm runs in three ways — choose what fits your setup.
+
+### Option 1 — Web App (No Setup)
+
+Visit the live deployment directly in your browser:
+
+**[→ Launch Brainstorm](https://ammarsapru.github.io/Brainstorm/)**
+
+Bring your own API key for  Gemini,  configure it in the AI chat settings panel inside the app.
+
+---
+
+### Option 2 — Docker
+
+```bash
+# Clone the repository
+git clone https://github.com/ammarsapru/Brainstorm.git
+cd Brainstorm
+
+# Copy environment variables
+cp .env.example .env.local
+# Fill in your Supabase URL, Supabase Anon Key, and S3 bucket details
+
+# Run with Docker
+docker compose up
+```
+
+Visit `http://localhost:3000`.
+
+---
+
+### Option 3 — Local Development
+
+```bash
+# Clone the repository
+git clone https://github.com/ammarsapru/Brainstorm.git
+cd Brainstorm
+
+# Install dependencies
+npm install
+
+# Set up environment
+cp .env.example .env.local
+# Add your Supabase URL, Supabase Anon Key, and S3 bucket credentials
+
+# Run the development server
+npm run dev
+```
+
+Visit `http://localhost:3000`.
+
+---
+
+### Option 4 — Desktop Executable (.exe)
+
+Download the latest `.exe` from the [Releases](https://github.com/ammarsapru/Brainstorm/releases) page and run it directly — no terminal required. The desktop app runs the full Brainstorm experience locally via Electron.
+
+To build from source:
+
+```bash
+npm run desktop:build   # builds and packages the .exe
+npm run desktop:publish # builds and publishes to GitHub Releases
+```
+
+---
+
+### Environment Variables
+
+Create a `.env.local` from `.env.example` and fill in the following:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+# S3 storage bucket credentials (configured via Supabase)
+```
+
+LLM API keys (Claude, Gemini, ChatGPT) are entered directly in the app — they are never stored server-side.
+
+---
+
+## Features
+
+### 🎨 Infinite Canvas
+
+<!-- REPLACE with canvas screenshot -->
+> *Screenshot: infinite pannable canvas with connected cards*
+
+The canvas is your workspace. Pan freely in any direction, drag cards anywhere, and never run out of space. Every session opens into its own canvas — organized under a **Sessions → Folders → Cards** hierarchy so your work stays structured without constraining the space itself.
+
+Each session can have a custom title, logo, and background — including AI-generated ones.
+
+---
+
+### 🃏 Cards
+
+<!-- REPLACE with card screenshot showing colors and connections -->
+> *Screenshot: cards with color variation and connection lines*
+
+Cards are the core object of Brainstorm. Every card is:
+
+- **Placeable** — drag anywhere on the canvas
+- **Colorable** — assign any color to visually group or distinguish ideas
+- **Connectable** — draw lines between cards to define relationships
+- **Expandable** — double-click to open as a full rich-text document
+
+**Connection types** — lines between cards are not just visual. You can define the *semantic relationship*:
+
+| Type | Meaning |
+|---|---|
+| **Equal / Continuation** | Ideas at the same level; one extends the other |
+| **Parent → Child** | One idea leads to, causes, or contains the other |
+| **Dashed** | Loose association or tentative relationship |
+
+Lines can also be any color and the parent-child direction can be flipped. This turns your canvas into a true knowledge graph, not just a mood board.
+
+---
+
+### 📝 Card Documents (Deep Dive)
+
+<!-- REPLACE with deep dive / document view screenshot -->
+> *Screenshot: card expanded into full rich-text document*
+
+Double-click any card to expand it into a full-featured document editor — without leaving your canvas view. Each document supports:
+
+- Bold, italic, underline formatting
+- Multiple font options and heading levels
+- Numbered lists and bullet points
+- **Export as PDF** or **Markdown**
+
+The document auto-syncs back to the card on the canvas. Changes in the document are immediately reflected in your spatial view.
+
+---
+
+### 🤖 AI Features
+
+<!-- REPLACE with AI chat screenshot -->
+> *Screenshot: AI chat panel alongside canvas*
+
+Brainstorm's AI runs alongside your canvas as a contextual assistant — it sees what you see.
+
+**On-Device Session RAG**
+Using `@xenova/transformers`, your cards are vectorized locally in the browser the moment they are created or edited. The AI searches this local vector store in real time. No card content ever leaves your device for embedding. No network latency. No privacy tradeoff.
+
+**Agentic Canvas Control**
+The AI can perform any action you can — from a single natural language instruction:
+
+> *"Create cards discussing 4 great leaders from history and connect them all to a center card called '4 Great Leaders'"*
+
+The agent creates the cards, populates the content, and draws the connections — autonomously.
+
+**Purple AI Idea Generator**
+Select any card and click the purple AI button. The AI autonomously generates new connected cards with supporting information, instantly expanding your thinking on that concept.
+
+**Bring Your Own Key**
+Connect Claude, Gemini, or ChatGPT using your own API key — configured directly in the AI chat settings panel. All versions of each provider are supported.
+
+**AI Asset Generation**
+Generate session logos and background banners using AI directly from the sessions page.
+
+---
+
+### 📁 Sidebar
+
+<!-- REPLACE with sidebar screenshot -->
+> *Screenshot: sidebar open showing cards and files*
+
+The sidebar gives you a structured overview of everything in your session:
+
+- Browse all cards, folders, files, and images in one place
+- **Double-click any card** in the sidebar to fly to its position on the canvas
+- Manage session assets without losing your canvas position
+
+---
+
+### 🖼 Files & Images
+
+<!-- REPLACE with file/image drop screenshot -->
+> *Screenshot: image dropped onto canvas*
+
+- **Drag-and-drop** or **copy-paste** any file or image directly onto the canvas
+- Open and view files inline within the application
+- Paste images directly into card document cells
+- All file storage is handled via **S3 buckets through Supabase** — fast, secure, and scalable
+
+---
+
+## Roadmap
+
+- [ ] Collaborative real-time canvas (multi-user sessions)
+- [ ] Mobile companion app
+- [ ] Plugin / extension system
+- [ ] Additional export formats (PNG canvas snapshot, PPTX)
+- [ ] Claude Code integration for in-canvas code execution
+
+---
+
+## Contributing
+
+Contributions are welcome. Clone the repo, create a feature branch, and open a pull request.
+
+```bash
+git checkout -b feature/your-feature-name
+```
+
+---
+
+## License
+
+MIT — free to use, modify, and distribute.
+
+---
+
+<p align="center">
+  Built by <a href="https://github.com/ammarsapru">Ammar Sheikh</a> &nbsp;·&nbsp;
+  <a href="https://ammarsapru.github.io/Brainstorm/">Live App</a> &nbsp;·&nbsp;
+  <a href="https://github.com/ammarsapru/Brainstorm/releases">Download</a>
+</p>
