@@ -119,13 +119,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   // Performance Optimization: Refs for state access in event handlers without triggering re-renders of callbacks
   const cardsRef = useRef(cards);
   const connectionsRef = useRef(connections);
-  
-  useEffect(() => { 
-     cardsRef.current = cards;
-     // Mirror cards to our local vector store for fast Semantic searching
-     embeddingService.syncCards(cards).catch(console.error);
+
+  useEffect(() => {
+    cardsRef.current = cards;
+    // Mirror cards to our local vector store for fast Semantic searching
+    embeddingService.syncCards(cards).catch(console.error);
   }, [cards]);
-  
+
   useEffect(() => { connectionsRef.current = connections; }, [connections]);
 
   // Ensure we have at least one collection and cards are assigned
@@ -404,9 +404,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     };
     cardsRef.current = [...cardsRef.current, newCard]; // Synchronous update for loop operations
     setCards(prev => {
-        // Only append if it's not already in the array (prevents duplicate adds in strict mode or parallel updates)
-        if (prev.find(c => c.id === newCard.id)) return prev;
-        return [...prev, newCard];
+      // Only append if it's not already in the array (prevents duplicate adds in strict mode or parallel updates)
+      if (prev.find(c => c.id === newCard.id)) return prev;
+      return [...prev, newCard];
     });
     setSelectedId(newCard.id);
     setSelectedConnectionId(null);
@@ -758,60 +758,60 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     const responseText = await getChatResponse(truncatedHistory, text, context, apiKeys, modelId);
 
     let finalDisplayMsg = responseText;
-    
+
     try {
-        const jsonMatch = responseText.match(/\{[\s\S]*"actions"[\s\S]*\}/);
-        if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            if (parsed.actions && Array.isArray(parsed.actions)) {
-                // Remove the JSON string from display message
-                finalDisplayMsg = responseText.replace(jsonMatch[0], '').trim();
-                
-                parsed.actions.forEach((action: any) => {
-                    if (action.type === 'create_cards' && Array.isArray(action.cards)) {
-                        action.cards.forEach((cardData: any) => {
-                             handleAddCard(window.innerWidth / 2, window.innerHeight / 2, { 
-                                text: cardData.text || 'New Idea', 
-                                content: cardData.content,
-                                color: cardData.color || '#ffffff'
-                             });
-                        });
-                    }
-                    if (action.type === 'update_cards' && Array.isArray(action.updates)) {
-                        action.updates.forEach((updateData: any) => {
-                             if (updateData.id) handleUpdateCard(updateData.id, updateData);
-                        });
-                    }
-                    if (action.type === 'delete_cards' && Array.isArray(action.ids)) {
-                        action.ids.forEach((id: string) => handleDeleteCard(id));
-                    }
-                    if (action.type === 'connect_cards' && Array.isArray(action.connections)) {
-                        action.connections.forEach((conn: any) => {
-                             if (conn.fromId && conn.toId) {
-                                 setConnections(prev => [...prev, {
-                                     id: generateId(),
-                                     fromId: conn.fromId,
-                                     toId: conn.toId,
-                                     style: DEFAULT_CONNECTION_STYLE,
-                                     arrowStart: DEFAULT_ARROW_START,
-                                     arrowEnd: DEFAULT_ARROW_END,
-                                     relationType: DEFAULT_RELATION_TYPE
-                                 }]);
-                             }
-                        });
-                    }
+      const jsonMatch = responseText.match(/\{[\s\S]*"actions"[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.actions && Array.isArray(parsed.actions)) {
+          // Remove the JSON string from display message
+          finalDisplayMsg = responseText.replace(jsonMatch[0], '').trim();
+
+          parsed.actions.forEach((action: any) => {
+            if (action.type === 'create_cards' && Array.isArray(action.cards)) {
+              action.cards.forEach((cardData: any) => {
+                handleAddCard(window.innerWidth / 2, window.innerHeight / 2, {
+                  text: cardData.text || 'New Idea',
+                  content: cardData.content,
+                  color: cardData.color || '#ffffff'
                 });
+              });
             }
+            if (action.type === 'update_cards' && Array.isArray(action.updates)) {
+              action.updates.forEach((updateData: any) => {
+                if (updateData.id) handleUpdateCard(updateData.id, updateData);
+              });
+            }
+            if (action.type === 'delete_cards' && Array.isArray(action.ids)) {
+              action.ids.forEach((id: string) => handleDeleteCard(id));
+            }
+            if (action.type === 'connect_cards' && Array.isArray(action.connections)) {
+              action.connections.forEach((conn: any) => {
+                if (conn.fromId && conn.toId) {
+                  setConnections(prev => [...prev, {
+                    id: generateId(),
+                    fromId: conn.fromId,
+                    toId: conn.toId,
+                    style: DEFAULT_CONNECTION_STYLE,
+                    arrowStart: DEFAULT_ARROW_START,
+                    arrowEnd: DEFAULT_ARROW_END,
+                    relationType: DEFAULT_RELATION_TYPE
+                  }]);
+                }
+              });
+            }
+          });
         }
-    } catch(e) { 
-        console.error("Failed to parse JSON actions payload from AI", e); 
+      }
+    } catch (e) {
+      console.error("Failed to parse JSON actions payload from AI", e);
     }
-    
+
     if (!finalDisplayMsg) finalDisplayMsg = "I've successfully updated your canvas!";
-    
+
     setIsChatProcessing(false);
     setChatHistory(prev => [...prev, {
-       id: generateId(), role: 'model', text: finalDisplayMsg, timestamp: Date.now(), model: modelId
+      id: generateId(), role: 'model', text: finalDisplayMsg, timestamp: Date.now(), model: modelId
     }]);
 
   }, [chatHistory, apiKeys, handleAddCard, handleUpdateCard, handleDeleteCard]);
@@ -1333,7 +1333,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   // --- Shards IPC Integration ---
   useEffect(() => {
     if (!(window as any).require) return;
-    
+
     try {
       const { ipcRenderer } = (window as any).require('electron');
 
@@ -1347,7 +1347,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
             if (text) {
               handleAddCard(window.innerWidth / 2, window.innerHeight / 2, { text });
             }
-          } catch(e) { console.error("Text clipper error", e); }
+          } catch (e) { console.error("Text clipper error", e); }
         }
       };
 
@@ -1368,7 +1368,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
                 }
               }
             }
-          } catch(e) { console.error("Image clipper error", e); }
+          } catch (e) { console.error("Image clipper error", e); }
         }
       };
 
@@ -1379,7 +1379,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
         ipcRenderer.removeListener('shard-clip-text', handleTextClipper);
         ipcRenderer.removeListener('shard-clip-image', handleImageClipper);
       };
-    } catch(e) {}
+    } catch (e) { }
   }, [handleAddCard, handleUploadImage]);
 
   return (

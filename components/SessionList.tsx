@@ -7,12 +7,12 @@ import { uploadFileToS3 } from '../lib/supabase';
 
 const LoadingOverlay = () => {
   const [status, setStatus] = React.useState('Connecting to secure server...');
-  
+
   React.useEffect(() => {
     const statuses = [
-      'Connecting to secure server...', 
-      'Verifying credentials...', 
-      'Retrieving sessions...', 
+      'Connecting to secure server...',
+      'Verifying credentials...',
+      'Retrieving sessions...',
       'Loading canvas data...'
     ];
     let i = 0;
@@ -29,7 +29,7 @@ const LoadingOverlay = () => {
         {/* Animated Ring */}
         <div className="absolute w-24 h-24 border-2 border-white/10 border-t-white rounded-full animate-spin"></div>
         <div className="absolute w-32 h-32 border border-white/5 border-b-white/30 rounded-full animate-[spin_3s_linear_reverse_infinite]"></div>
-        
+
         {/* Brainstorm Logo */}
         <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-black font-bold text-4xl shadow-[0_0_40px_rgba(255,255,255,0.15)] z-10 transition-transform duration-1000">
           B

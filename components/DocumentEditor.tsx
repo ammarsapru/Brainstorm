@@ -118,19 +118,19 @@ const ContentBlock = React.memo(({
               if (dataUrl) {
                 let range;
                 if (document.caretRangeFromPoint) {
-                    range = document.caretRangeFromPoint(e.clientX, e.clientY);
+                  range = document.caretRangeFromPoint(e.clientX, e.clientY);
                 } else if ((document as any).caretPositionFromPoint) {
-                    const pos = (document as any).caretPositionFromPoint(e.clientX, e.clientY);
-                    if (pos) {
-                       range = document.createRange();
-                       range.setStart(pos.offsetNode, pos.offset);
-                       range.collapse(true);
-                    }
+                  const pos = (document as any).caretPositionFromPoint(e.clientX, e.clientY);
+                  if (pos) {
+                    range = document.createRange();
+                    range.setStart(pos.offsetNode, pos.offset);
+                    range.collapse(true);
+                  }
                 }
                 if (range) {
-                    const sel = window.getSelection();
-                    sel?.removeAllRanges();
-                    sel?.addRange(range);
+                  const sel = window.getSelection();
+                  sel?.removeAllRanges();
+                  sel?.addRange(range);
                 }
                 const imgNode = `<img src="${dataUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px; margin-bottom: 8px;" alt="Dropped image" />`;
                 document.execCommand('insertHTML', false, imgNode);
@@ -202,7 +202,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [draggedBlockIndex, setDraggedBlockIndex] = useState<number | null>(null);
   const [dropTarget, setDropTarget] = useState<{ index: number, position: 'top' | 'bottom' } | null>(null);
-  
+
   const documentRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -222,7 +222,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
       });
 
       const imgData = canvas.toDataURL('image/png');
-      
+
       const pdf = new jsPDF({
         orientation: 'p',
         unit: 'px',
@@ -240,13 +240,13 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
 
   const handleExportMarkdown = (e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     let mdContent = `# ${title || 'Document'}\n\n`;
-    
+
     blocks.forEach((block, index) => {
       // Basic html to text conversion for simple block.text
       const text = block.text.replace(/<br>/g, '\n').replace(/<[^>]+>/g, '');
-      
+
       if (block.type === 'code') {
         mdContent += `\`\`\`${block.language || ''}\n${block.text}\n\`\`\`\n\n`;
       } else if (block.type === 'table' && block.tableData) {
@@ -263,19 +263,19 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
         }
       } else if (block.style.listType === 'number') {
         mdContent += `1. ${text}\n`; // Markdown handles auto-incrementing
-        if (index === blocks.length - 1 || blocks[index+1].style.listType !== 'number') {
+        if (index === blocks.length - 1 || blocks[index + 1].style.listType !== 'number') {
           mdContent += '\n';
         }
       } else if (block.style.listType === 'bullet') {
         mdContent += `- ${text}\n`;
-        if (index === blocks.length - 1 || blocks[index+1].style.listType !== 'bullet') {
-           mdContent += '\n';
+        if (index === blocks.length - 1 || blocks[index + 1].style.listType !== 'bullet') {
+          mdContent += '\n';
         }
       } else {
         if (block.style.bold) mdContent += `**${text}**`;
         else if (block.style.italic) mdContent += `*${text}*`;
         else mdContent += text;
-        
+
         mdContent += '\n\n';
       }
     });
@@ -601,26 +601,26 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
       onDragOver={(e) => {
-         e.stopPropagation();
-         e.preventDefault();
+        e.stopPropagation();
+        e.preventDefault();
       }}
       onDrop={(e) => {
-         e.stopPropagation();
-         e.preventDefault();
-         const files = e.dataTransfer.files;
-         if (files && files.length > 0) {
-            const file = files[0];
-            if (file.type.startsWith('image/')) {
-               uploadFileToS3(file).then(dataUrl => {
-                 if (dataUrl) {
-                    const imgNode = `<img src="${dataUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px; margin-bottom: 8px;" alt="Dropped image" />`;
-                    const newBlock = { id: generateId(), text: imgNode, style: { ...DEFAULT_BLOCK_STYLE } };
-                    setBlocks(prev => [...prev, newBlock]);
-                    setIsSaved(false);
-                 }
-               });
-            }
-         }
+        e.stopPropagation();
+        e.preventDefault();
+        const files = e.dataTransfer.files;
+        if (files && files.length > 0) {
+          const file = files[0];
+          if (file.type.startsWith('image/')) {
+            uploadFileToS3(file).then(dataUrl => {
+              if (dataUrl) {
+                const imgNode = `<img src="${dataUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px; margin-bottom: 8px;" alt="Dropped image" />`;
+                const newBlock = { id: generateId(), text: imgNode, style: { ...DEFAULT_BLOCK_STYLE } };
+                setBlocks(prev => [...prev, newBlock]);
+                setIsSaved(false);
+              }
+            });
+          }
+        }
       }}
     >
       <div className="border-b border-gray-100 flex flex-col bg-white shrink-0 z-10 shadow-sm">
@@ -663,17 +663,17 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
               </button>
             )}
             <button
-               onClick={handleExportMarkdown}
-               className={`p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors flex items-center justify-center`}
-               title="Export MD"
+              onClick={handleExportMarkdown}
+              className={`p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors flex items-center justify-center`}
+              title="Export MD"
             >
               <FileCode2 className="w-5 h-5 text-blue-500" />
             </button>
             <button
-               onClick={handleExportPDF}
-               className={`p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors ${isExporting ? 'animate-pulse text-green-500' : ''}`}
-               title="Export PDF"
-               disabled={isExporting}
+              onClick={handleExportPDF}
+              className={`p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors ${isExporting ? 'animate-pulse text-green-500' : ''}`}
+              title="Export PDF"
+              disabled={isExporting}
             >
               <Download className="w-5 h-5 text-green-600" />
             </button>
@@ -817,8 +817,8 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
                           <select
                             value={block.language || 'javascript'}
                             onChange={(e) => {
-                               setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, language: e.target.value } : b));
-                               setIsSaved(false);
+                              setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, language: e.target.value } : b));
+                              setIsSaved(false);
                             }}
                             className="text-xs bg-transparent text-gray-400 outline-none border-none cursor-pointer hover:text-white transition-colors text-right"
                           >
@@ -837,13 +837,13 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
                             setIsSaved(false);
                           }}
                           highlight={code => {
-                              try {
-                                  let lang = block.language || 'javascript';
-                                  if (!Prism.languages[lang]) lang = 'javascript';
-                                  return Prism.highlight(code, Prism.languages[lang], lang);
-                              } catch(e) {
-                                  return code;
-                              }
+                            try {
+                              let lang = block.language || 'javascript';
+                              if (!Prism.languages[lang]) lang = 'javascript';
+                              return Prism.highlight(code, Prism.languages[lang], lang);
+                            } catch (e) {
+                              return code;
+                            }
                           }}
                           padding={16}
                           style={{
@@ -860,70 +860,70 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
                     ) : block.type === 'table' ? (
                       <div className="flex-1 mt-2 mb-2 w-full overflow-x-auto">
                         <div className="flex items-center gap-2 mb-2" onMouseDown={(e) => e.stopPropagation()}>
-                           <button onClick={() => {
-                              const td = block.tableData ? [...block.tableData] : [['',''],['','']];
-                              if (td.length < 6) {
-                                 td.push(new Array(td[0].length).fill(''));
-                                 setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, tableData: td } : b));
-                                 setIsSaved(false);
-                              }
-                           }} disabled={(block.tableData?.length || 2) >= 6} className="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 disabled:opacity-50 transition-all font-medium border border-gray-200 text-gray-600">+ Row</button>
-                           <button onClick={() => {
-                              const td = block.tableData ? [...block.tableData] : [['',''],['','']];
-                              if (td[0].length < 6) {
-                                 const newTd = td.map(row => [...row, '']);
-                                 setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, tableData: newTd } : b));
-                                 setIsSaved(false);
-                              }
-                           }} disabled={(block.tableData?.[0]?.length || 2) >= 6} className="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 disabled:opacity-50 transition-all font-medium border border-gray-200 text-gray-600">+ Col</button>
+                          <button onClick={() => {
+                            const td = block.tableData ? [...block.tableData] : [['', ''], ['', '']];
+                            if (td.length < 6) {
+                              td.push(new Array(td[0].length).fill(''));
+                              setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, tableData: td } : b));
+                              setIsSaved(false);
+                            }
+                          }} disabled={(block.tableData?.length || 2) >= 6} className="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 disabled:opacity-50 transition-all font-medium border border-gray-200 text-gray-600">+ Row</button>
+                          <button onClick={() => {
+                            const td = block.tableData ? [...block.tableData] : [['', ''], ['', '']];
+                            if (td[0].length < 6) {
+                              const newTd = td.map(row => [...row, '']);
+                              setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, tableData: newTd } : b));
+                              setIsSaved(false);
+                            }
+                          }} disabled={(block.tableData?.[0]?.length || 2) >= 6} className="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 disabled:opacity-50 transition-all font-medium border border-gray-200 text-gray-600">+ Col</button>
                         </div>
                         <table className="w-full border-collapse isolate rounded-lg ring-1 ring-gray-200" style={{ tableLayout: 'fixed' }}>
                           <tbody>
-                             {(block.tableData || [['',''],['','']]).map((row, rIndex) => (
-                               <tr key={rIndex} className={rIndex === 0 ? 'bg-gray-50/80 font-medium' : ''}>
-                                  {row.map((cell, cIndex) => (
-                                    <td key={cIndex} className="p-0 border border-gray-200 relative group/cell min-w-[100px]">
-                                      <textarea
-                                         value={cell}
-                                         onChange={(e) => {
-                                            const copy = (block.tableData || [['',''],['','']]).map(r => [...r]);
-                                            copy[rIndex][cIndex] = e.target.value;
-                                            setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, tableData: copy } : b));
-                                            setIsSaved(false);
-                                            e.target.style.height = 'auto';
-                                            e.target.style.height = e.target.scrollHeight + 'px';
-                                         }}
-                                         placeholder={rIndex === 0 ? "Header..." : "Cell..."}
-                                         className={`w-full h-full min-h-[40px] p-2 bg-transparent outline-none resize-none overflow-hidden ${rIndex === 0 ? 'font-semibold text-gray-800' : 'text-gray-600'}`}
-                                         rows={1}
-                                         onFocus={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; memoizedSetActiveBlockId(block.id); }}
-                                         onMouseDown={(e) => e.stopPropagation()}
-                                      />
-                                      {/* column delete button on header row hover */}
-                                      {rIndex === 0 && row.length > 2 && (
-                                         <button tabIndex={-1} onClick={() => {
-                                            const newTd = (block.tableData || [['',''],['','']]).map(r => { const cr = [...r]; cr.splice(cIndex, 1); return cr; });
-                                            setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, tableData: newTd } : b));
-                                            setIsSaved(false);
-                                         }} className="absolute top-0 right-0 -translate-y-full opacity-0 group-hover/cell:opacity-100 p-0.5 px-1.5 bg-red-100 text-red-600 rounded-t-md border border-b-0 border-red-200 z-10 hover:bg-red-200 text-xs shadow-sm">
-                                            <Trash2 className="w-3 h-3" />
-                                         </button>
-                                      )}
-                                      {/* row delete button on first cell hover */}
-                                      {cIndex === 0 && (block.tableData || [[],[]]).length > 2 && (
-                                         <button tabIndex={-1} onClick={() => {
-                                            const newTd = [...(block.tableData || [['',''],['','']])];
-                                            newTd.splice(rIndex, 1);
-                                            setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, tableData: newTd } : b));
-                                            setIsSaved(false);
-                                         }} className="absolute left-0 top-0 -translate-x-full opacity-0 group-hover/cell:opacity-100 p-0.5 px-1.5 bg-red-100 text-red-600 rounded-l-md border border-r-0 border-red-200 z-10 hover:bg-red-200 text-xs shadow-sm flex items-center justify-center min-h-[40px]">
-                                            <Trash2 className="w-3 h-3" />
-                                         </button>
-                                      )}
-                                    </td>
-                                  ))}
-                               </tr>
-                             ))}
+                            {(block.tableData || [['', ''], ['', '']]).map((row, rIndex) => (
+                              <tr key={rIndex} className={rIndex === 0 ? 'bg-gray-50/80 font-medium' : ''}>
+                                {row.map((cell, cIndex) => (
+                                  <td key={cIndex} className="p-0 border border-gray-200 relative group/cell min-w-[100px]">
+                                    <textarea
+                                      value={cell}
+                                      onChange={(e) => {
+                                        const copy = (block.tableData || [['', ''], ['', '']]).map(r => [...r]);
+                                        copy[rIndex][cIndex] = e.target.value;
+                                        setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, tableData: copy } : b));
+                                        setIsSaved(false);
+                                        e.target.style.height = 'auto';
+                                        e.target.style.height = e.target.scrollHeight + 'px';
+                                      }}
+                                      placeholder={rIndex === 0 ? "Header..." : "Cell..."}
+                                      className={`w-full h-full min-h-[40px] p-2 bg-transparent outline-none resize-none overflow-hidden ${rIndex === 0 ? 'font-semibold text-gray-800' : 'text-gray-600'}`}
+                                      rows={1}
+                                      onFocus={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; memoizedSetActiveBlockId(block.id); }}
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                    />
+                                    {/* column delete button on header row hover */}
+                                    {rIndex === 0 && row.length > 2 && (
+                                      <button tabIndex={-1} onClick={() => {
+                                        const newTd = (block.tableData || [['', ''], ['', '']]).map(r => { const cr = [...r]; cr.splice(cIndex, 1); return cr; });
+                                        setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, tableData: newTd } : b));
+                                        setIsSaved(false);
+                                      }} className="absolute top-0 right-0 -translate-y-full opacity-0 group-hover/cell:opacity-100 p-0.5 px-1.5 bg-red-100 text-red-600 rounded-t-md border border-b-0 border-red-200 z-10 hover:bg-red-200 text-xs shadow-sm">
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                    {/* row delete button on first cell hover */}
+                                    {cIndex === 0 && (block.tableData || [[], []]).length > 2 && (
+                                      <button tabIndex={-1} onClick={() => {
+                                        const newTd = [...(block.tableData || [['', ''], ['', '']])];
+                                        newTd.splice(rIndex, 1);
+                                        setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, tableData: newTd } : b));
+                                        setIsSaved(false);
+                                      }} className="absolute left-0 top-0 -translate-x-full opacity-0 group-hover/cell:opacity-100 p-0.5 px-1.5 bg-red-100 text-red-600 rounded-l-md border border-r-0 border-red-200 z-10 hover:bg-red-200 text-xs shadow-sm flex items-center justify-center min-h-[40px]">
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
                           </tbody>
                         </table>
                       </div>
@@ -931,21 +931,21 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
                       <ContentBlock
                         id={block.id}
                         html={block.text}
-                      className={`flex-1 bg-transparent outline-none border-none text-gray-800 leading-relaxed ${getFontFamilyClass(block.style.fontFamily)}`}
-                      style={{
-                        fontSize: `${block.style.fontSize}px`,
-                        fontWeight: block.style.bold ? 'bold' : 'normal',
-                        fontStyle: block.style.italic ? 'italic' : 'normal',
-                        textDecoration: block.style.underline ? 'underline' : 'none',
-                        minHeight: '1.625em'
-                      }}
-                      onChange={handleBlockChange}
-                      onKeyDown={handleKeyDown}
-                      onFocus={memoizedSetActiveBlockId}
-                    />
-                  )}
+                        className={`flex-1 bg-transparent outline-none border-none text-gray-800 leading-relaxed ${getFontFamilyClass(block.style.fontFamily)}`}
+                        style={{
+                          fontSize: `${block.style.fontSize}px`,
+                          fontWeight: block.style.bold ? 'bold' : 'normal',
+                          fontStyle: block.style.italic ? 'italic' : 'normal',
+                          textDecoration: block.style.underline ? 'underline' : 'none',
+                          minHeight: '1.625em'
+                        }}
+                        onChange={handleBlockChange}
+                        onKeyDown={handleKeyDown}
+                        onFocus={memoizedSetActiveBlockId}
+                      />
+                    )}
 
-                  {blocks.length > 1 && (
+                    {blocks.length > 1 && (
                       <button
                         onClick={() => {
                           const newBlocks = blocks.filter(b => b.id !== block.id);

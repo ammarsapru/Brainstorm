@@ -100,13 +100,13 @@ ${boardContext}`;
 
   const executeAttempt = async (currentMessage: string, depth: number = 0): Promise<string> => {
     if (depth > 3) return "I've reached my maximum thinking depth.";
-    
+
     let resultText = "";
-    
+
     try {
       if (modelId === 'gpt-4o') {
         if (!apiKeys.openai) return "Please add your OpenAI API Key in Settings (⚙️).";
-        
+
         const messages = [
           { role: 'system', content: sysPrompt },
           ...history.map(msg => ({
@@ -130,7 +130,7 @@ ${boardContext}`;
         const data = await res.json();
         if (data.error) throw new Error(data.error.message);
         resultText = data.choices?.[0]?.message?.content || "No response.";
-      } 
+      }
       else if (modelId === 'claude-3-5-sonnet') {
         if (!apiKeys.anthropic) return "Please add your Anthropic API Key in Settings (⚙️).";
 
@@ -170,7 +170,7 @@ ${boardContext}`;
         if (!targetApiKey) {
           return "Please add your Google Gemini API Key in Settings (⚙️).";
         }
-        
+
         const activeAi = new GoogleGenAI({ apiKey: targetApiKey });
 
         const chatHistory = history.map(msg => ({
@@ -189,45 +189,45 @@ ${boardContext}`;
         const result = await chat.sendMessage({ message: currentMessage });
         resultText = result.text || "I didn't catch that.";
       }
-      
+
       // RLM Loop Interception Logic
       // Check if the AI returned a JSON with a "search_cards" action
       try {
-         // A naive parse to see if there's a JSON block
-         const jsonMatch = resultText.match(/\{[\s\S]*"actions"[\s\S]*\}/);
-         if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            if (parsed.actions && Array.isArray(parsed.actions)) {
-                const searchAction = parsed.actions.find((a: any) => a.type === 'search_cards');
-                if (searchAction && searchAction.query) {
-                    // Execute local RAG
-                    const results = await embeddingService.searchSimilar(searchAction.query);
-                    const contextString = results.map(r => `[ID: ${r.card.id}, Text: ${r.card.text}, Content Snippet: ${(r.card.content || '').substring(0, 100)}, Color: ${r.card.color}]`).join('\\n');
-                    
-                    const internalSystemResponse = `(System): Search results for "${searchAction.query}":\n${contextString}\nPlease proceed with the user's original request using this new context.`;
-                    
-                    // Recursive RLM call
-                    return await executeAttempt(internalSystemResponse, depth + 1);
-                }
+        // A naive parse to see if there's a JSON block
+        const jsonMatch = resultText.match(/\{[\s\S]*"actions"[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.actions && Array.isArray(parsed.actions)) {
+            const searchAction = parsed.actions.find((a: any) => a.type === 'search_cards');
+            if (searchAction && searchAction.query) {
+              // Execute local RAG
+              const results = await embeddingService.searchSimilar(searchAction.query);
+              const contextString = results.map(r => `[ID: ${r.card.id}, Text: ${r.card.text}, Content Snippet: ${(r.card.content || '').substring(0, 100)}, Color: ${r.card.color}]`).join('\\n');
 
-                const readAction = parsed.actions.find((a: any) => a.type === 'read_card');
-                if (readAction && readAction.id) {
-                    const cardData = await embeddingService.getCardById(readAction.id);
-                    if (cardData) {
-                        const internalSystemResponse = `(System): Full content for card ${readAction.id}:\nTitle: ${cardData.text}\nColor: ${cardData.color}\nContent: ${cardData.content || 'None'}\nPlease proceed with the user's original request using this new context.`;
-                        return await executeAttempt(internalSystemResponse, depth + 1);
-                    } else {
-                        const internalSystemResponse = `(System): Card with ID ${readAction.id} not found.`;
-                        return await executeAttempt(internalSystemResponse, depth + 1);
-                    }
-                }
+              const internalSystemResponse = `(System): Search results for "${searchAction.query}":\n${contextString}\nPlease proceed with the user's original request using this new context.`;
+
+              // Recursive RLM call
+              return await executeAttempt(internalSystemResponse, depth + 1);
             }
-         }
-      } catch(e) {
-          // If JSON parse fails or no actions found, we just return the result to the UI
-          console.warn("No RLM JSON intercepted, passing text to UI");
+
+            const readAction = parsed.actions.find((a: any) => a.type === 'read_card');
+            if (readAction && readAction.id) {
+              const cardData = await embeddingService.getCardById(readAction.id);
+              if (cardData) {
+                const internalSystemResponse = `(System): Full content for card ${readAction.id}:\nTitle: ${cardData.text}\nColor: ${cardData.color}\nContent: ${cardData.content || 'None'}\nPlease proceed with the user's original request using this new context.`;
+                return await executeAttempt(internalSystemResponse, depth + 1);
+              } else {
+                const internalSystemResponse = `(System): Card with ID ${readAction.id} not found.`;
+                return await executeAttempt(internalSystemResponse, depth + 1);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // If JSON parse fails or no actions found, we just return the result to the UI
+        console.warn("No RLM JSON intercepted, passing text to UI");
       }
-      
+
       return resultText;
 
     } catch (error: any) {

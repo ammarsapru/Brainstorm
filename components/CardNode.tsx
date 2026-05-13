@@ -226,7 +226,7 @@ export const CardNode = React.memo<CardNodeProps>(({
           >
             <Italic className="w-4 h-4" />
           </button>
-          
+
           <div className="w-px h-4 bg-gray-200 mx-1" />
 
           <button
