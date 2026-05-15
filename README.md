@@ -140,9 +140,10 @@ LLM API keys (Claude, Gemini, ChatGPT) are entered directly in the app — they 
 ## Features
 
 ### 🎨 Infinite Canvas
+<img width="1327" height="885" alt="image" src="https://github.com/user-attachments/assets/25becedd-5b94-459e-8ffb-2416c36ff9a5" />
 
-<!-- REPLACE with canvas screenshot -->
-> *Screenshot: infinite pannable canvas with connected cards*
+
+> 
 
 The canvas is your workspace. Pan freely in any direction, drag cards anywhere, and never run out of space. Every session opens into its own canvas — organized under a **Sessions → Folders → Cards** hierarchy so your work stays structured without constraining the space itself.
 
@@ -152,8 +153,8 @@ Each session can have a custom title, logo, and background — including AI-gene
 
 ### 🃏 Cards
 
-<!-- REPLACE with card screenshot showing colors and connections -->
-> *Screenshot: cards with color variation and connection lines*
+> 
+<img width="1904" height="908" alt="image" src="https://github.com/user-attachments/assets/d6bbe58a-761f-4c20-9fc2-a870dc5c706f" />
 
 Cards are the core object of Brainstorm. Every card is:
 
@@ -176,8 +177,9 @@ Lines can also be any color and the parent-child direction can be flipped. This 
 
 ### 📝 Card Documents (Deep Dive)
 
-<!-- REPLACE with deep dive / document view screenshot -->
-> *Screenshot: card expanded into full rich-text document*
+<img width="1912" height="886" alt="Screenshot 2026-05-01 222549 - Copy" src="https://github.com/user-attachments/assets/a468d799-8213-4ff7-9705-67e936b04e23" />
+
+> 
 
 Double-click any card to expand it into a full-featured document editor — without leaving your canvas view. Each document supports:
 
@@ -192,8 +194,9 @@ The document auto-syncs back to the card on the canvas. Changes in the document 
 
 ### 🤖 AI Features
 
-<!-- REPLACE with AI chat screenshot -->
-> *Screenshot: AI chat panel alongside canvas*
+>
+> <img width="1884" height="930" alt="image" src="https://github.com/user-attachments/assets/e5a07786-4664-47df-9bfc-c4aaa2081693" />
+
 
 Brainstorm's AI runs alongside your canvas as a contextual assistant — it sees what you see.
 
@@ -220,7 +223,6 @@ Generate session logos and background banners using AI directly from the session
 
 ### 📁 Sidebar
 
-<!-- REPLACE with sidebar screenshot -->
 > *Screenshot: sidebar open showing cards and files*
 
 The sidebar gives you a structured overview of everything in your session:
@@ -233,7 +235,6 @@ The sidebar gives you a structured overview of everything in your session:
 
 ### 🖼 Files & Images
 
-<!-- REPLACE with file/image drop screenshot -->
 > *Screenshot: image dropped onto canvas*
 
 - **Drag-and-drop** or **copy-paste** any file or image directly onto the canvas
