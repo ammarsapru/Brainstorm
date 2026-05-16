@@ -26,6 +26,14 @@ It reimagines the relationship between thought and structure: instead of organiz
 An AI assistant with full canvas awareness sits alongside your work. It can read your cards, understand your session context entirely on-device, and perform any action you can — creating cards, connecting ideas, and expanding content  all from a single natural language instruction.
 
 ---
+## Landing Page Visuals:
+<img width="1896" height="892" alt="Screenshot 2026-03-12 174802" src="https://github.com/user-attachments/assets/f0db8fef-a925-409e-b926-7a1820a52b94" />
+<img width="1899" height="458" alt="Screenshot 2026-03-12 174854" src="https://github.com/user-attachments/assets/5d702372-aca8-4929-9b38-a149a0798876" />
+<img width="1896" height="559" alt="Screenshot 2026-03-12 174844" src="https://github.com/user-attachments/assets/22700eaa-f92a-4720-b34c-6445ddde5d31" />
+<img width="1899" height="835" alt="Screenshot 2026-03-12 174834" src="https://github.com/user-attachments/assets/90136a08-9a36-4efd-be3d-5c483f1caa38" />
+<img width="1898" height="600" alt="Screenshot 2026-03-12 174820" src="https://github.com/user-attachments/assets/1af0ce76-616d-4a4d-bc52-07cf0b4a2a02" />
+<img width="1895" height="555" alt="Screenshot 2026-03-12 174813" src="https://github.com/user-attachments/assets/ad164e4b-b40a-498c-9842-5b9c39a6413a" />
+
 
 ## The Problem It Solves
 
