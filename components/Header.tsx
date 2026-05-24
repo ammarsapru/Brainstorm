@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Menu, Save, Share2, ArrowLeft, UserCircle, Edit2 } from 'lucide-react';
+import { Menu, Save, Share2, ArrowLeft, UserCircle, Edit2, Download } from 'lucide-react';
 import { UserProfile } from '../types';
 
 interface HeaderProps {
@@ -15,8 +15,9 @@ interface HeaderProps {
   onSave?: () => void; // Added onSave prop
   onSwitchAccount?: () => void; // New Prop
   onGoShards?: () => void; // Shards navigation
+  onExportMasterPDF?: () => void; // Master PDF export
   isSaving?: boolean;
-  saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
+  saveStatus?: 'idle' | 'working' | 'saving' | 'saved' | 'error';
   error?: string | null;
 }
 
@@ -33,6 +34,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSave,
   onSwitchAccount,
   onGoShards,
+  onExportMasterPDF,
   isSaving = false,
   saveStatus = 'saved',
   error
@@ -143,6 +145,17 @@ export const Header: React.FC<HeaderProps> = ({
                 <p className="text-xs mt-1">{error}</p>
                 <p className="text-xs font-semibold mt-2">Please tell the assistant this exact error message!</p>
               </div>
+            )}
+
+            {onExportMasterPDF && (
+              <button
+                onClick={onExportMasterPDF}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                title="Export session as a multi-page PDF document"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Master PDF</span>
+              </button>
             )}
 
             <div className="w-px h-6 bg-gray-200 mx-2 hidden sm:block"></div>

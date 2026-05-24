@@ -17,7 +17,7 @@ interface SidebarProps {
   onAddCard: () => void;
   onUploadImage: (file: File) => void;
   onUploadDoc: (file: File) => void;
-  onGenerateSummary: () => void;
+  onGenerateSummary?: () => void;
   fileSystem: FileSystemItem[];
   cards: IdeaCard[];
   connections?: Connection[];
@@ -50,6 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onAddCard,
   onUploadImage,
   onUploadDoc,
+  onGenerateSummary = () => {},
   fileSystem,
   cards,
   connections = [],

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { CardNode } from './CardNode';
 import { ConnectionLayer } from './ConnectionLayer';
 import { Sidebar } from './Controls';
@@ -6,7 +6,7 @@ import { Header } from './Header';
 import { DocumentEditor } from './DocumentEditor';
 import { HelpGuide } from './HelpGuide';
 import { AIChat } from './AIChat';
-import { APIKeyModal, APIKeys } from './APIKeyModal';
+import { APIKeyModal } from './APIKeyModal';
 
 import { CreationModal } from './CreationModal';
 import { CollectionSelectorModal } from './CollectionSelectorModal';
@@ -14,11 +14,22 @@ import { FolderSelectorModal } from './FolderSelectorModal';
 import { DrawingLayer } from './DrawingLayer';
 import { IdeaCard, Connection, Viewport, ToolMode, Point, ConnectionStyle, ArrowType, FileSystemItem, Session, RelationType, ChatMessage, ChatAttachment, Collection, UserProfile, Stroke, DrawingTool } from '../types';
 import { DEFAULT_CONNECTION_STYLE, DEFAULT_ARROW_END, DEFAULT_ARROW_START, DEFAULT_RELATION_TYPE, CARD_WIDTH, CARD_HEIGHT, DEFAULT_CARD_STYLE, DEFAULT_COLLECTION_ID, INITIAL_COLLECTIONS } from '../constants';
-import { generateRelatedIdeas, getChatResponse } from '../services/aiService';
+import { generateRelatedIdeas, getChatResponse, summarizeChatHandoff } from '../services/aiService';
+import { filterHistoryForModel, getOutgoingThread, countThreadMessages } from '../utils/chatModelThread';
+import { generateMasterPDF } from '../services/pdfService';
+import { saveChatMessage } from '../services/chatService';
+import { useApiKeys } from '../hooks/useApiKeys';
+import {
+  loadSelectedModelId,
+  saveSelectedModelId,
+  getProviderForModel,
+  getModelById,
+} from '../utils/llmModels';
 import { Minus, Plus, RefreshCcw, Save, Cloud, CheckCircle, AlertCircle, X } from 'lucide-react';
 import { useWorkspace } from '../src/integrations/supabase/hooks/use-workspace';
 import { supabase, uploadFileToS3 } from '../lib/supabase';
 import { embeddingService } from '../services/embeddingService';
+import debugLog from '../utils/debugLog';
 
 const generateId = () => crypto.randomUUID();
 
@@ -110,6 +121,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   const [collections, setCollections] = useState<Collection[]>(session.collections || INITIAL_COLLECTIONS);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>(session.chatHistory || []);
   const [strokes, setStrokes] = useState<Stroke[]>(session.strokes || []);
+  const syncedSessionIdRef = useRef<string | null>(null);
+  const [sessionReady, setSessionReady] = useState(!!session.isFullyLoaded);
 
   const [currentStroke, setCurrentStroke] = useState<Stroke | null>(null);
   const [drawingTool, setDrawingTool] = useState<DrawingTool>('pen');
@@ -119,11 +132,28 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   // Performance Optimization: Refs for state access in event handlers without triggering re-renders of callbacks
   const cardsRef = useRef(cards);
   const connectionsRef = useRef(connections);
+  const cardsEmbeddingSignatureRef = useRef('');
 
   useEffect(() => {
     cardsRef.current = cards;
-    // Mirror cards to our local vector store for fast Semantic searching
-    embeddingService.syncCards(cards).catch(console.error);
+  }, [cards]);
+
+  useEffect(() => {
+    const semanticSignature = cards
+      .map(card => `${card.id}|${card.text}|${card.color}|${card.content || ''}`)
+      .join('\n');
+
+    if (cardsEmbeddingSignatureRef.current === semanticSignature) return;
+
+    cardsEmbeddingSignatureRef.current = semanticSignature;
+    // Defer embedding model load until browser is idle (keeps initial workspace paint fast).
+    const runSync = () => embeddingService.syncCards(cards).catch(console.error);
+    if (typeof requestIdleCallback !== 'undefined') {
+      const id = requestIdleCallback(runSync, { timeout: 8000 });
+      return () => cancelIdleCallback(id);
+    }
+    const t = window.setTimeout(runSync, 2000);
+    return () => clearTimeout(t);
   }, [cards]);
 
   useEffect(() => { connectionsRef.current = connections; }, [connections]);
@@ -226,23 +256,158 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
 
   // Chat State
   const [isChatProcessing, setIsChatProcessing] = useState(false);
+  const [isHandoffProcessing, setIsHandoffProcessing] = useState(false);
+  const handoffContextRef = useRef<string | null>(null);
 
-  // API Keys State
-  const [apiKeys, setApiKeys] = useState<APIKeys>(() => {
-    try {
-      const stored = localStorage.getItem('brainstorm_api_keys');
-      if (stored) return JSON.parse(stored);
-    } catch (e) { }
-    return { openai: '', anthropic: '', gemini: '' };
-  });
+  const { apiKeys, persistKeys, hasKeyForModel, getKeyForModel } = useApiKeys(user?.id);
+  const [selectedModelId, setSelectedModelId] = useState(() => loadSelectedModelId(user?.id));
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [apiKeyModalVariant, setApiKeyModalVariant] = useState<'settings' | 'ai-required'>('settings');
+  const [requiredProvider, setRequiredProvider] = useState<'google' | 'openai' | 'anthropic'>('google');
 
-  const handleSaveApiKeys = useCallback((keys: APIKeys) => {
-    setApiKeys(keys);
-    localStorage.setItem('brainstorm_api_keys', JSON.stringify(keys));
-  }, []);
+  useEffect(() => {
+    setSelectedModelId(loadSelectedModelId(user?.id));
+  }, [user?.id]);
+
+  const chatHistoryForModel = useMemo(
+    () => filterHistoryForModel(chatHistory, selectedModelId),
+    [chatHistory, selectedModelId]
+  );
+
+  const openApiKeyModal = useCallback((variant: 'settings' | 'ai-required', provider?: 'google' | 'openai' | 'anthropic') => {
+    setApiKeyModalVariant(variant);
+    setRequiredProvider(provider || getProviderForModel(selectedModelId));
+    setIsApiKeyModalOpen(true);
+  }, [selectedModelId]);
+
+  const ensureKeyForModel = useCallback((modelId: string): boolean => {
+    if (hasKeyForModel(modelId)) return true;
+    openApiKeyModal('ai-required', getProviderForModel(modelId));
+    return false;
+  }, [hasKeyForModel, openApiKeyModal]);
+
+  const handleModelChange = useCallback(async (newModelId: string) => {
+    if (newModelId === selectedModelId) return;
+
+    const prevModelId = selectedModelId;
+    const outgoingThread = getOutgoingThread(chatHistory, prevModelId);
+
+    setSelectedModelId(newModelId);
+    saveSelectedModelId(user?.id, newModelId);
+    handoffContextRef.current = null;
+
+    if (countThreadMessages(outgoingThread) === 0) return;
+
+    if (!ensureKeyForModel(prevModelId)) {
+      setSelectedModelId(prevModelId);
+      saveSelectedModelId(user?.id, prevModelId);
+      return;
+    }
+    if (!ensureKeyForModel(newModelId)) {
+      setSelectedModelId(prevModelId);
+      saveSelectedModelId(user?.id, prevModelId);
+      return;
+    }
+
+    setIsHandoffProcessing(true);
+    try {
+      const summary = await summarizeChatHandoff(
+        outgoingThread,
+        apiKeys,
+        prevModelId,
+        sessionName
+      );
+      const fromName = getModelById(prevModelId).name;
+      const handoffMsg: ChatMessage = {
+        id: generateId(),
+        role: 'model',
+        text: `**Context from ${fromName}**\n\n${summary}`,
+        timestamp: Date.now(),
+        model: newModelId,
+        isHandoff: true,
+      };
+
+      handoffContextRef.current = summary;
+      setChatHistory(prev => [...prev, handoffMsg]);
+      const saveResult = await saveChatMessage(session.id, handoffMsg);
+      if (!saveResult.ok) {
+        debugLog.error('Workspace', 'Failed to save handoff message', saveResult.error);
+      }
+    } catch (err) {
+      debugLog.error('Workspace', 'Model handoff failed', err);
+      alert(
+        `Could not summarize the ${getModelById(prevModelId).name} thread for handoff. ` +
+          (err instanceof Error ? err.message : 'Check API keys and try again.')
+      );
+      setSelectedModelId(prevModelId);
+      saveSelectedModelId(user?.id, prevModelId);
+    } finally {
+      setIsHandoffProcessing(false);
+    }
+  }, [
+    selectedModelId,
+    chatHistory,
+    user?.id,
+    ensureKeyForModel,
+    apiKeys,
+    sessionName,
+    session.id,
+  ]);
+
+  const ensureGeminiKey = useCallback((): string | null => {
+    const key = apiKeys.gemini?.trim();
+    if (key) return key;
+    openApiKeyModal('ai-required', 'google');
+    return null;
+  }, [apiKeys.gemini, openApiKeyModal]);
 
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Card textarea focus management (used for up/down arrow navigation between cards)
+  const cardTextareaMapRef = useRef<Map<string, HTMLTextAreaElement>>(new Map());
+
+  const registerCardTextarea = useCallback((cardId: string, el: HTMLTextAreaElement | null) => {
+    const map = cardTextareaMapRef.current;
+    if (el) map.set(cardId, el);
+    else map.delete(cardId);
+  }, []);
+
+  const focusCardTextarea = useCallback((cardId: string) => {
+    const el = cardTextareaMapRef.current.get(cardId);
+    if (!el) return;
+    el.focus();
+  }, []);
+
+  const findNearestCardVertical = useCallback((fromCardId: string, direction: 'up' | 'down'): string | null => {
+    const from = cardsRef.current.find(c => c.id === fromCardId);
+    if (!from) return null;
+
+    const candidates = cardsRef.current.filter(c => {
+      if (c.id === fromCardId) return false;
+      return direction === 'down' ? c.y > from.y : c.y < from.y;
+    });
+    if (candidates.length === 0) return null;
+
+    let bestId: string | null = null;
+    let bestScore = Number.POSITIVE_INFINITY;
+    for (const c of candidates) {
+      const dy = Math.abs(c.y - from.y);
+      const dx = Math.abs(c.x - from.x);
+      const score = dy * 10000 + dx;
+      if (score < bestScore) {
+        bestScore = score;
+        bestId = c.id;
+      }
+    }
+    return bestId;
+  }, []);
+
+  const handleMoveFocusVertical = useCallback((fromCardId: string, direction: 'up' | 'down') => {
+    const nextId = findNearestCardVertical(fromCardId, direction);
+    if (!nextId) return;
+    setSelectedId(nextId);
+    requestAnimationFrame(() => focusCardTextarea(nextId));
+  }, [findNearestCardVertical, focusCardTextarea]);
 
   // --- Supabase Integration ---
   const {
@@ -250,14 +415,51 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     hasUnsavedChanges,
     saveStatus,
     lastSaved,
-    error, // Add this
+    error,
     deleteCard,
     deleteConnection,
-    isSaving // Add this
-  } = useWorkspace(session.id);
+    isSaving,
+    isHydrated,
+  } = useWorkspace(session.id, session);
+
+  // Apply full session from App once when it finishes loading (connections, chat, files, etc.)
+  useEffect(() => {
+    if (!session.isFullyLoaded) return;
+    if (syncedSessionIdRef.current === session.id) return;
+    syncedSessionIdRef.current = session.id;
+
+    setSessionName(session.name);
+    setCards(session.cards);
+    setConnections(session.connections);
+    setFileSystem(session.fileSystem);
+    setCollections(session.collections || INITIAL_COLLECTIONS);
+    setChatHistory(session.chatHistory || []);
+    setStrokes(session.strokes || []);
+    if (session.viewport_x != null && session.viewport_y != null) {
+      setViewport({
+        x: session.viewport_x,
+        y: session.viewport_y,
+        scale: session.viewport_zoom ?? 1,
+      });
+    }
+    setSessionReady(true);
+  }, [session]);
+
+  // Merge strokes + chat when App finishes background load (same session id)
+  useEffect(() => {
+    if (!session.isFullyLoaded || syncedSessionIdRef.current !== session.id) return;
+    if (session.chatHistory?.length) {
+      setChatHistory(session.chatHistory);
+    }
+    if (session.strokes?.length) {
+      setStrokes(session.strokes);
+    }
+  }, [session.id, session.isFullyLoaded, session.chatHistory, session.strokes]);
 
   // --- Auto-Save Effect ---
   useEffect(() => {
+    if (!isHydrated || !sessionReady) return;
+
     const timer = setTimeout(() => {
       const updatedSession = {
         ...session,
@@ -283,7 +485,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
 
     }, 500); // Debounce saves by 500ms
     return () => clearTimeout(timer);
-  }, [sessionName, cards, connections, fileSystem, collections, chatHistory, strokes, session, onSave, viewport, saveWorkspace]);
+  }, [sessionName, cards, connections, fileSystem, collections, chatHistory, strokes, session, onSave, viewport, saveWorkspace, isHydrated, sessionReady]);
 
 
 
@@ -735,17 +937,26 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
 
 
 
-  const handleSendMessage = useCallback(async (text: string, attachments: ChatAttachment[] = [], modelId: string = 'gemini-3-flash') => {
+  const handleSendMessage = useCallback(async (text: string, attachments: ChatAttachment[] = [], modelId: string = selectedModelId) => {
+    if (!ensureKeyForModel(modelId)) throw new Error('MISSING_API_KEY');
+
     setIsChatProcessing(true);
     const newUserMsg: ChatMessage = {
       id: generateId(),
       role: 'user',
       text,
       timestamp: Date.now(),
-      attachments
+      attachments,
+      model: modelId,
     };
+    const modelThread = filterHistoryForModel(chatHistory, modelId);
     const updatedHistory = [...chatHistory, newUserMsg];
     setChatHistory(updatedHistory);
+    const userSave = await saveChatMessage(session.id, newUserMsg);
+    if (!userSave.ok) {
+      debugLog.error('Workspace', 'Failed to save user chat message', userSave.error);
+      alert(`Could not save your message: ${userSave.error}`);
+    }
 
     // Compress tokens: Only send a small snippet of the text inside the prompt to save hitting the quota fast!
     // The AI will utilize 'search_cards' organically if it needs to scan the full internal text body.
@@ -753,9 +964,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     const context = `Cards on Board:\n${cardsRef.current.map(c => `- ID: ${c.id} | Snippet: ${truncate(c.text || c.fileName || 'Untitled')} | Color: ${c.color}`).join('\n')}`;
 
     // Pass only the last 10 messages to save heavy token accumulation on long sessions
-    const truncatedHistory = updatedHistory.slice(-10);
+    const truncatedHistory = [...filterHistoryForModel(updatedHistory, modelId), newUserMsg].slice(-10);
 
-    const responseText = await getChatResponse(truncatedHistory, text, context, apiKeys, modelId);
+    const responseText = await getChatResponse(
+      truncatedHistory.filter(m => !m.isHandoff),
+      text,
+      context,
+      apiKeys,
+      modelId,
+      { handoffContext: handoffContextRef.current ?? undefined }
+    );
+    handoffContextRef.current = null;
 
     let finalDisplayMsg = responseText;
 
@@ -810,11 +1029,21 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     if (!finalDisplayMsg) finalDisplayMsg = "I've successfully updated your canvas!";
 
     setIsChatProcessing(false);
-    setChatHistory(prev => [...prev, {
-      id: generateId(), role: 'model', text: finalDisplayMsg, timestamp: Date.now(), model: modelId
-    }]);
+    const assistantMsg: ChatMessage = {
+      id: generateId(),
+      role: 'model',
+      text: finalDisplayMsg,
+      timestamp: Date.now(),
+      model: modelId,
+    };
+    setChatHistory(prev => [...prev, assistantMsg]);
+    const assistantSave = await saveChatMessage(session.id, assistantMsg);
+    if (!assistantSave.ok) {
+      debugLog.error('Workspace', 'Failed to save assistant chat message', assistantSave.error);
+      alert(`Could not save the assistant reply: ${assistantSave.error}`);
+    }
 
-  }, [chatHistory, apiKeys, handleAddCard, handleUpdateCard, handleDeleteCard]);
+  }, [chatHistory, apiKeys, ensureKeyForModel, selectedModelId, session.id, handleAddCard, handleUpdateCard, handleDeleteCard]);
 
   // Canvas Handlers
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -1119,6 +1348,19 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     }
   }, [connectingFromId, isDragging, mode, drawingTool, selectedId, dragStart, dragCardOffset, screenToWorld, handleUpdateCard, currentStroke]);
 
+  const handleGripDown = useCallback((e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const card = cardsRef.current.find(c => c.id === id);
+    if (!card) return;
+
+    setMode('select');
+    setSelectedId(id);
+    setIsDragging(true);
+
+    const worldMouse = screenToWorld(e.clientX, e.clientY);
+    setDragCardOffset({ x: card.x - worldMouse.x, y: card.y - worldMouse.y });
+  }, [screenToWorld]);
+
 
   const startConnection = useCallback((e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -1130,9 +1372,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   const handleGenerateAI = useCallback(async (sourceId: string) => {
     const sourceCard = cardsRef.current.find(c => c.id === sourceId);
     if (!sourceCard || !sourceCard.text.trim()) return;
+
+    const geminiKey = ensureGeminiKey();
+    if (!geminiKey) return;
+
     setIsProcessingAI(true);
     const existingIdeas = cardsRef.current.map(c => c.text);
-    const ideas = await generateRelatedIdeas(sourceCard.text, existingIdeas);
+    const ideas = await generateRelatedIdeas(geminiKey, sourceCard.text, existingIdeas);
 
     if (ideas.length > 0) {
       const radius = 300;
@@ -1172,13 +1418,50 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       setConnections(prev => [...prev, ...newConnections]);
     }
     setIsProcessingAI(false);
-  }, []);
+  }, [ensureGeminiKey]);
+
+  const handleExportMasterPDF = useCallback(async () => {
+    try {
+      await generateMasterPDF(sessionName, cards, connections);
+    } catch (error) {
+      console.error('Failed to export master PDF:', error);
+      alert('Failed to export PDF. Please check the console for details.');
+    }
+  }, [sessionName, cards, connections]);
 
   // Keyboard
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+      // Card-to-card textarea navigation (ArrowUp/ArrowDown)
+      if (target.tagName === 'TEXTAREA' && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const ta = target as HTMLTextAreaElement;
+        const cardId = ta.dataset.cardId;
+        if (cardId) {
+          const value = ta.value || '';
+          const caret = ta.selectionStart ?? 0;
+          const before = value.slice(0, caret);
+          const currentLineIndex = before.split('\n').length - 1;
+          const totalLines = value.split('\n').length;
+          const atFirstLine = currentLineIndex <= 0;
+          const atLastLine = currentLineIndex >= totalLines - 1;
+
+          if (e.key === 'ArrowUp' && atFirstLine) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleMoveFocusVertical(cardId, 'up');
+            return;
+          }
+          if (e.key === 'ArrowDown' && atLastLine) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleMoveFocusVertical(cardId, 'down');
+            return;
+          }
+        }
+      }
 
       if (e.code === 'Space' && !e.repeat && !isInput) setMode('pan');
       if ((e.key === 'Delete' || e.key === 'Backspace')) {
@@ -1207,7 +1490,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedId, selectedConnectionId, activeDocId, fullScreenImage, creationModal.isOpen, collectionSelectModal.isOpen, isApiKeyModalOpen]);
+  }, [selectedId, selectedConnectionId, activeDocId, fullScreenImage, creationModal.isOpen, collectionSelectModal.isOpen, isApiKeyModalOpen, handleMoveFocusVertical]);
 
   const selectedConnection = connections.find(c => c.id === selectedConnectionId);
   let connToolbarPos = { x: 0, y: 0 };
@@ -1330,56 +1613,48 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     };
   }, []);
 
-  // --- Shards IPC Integration ---
+  // --- Shards IPC Integration (Electron preload bridge) ---
   useEffect(() => {
-    if (!(window as any).require) return;
+    const api = (window as any).electronAPI;
+    if (!api?.onShardTextClip || !api?.onShardImageClip) return;
 
-    try {
-      const { ipcRenderer } = (window as any).require('electron');
+    const handleTextClipper = async () => {
+      const saved = localStorage.getItem('brainstorm_shards_config');
+      if (!saved) return;
+      const config = JSON.parse(saved);
+      if (!config.textClipper) return;
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) handleAddCard(window.innerWidth / 2, window.innerHeight / 2, { text });
+      } catch (e) { console.error('Text clipper error', e); }
+    };
 
-      const handleTextClipper = async () => {
-        const saved = localStorage.getItem('brainstorm_shards_config');
-        if (saved) {
-          const config = JSON.parse(saved);
-          if (!config.textClipper) return;
-          try {
-            const text = await navigator.clipboard.readText();
-            if (text) {
-              handleAddCard(window.innerWidth / 2, window.innerHeight / 2, { text });
+    const handleImageClipper = async () => {
+      const saved = localStorage.getItem('brainstorm_shards_config');
+      if (!saved) return;
+      const config = JSON.parse(saved);
+      if (!config.screenshotClipper) return;
+      try {
+        const clipboardItems = await navigator.clipboard.read();
+        for (const item of clipboardItems) {
+          for (const type of item.types) {
+            if (type.startsWith('image/')) {
+              const blob = await item.getType(type);
+              const file = new File([blob], `Screenshot-${Date.now()}.png`, { type });
+              handleUploadImage(file);
+              return;
             }
-          } catch (e) { console.error("Text clipper error", e); }
+          }
         }
-      };
+      } catch (e) { console.error('Image clipper error', e); }
+    };
 
-      const handleImageClipper = async () => {
-        const saved = localStorage.getItem('brainstorm_shards_config');
-        if (saved) {
-          const config = JSON.parse(saved);
-          if (!config.screenshotClipper) return;
-          try {
-            const clipboardItems = await navigator.clipboard.read();
-            for (const item of clipboardItems) {
-              for (const type of item.types) {
-                if (type.startsWith('image/')) {
-                  const blob = await item.getType(type);
-                  const file = new File([blob], `Screenshot-${Date.now()}.png`, { type });
-                  handleUploadImage(file);
-                  return;
-                }
-              }
-            }
-          } catch (e) { console.error("Image clipper error", e); }
-        }
-      };
-
-      ipcRenderer.on('shard-clip-text', handleTextClipper);
-      ipcRenderer.on('shard-clip-image', handleImageClipper);
-
-      return () => {
-        ipcRenderer.removeListener('shard-clip-text', handleTextClipper);
-        ipcRenderer.removeListener('shard-clip-image', handleImageClipper);
-      };
-    } catch (e) { }
+    const unsubText = api.onShardTextClip(handleTextClipper);
+    const unsubImage = api.onShardImageClip(handleImageClipper);
+    return () => {
+      unsubText?.();
+      unsubImage?.();
+    };
   }, [handleAddCard, handleUploadImage]);
 
   return (
@@ -1445,6 +1720,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
           onLogout={onLogout}
           onSwitchAccount={onSwitchAccount}
           onGoShards={onGoShards}
+          onExportMasterPDF={handleExportMasterPDF}
           isSaving={isSaving || hasUnsavedChanges}
           saveStatus={saveStatus}
           error={error}
@@ -1612,15 +1888,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
             isProcessingAI={isProcessingAI}
             isConnecting={!!connectingFromId}
             onImageClick={setFullScreenImage}
-            onGripDown={(e) => {
-              // When grip is clicked, switch to select mode and start dragging
-              e.stopPropagation();
-              setMode('select');
-              setSelectedId(card.id);
-              setIsDragging(true);
-              const worldMouse = screenToWorld(e.clientX, e.clientY);
-              setDragCardOffset({ x: card.x - worldMouse.x, y: card.y - worldMouse.y });
-            }}
+            onMoveFocusVertical={handleMoveFocusVertical}
+            onRegisterTextarea={registerCardTextarea}
+            onGripDown={handleGripDown}
           />
         ))}
       </div>
@@ -1805,16 +2075,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
 
       <HelpGuide />
       <AIChat
-        history={chatHistory}
+        history={chatHistoryForModel}
         onSendMessage={handleSendMessage}
-        isProcessing={isChatProcessing}
-        onSettingsClick={() => setIsApiKeyModalOpen(true)}
+        isProcessing={isChatProcessing || isHandoffProcessing}
+        onSettingsClick={() => openApiKeyModal('settings')}
+        selectedModelId={selectedModelId}
+        onModelChange={handleModelChange}
       />
       <APIKeyModal
         isOpen={isApiKeyModalOpen}
         onClose={() => setIsApiKeyModalOpen(false)}
-        onSave={handleSaveApiKeys}
+        onSave={persistKeys}
         currentKeys={apiKeys}
+        variant={apiKeyModalVariant}
+        requiredProvider={requiredProvider}
       />
 
       {/* Full Screen Image Overlay */}

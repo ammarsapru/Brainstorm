@@ -1,8 +1,5 @@
-import { pipeline, env } from '@xenova/transformers';
 import { IdeaCard } from '../types';
-
-// Prevent local model loading errors in the browser environments
-env.allowLocalModels = false;
+import debugLog from '../utils/debugLog';
 
 // We use all-MiniLM-L6-v2 which is highly capable and tiny (22MB)
 const MODEL_NAME = 'Xenova/all-MiniLM-L6-v2';
@@ -29,11 +26,13 @@ class EmbeddingService {
     this.isInitializing = true;
     this.initPromise = (async () => {
       try {
-        console.log("Loading Xenova embedding model...");
+        debugLog('EmbeddingService', 'Loading embedding model...');
+        const { pipeline, env } = await import('@xenova/transformers');
+        env.allowLocalModels = false;
         this.extractor = await pipeline('feature-extraction', MODEL_NAME);
-        console.log("Embedding model loaded successfully.");
+        debugLog('EmbeddingService', 'Embedding model loaded successfully.');
       } catch (err) {
-        console.error("Failed to load embedding model:", err);
+        debugLog.error("EmbeddingService", "Failed to load embedding model:", err);
       } finally {
         this.isInitializing = false;
       }
@@ -100,7 +99,7 @@ class EmbeddingService {
              this.vectors.push({ id: card.id, card: { ...card }, vector: vec });
           }
         } catch(e) {
-          console.warn("Failed to vectorize card", card.id);
+          debugLog.warn("EmbeddingService", "Failed to vectorize card", card.id);
         }
       }
     }

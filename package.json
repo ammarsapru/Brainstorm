@@ -1,7 +1,7 @@
 {
   "name": "brainstorm",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
@@ -23,11 +23,14 @@
     "prismjs": "^1.30.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "react-simple-code-editor": "^0.14.1"
+    "react-simple-code-editor": "^0.14.1",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
     "@types/prismjs": "^1.26.6",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.0",
     "concurrently": "^9.2.1",
     "electron": "^41.0.3",

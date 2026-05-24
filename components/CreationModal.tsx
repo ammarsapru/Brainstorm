@@ -3,7 +3,7 @@ import { FolderPlus, FileText, X, Layout } from 'lucide-react';
 
 interface CreationModalProps {
   isOpen: boolean;
-  type: 'file' | 'folder' | 'session';
+  type: 'file' | 'folder' | 'session' | 'collection';
   initialValue?: string;
   onClose: () => void;
   onConfirm: (name: string) => void;
@@ -26,6 +26,7 @@ export const CreationModal: React.FC<CreationModalProps> = ({
       } else {
         if (type === 'folder') setName('New Folder');
         else if (type === 'file') setName('Untitled Note');
+        else if (type === 'collection') setName('New Collection');
         else setName('Untitled Session');
       }
       // Small timeout to ensure render before focus
@@ -48,6 +49,7 @@ export const CreationModal: React.FC<CreationModalProps> = ({
       case 'folder': return <FolderPlus className="w-5 h-5" />;
       case 'file': return <FileText className="w-5 h-5" />;
       case 'session': return <Layout className="w-5 h-5" />;
+      case 'collection': return <Layout className="w-5 h-5" />;
     }
   };
 
@@ -56,11 +58,13 @@ export const CreationModal: React.FC<CreationModalProps> = ({
       case 'folder': return 'bg-zinc-100 text-black';
       case 'file': return 'bg-orange-100 text-orange-600';
       case 'session': return 'bg-zinc-100 text-black';
+      case 'collection': return 'bg-blue-100 text-blue-700';
     }
   };
 
   const getTitle = () => {
     if (initialValue) return `Rename ${type === 'session' ? 'Session' : type}`;
+    if (type === 'collection') return 'Create Collection';
     return `Create ${type === 'folder' ? 'Folder' : type === 'file' ? 'File' : 'Session'}`;
   };
 

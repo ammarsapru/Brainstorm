@@ -1,5 +1,6 @@
 
-import { Session, IdeaCard, Connection, ArrowType, FileSystemItem, Collection } from '../../types';
+import { Session, IdeaCard, Connection, FileSystemItem, Collection } from '../../types';
+import { connectionFromDbRow } from './connectionDb';
 import { INITIAL_CARDS, INITIAL_COLLECTIONS } from '../../constants';
 import { buildFileSystemTree } from '../integrations/supabase/utils/tree-transformer';
 
@@ -27,17 +28,7 @@ export const mapSessionData = (
         collectionId: c.collectionId || c.collection_id // Handle both cases if DB uses snake_case
     }));
 
-    // Map Connections
-    const connections: Connection[] = connsData.map((c: any) => ({
-        id: c.id,
-        fromId: c.from_id,
-        toId: c.to_id,
-        style: c.style,
-        color: c.color,
-        relationType: c.relation_type,
-        arrowStart: c.arrow_start || ArrowType.NONE,
-        arrowEnd: c.arrow_end || ArrowType.STANDARD
-    }));
+    const connections: Connection[] = connsData.map((c: any) => connectionFromDbRow(c));
 
     // Map Collections
     const collections: Collection[] = collectionsData.length > 0

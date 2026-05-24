@@ -118,7 +118,10 @@ export interface ChatMessage {
   text: string;
   timestamp: number;
   attachments?: ChatAttachment[];
+  /** LLM id (e.g. gemini-2.5-flash) — each model has its own thread per session */
   model?: string;
+  /** Brief handoff summary when switching models mid-conversation */
+  isHandoff?: boolean;
 }
 
 export interface UserProfile {
@@ -146,4 +149,8 @@ export interface Session {
   strokes?: Stroke[]; // Transient runtime state, synced via hidden file
   lastModified: number;
   thumbnail?: string;
+  /** Lightweight count for dashboard previews (avoids loading all cards). */
+  cardCount?: number;
+  /** True only after fetchFullSession — gates workspace mount */
+  isFullyLoaded?: boolean;
 }

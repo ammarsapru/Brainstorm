@@ -20,11 +20,13 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
+      preload: path.join(__dirname, 'preload.cjs'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: false,
     },
-    // Use the 512x512 pwa icon on Windows frame
-    icon: path.join(__dirname, '../public/pwa-512x512.png'),
+    // Use the Brainstorm logo on Windows frame
+    icon: path.join(__dirname, '../public/brainstorm-logo.png'),
     title: 'Brainstorm',
     autoHideMenuBar: true
   });

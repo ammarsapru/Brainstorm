@@ -5,6 +5,7 @@ WORKDIR /app
 
 # Declare build arguments for Vite env variables
 # These get inlined at build time by Vite
+ARG APP_VERSION
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
 ARG VITE_GOOGLE_API_KEY
@@ -15,6 +16,7 @@ ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
 ENV VITE_GOOGLE_API_KEY=$VITE_GOOGLE_API_KEY
 ENV GEMINI_API_KEY=$GEMINI_API_KEY
+ENV APP_VERSION=$APP_VERSION
 
 # Copy package files
 COPY package*.json ./
@@ -30,6 +32,9 @@ RUN npm run build
 
 # Stage 2: Serve the application with Nginx
 FROM nginx:alpine
+
+LABEL org.opencontainers.image.title="Brainstorm"
+LABEL org.opencontainers.image.version=$APP_VERSION
 
 # Add a custom Nginx configuration to support client-side routing for Single Page Applications
 RUN echo "server { \

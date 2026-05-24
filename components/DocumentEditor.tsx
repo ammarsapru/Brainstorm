@@ -19,6 +19,8 @@ interface DocumentEditorProps {
   onSave: (id: string, content: string, name: string) => void;
   onChange?: (id: string, content: string, name: string) => void;
   onClose: () => void;
+  className?: string;
+  onSwap?: () => void;
 }
 
 interface BlockStyle {

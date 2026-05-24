@@ -1,52 +1,12 @@
 import React, { useRef, useState } from 'react';
-import { Plus, Clock, FileText, Trash2, LayoutGrid, Upload, Pencil, MessageSquare, Sparkles, Image as ImageIcon, Smile } from 'lucide-react';
+import { Plus, Clock, Trash2, LayoutGrid, Upload, Pencil, MessageSquare, Sparkles, Smile } from 'lucide-react';
 import { Session } from '../types';
 import { CreationModal } from './CreationModal';
 import { generateSessionIcon, generateSessionImage } from '../services/aiService';
-import { uploadFileToS3 } from '../lib/supabase';
-
-const LoadingOverlay = () => {
-  const [status, setStatus] = React.useState('Connecting to secure server...');
-
-  React.useEffect(() => {
-    const statuses = [
-      'Connecting to secure server...',
-      'Verifying credentials...',
-      'Retrieving sessions...',
-      'Loading canvas data...'
-    ];
-    let i = 0;
-    const interval = setInterval(() => {
-      i = (i + 1) % statuses.length;
-      setStatus(statuses[i]);
-    }, 1200);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center animate-in fade-in duration-500">
-      <div className="relative flex items-center justify-center mb-8">
-        {/* Animated Ring */}
-        <div className="absolute w-24 h-24 border-2 border-white/10 border-t-white rounded-full animate-spin"></div>
-        <div className="absolute w-32 h-32 border border-white/5 border-b-white/30 rounded-full animate-[spin_3s_linear_reverse_infinite]"></div>
-
-        {/* Brainstorm Logo */}
-        <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-black font-bold text-4xl shadow-[0_0_40px_rgba(255,255,255,0.15)] z-10 transition-transform duration-1000">
-          B
-        </div>
-      </div>
-      <h3 className="text-2xl font-bold text-white font-display tracking-tight flex items-center gap-1">
-        <span>Retrieving sessions</span>
-        <span className="flex gap-0.5">
-          <span className="animate-[bounce_1s_infinite_0ms]">.</span>
-          <span className="animate-[bounce_1s_infinite_200ms]">.</span>
-          <span className="animate-[bounce_1s_infinite_400ms]">.</span>
-        </span>
-      </h3>
-      <p className="text-gray-400 font-medium mt-3 text-sm animate-pulse">{status}</p>
-    </div>
-  );
-};
+import { supabase, uploadFileToS3 } from '../lib/supabase';
+import { APIKeyModal } from './APIKeyModal';
+import { LoadingOverlay } from './LoadingOverlay';
+import { useApiKeys } from '../hooks/useApiKeys';
 
 interface SessionListProps {
   sessions: Session[];
@@ -57,11 +17,77 @@ interface SessionListProps {
   onUpdateSessionImage: (sessionId: string, image: string) => void;
   onUpdateSessionIcon: (sessionId: string, icon: string) => void;
   isLoading?: boolean;
+  userId?: string;
 }
 
-export const SessionList: React.FC<SessionListProps> = ({ sessions, onSelect, onCreate, onDelete, onRename, onUpdateSessionImage, onUpdateSessionIcon, isLoading }) => {
+export const SessionList: React.FC<SessionListProps> = ({ sessions, onSelect, onCreate, onDelete, onRename, onUpdateSessionImage, onUpdateSessionIcon, isLoading, userId }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedSessionRef = useRef<string | null>(null);
+  const [brokenThumbnails, setBrokenThumbnails] = useState<Set<string>>(new Set());
+  const [thumbnailOverrides, setThumbnailOverrides] = useState<Map<string, string>>(new Map());
+
+  const { apiKeys, persistKeys } = useApiKeys(userId);
+    const resolveThumbnailUrl = (thumbnail?: string | null): string | null => {
+      if (!thumbnail) return null;
+      if (thumbnail.startsWith('http') || thumbnail.startsWith('data:')) return thumbnail;
+      if (!supabase) return thumbnail;
+      const cleaned = thumbnail.replace(/^\//, '');
+      const path = cleaned.startsWith('public/') ? cleaned : `public/${cleaned}`;
+      const { data } = supabase.storage.from('workspace-files').getPublicUrl(path);
+      return data.publicUrl || null;
+    };
+
+    const getStoragePathFromUrl = (url: string): string | null => {
+      const publicMarker = '/storage/v1/object/public/workspace-files/';
+      const signedMarker = '/storage/v1/object/sign/workspace-files/';
+      if (url.includes(publicMarker)) return url.split(publicMarker)[1] || null;
+      if (url.includes(signedMarker)) return url.split(signedMarker)[1]?.split('?')[0] || null;
+      return null;
+    };
+
+    const refreshThumbnailSignedUrl = async (sessionId: string, original: string) => {
+      if (!supabase) return;
+      const path = getStoragePathFromUrl(original);
+      if (!path) return;
+      const { data, error } = await supabase
+        .storage
+        .from('workspace-files')
+        .createSignedUrl(path, 60 * 60);
+      if (error || !data?.signedUrl) return;
+      setThumbnailOverrides(prev => {
+        const next = new Map(prev);
+        next.set(sessionId, data.signedUrl);
+        return next;
+      });
+      setBrokenThumbnails(prev => {
+        const next = new Set(prev);
+        next.delete(sessionId);
+        return next;
+      });
+    };
+
+    const markThumbnailBroken = (sessionId: string) => {
+      setBrokenThumbnails(prev => {
+        const next = new Set(prev);
+        next.add(sessionId);
+        return next;
+      });
+    };
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [apiKeyModalVariant, setApiKeyModalVariant] = useState<'settings' | 'ai-required'>('settings');
+
+  const openApiKeyModal = (variant: 'settings' | 'ai-required') => {
+    setApiKeyModalVariant(variant);
+    setIsApiKeyModalOpen(true);
+  };
+
+  /** Session cover/icon generation always uses Imagen (Google Gemini API key). */
+  const ensureGeminiKey = (): string | null => {
+    const key = apiKeys.gemini?.trim();
+    if (key) return key;
+    openApiKeyModal('ai-required');
+    return null;
+  };
 
   // Rename Modal State
   const [renameModalOpen, setRenameModalOpen] = useState(false);
@@ -92,24 +118,62 @@ export const SessionList: React.FC<SessionListProps> = ({ sessions, onSelect, on
 
   const handleGenerateIcon = async (e: React.MouseEvent, session: Session) => {
     e.stopPropagation();
+    const geminiKey = ensureGeminiKey();
+    if (!geminiKey) return;
     setGeneratingIconFor(session.id);
-    const cardTexts = session.cards.map(c => c.text).filter(t => t);
-    const icon = await generateSessionIcon(session.name, cardTexts);
-    onUpdateSessionIcon(session.id, icon);
-    setGeneratingIconFor(null);
+    try {
+      let cardTexts = session.cards.map(c => c.text).filter((t): t is string => Boolean(t));
+      if (cardTexts.length === 0 && supabase) {
+        const { data: dbCards } = await supabase
+          .from('cards')
+          .select('text')
+          .eq('session_id', session.id);
+        if (dbCards) {
+          cardTexts = (dbCards as Array<{ text?: string }>)
+            .map(c => c.text ?? '')
+            .filter((t: string) => t.length > 0);
+        }
+      }
+      const icon = await generateSessionIcon(geminiKey, session.name, cardTexts);
+      onUpdateSessionIcon(session.id, icon);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not generate icon.';
+      alert(`Icon generation failed: ${msg}\n\nAdd a Google Gemini API key in Settings (Imagen requires Gemini).`);
+    } finally {
+      setGeneratingIconFor(null);
+    }
   };
 
   const handleGenerateImage = async (e: React.MouseEvent, session: Session) => {
     e.stopPropagation();
+    const geminiKey = ensureGeminiKey();
+    if (!geminiKey) return;
     setGeneratingImageFor(session.id);
-    const cardTexts = session.cards.map(c => c.text).filter(t => t);
-    const image = await generateSessionImage(session.name, cardTexts);
-    if (image) {
-      onUpdateSessionImage(session.id, image);
-    } else {
-      alert("Failed to generate image. Please try again.");
+    try {
+      let cardTexts = session.cards.map(c => c.text).filter((t): t is string => Boolean(t));
+      if (cardTexts.length === 0 && supabase) {
+        const { data: dbCards } = await supabase
+          .from('cards')
+          .select('text')
+          .eq('session_id', session.id);
+        if (dbCards) {
+          cardTexts = (dbCards as Array<{ text?: string }>)
+            .map(c => c.text ?? '')
+            .filter((t: string) => t.length > 0);
+        }
+      }
+      const image = await generateSessionImage(geminiKey, session.name, cardTexts);
+      if (image) {
+        onUpdateSessionImage(session.id, image);
+      } else {
+        alert('Failed to generate image. Please try again.');
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not generate wallpaper.';
+      alert(`Wallpaper generation failed: ${msg}\n\nAdd a Google Gemini API key in Settings (Imagen requires Gemini).`);
+    } finally {
+      setGeneratingImageFor(null);
     }
-    setGeneratingImageFor(null);
   };
 
   const openRenameModal = (e: React.MouseEvent, session: Session) => {
@@ -126,11 +190,17 @@ export const SessionList: React.FC<SessionListProps> = ({ sessions, onSelect, on
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-24 px-8 pb-12 relative">
+    <div className="min-h-screen bg-gray-50 pt-24 px-8 pb-12 relative overflow-x-hidden">
+      {isLoading && <LoadingOverlay />}
       <div className="max-w-7xl mx-auto">
 
-        {/* --- Loading Overlay --- */}
-        {isLoading && <LoadingOverlay />}
+        <APIKeyModal
+          isOpen={isApiKeyModalOpen}
+          onClose={() => setIsApiKeyModalOpen(false)}
+          onSave={persistKeys}
+          currentKeys={apiKeys}
+          variant={apiKeyModalVariant}
+        />
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-3xl font-bold text-gray-900 font-display text-center md:text-left w-full">Your Sessions (V2 - Secure)</h2>
@@ -166,8 +236,16 @@ export const SessionList: React.FC<SessionListProps> = ({ sessions, onSelect, on
             >
               {/* Preview Area (Thumbnail) */}
               <div className="flex-1 relative overflow-hidden group/image">
-                {session.thumbnail ? (
-                  <img src={session.thumbnail} alt="Session Preview" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                {session.thumbnail && !brokenThumbnails.has(session.id) ? (
+                  <img
+                    src={thumbnailOverrides.get(session.id) || resolveThumbnailUrl(session.thumbnail) || ''}
+                    alt="Session Preview"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    onError={() => {
+                      void refreshThumbnailSignedUrl(session.id, session.thumbnail);
+                      markThumbnailBroken(session.id);
+                    }}
+                  />
                 ) : (
                   <div className="w-full h-full bg-slate-50 relative">
                     {/* Dot Grid Pattern - Matches Workspace */}
@@ -257,7 +335,11 @@ export const SessionList: React.FC<SessionListProps> = ({ sessions, onSelect, on
                       </span>
                       <span className="flex items-center gap-1">
                         <LayoutGrid className="w-3 h-3" />
-                        {session.cards.length} items
+                        {typeof session.cardCount === 'number'
+                          ? `${session.cardCount} items`
+                          : session.isFullyLoaded
+                            ? `${session.cards.length} items`
+                            : 'Preview deferred'}
                       </span>
                     </div>
                   </div>

@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { IdeaCard, CardStyle } from '../types';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
-import { Trash2, GripHorizontal, Sparkles, Bold, Italic, Type, Image as ImageIcon, FileText, Maximize2, Download, AlignLeft, AlignCenter, AlignRight, Heading } from 'lucide-react';
+import { Trash2, GripHorizontal, Bold, Italic, Type, Image as ImageIcon, FileText, Maximize2, Download, AlignLeft, AlignCenter, AlignRight, Heading } from 'lucide-react';
 import { uploadFileToS3 } from '../lib/supabase';
 
 interface CardNodeProps {
@@ -19,6 +19,8 @@ interface CardNodeProps {
   onGripDown?: (e: React.MouseEvent, id: string) => void;
   isConnecting?: boolean;
   onImageClick?: (url: string) => void;
+  onMoveFocusVertical?: (fromCardId: string, direction: 'up' | 'down') => void;
+  onRegisterTextarea?: (cardId: string, el: HTMLTextAreaElement | null) => void;
 }
 
 const FONTS = [
@@ -77,7 +79,9 @@ export const CardNode = React.memo<CardNodeProps>(({
   isProcessingAI,
   onGripDown,
   isConnecting,
-  onImageClick
+  onImageClick,
+  onMoveFocusVertical,
+  onRegisterTextarea
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -387,9 +391,13 @@ export const CardNode = React.memo<CardNodeProps>(({
           </div>
         ) : (
           <textarea
-            ref={textareaRef}
+            ref={(el) => {
+              textareaRef.current = el;
+              onRegisterTextarea?.(card.id, el);
+            }}
             value={card.text}
             onChange={(e) => onUpdate(card.id, { text: e.target.value })}
+            data-card-id={card.id}
             onPaste={(e) => {
               const items = e.clipboardData?.items;
               if (items) {
@@ -397,10 +405,21 @@ export const CardNode = React.memo<CardNodeProps>(({
                   if (items[i].type.indexOf('image') !== -1) {
                     const blob = items[i].getAsFile();
                     if (blob) {
+                      const el = textareaRef.current;
+                      const start = el?.selectionStart ?? card.text.length;
+                      const end = el?.selectionEnd ?? start;
                       uploadFileToS3(blob).then(url => {
-                        if (url) {
-                          onUpdate(card.id, { image: url });
-                        }
+                        if (!url) return;
+                        const insert = `\n${url}\n`;
+                        const nextText = (card.text || '').slice(0, start) + insert + (card.text || '').slice(end);
+                        onUpdate(card.id, { text: nextText });
+                        requestAnimationFrame(() => {
+                          const t = textareaRef.current;
+                          if (!t) return;
+                          const nextPos = start + insert.length;
+                          t.selectionStart = nextPos;
+                          t.selectionEnd = nextPos;
+                        });
                       });
                       e.preventDefault();
                       e.stopPropagation();
@@ -422,10 +441,21 @@ export const CardNode = React.memo<CardNodeProps>(({
               if (files && files.length > 0) {
                 const file = files[0];
                 if (file.type.startsWith('image/')) {
+                  const el = textareaRef.current;
+                  const start = el?.selectionStart ?? card.text.length;
+                  const end = el?.selectionEnd ?? start;
                   uploadFileToS3(file).then(url => {
-                    if (url) {
-                      onUpdate(card.id, { image: url, height: Math.max(card.height, 200) });
-                    }
+                    if (!url) return;
+                    const insert = `\n${url}\n`;
+                    const nextText = (card.text || '').slice(0, start) + insert + (card.text || '').slice(end);
+                    onUpdate(card.id, { text: nextText });
+                    requestAnimationFrame(() => {
+                      const t = textareaRef.current;
+                      if (!t) return;
+                      const nextPos = start + insert.length;
+                      t.selectionStart = nextPos;
+                      t.selectionEnd = nextPos;
+                    });
                   });
                   e.preventDefault();
                 }
@@ -463,11 +493,11 @@ export const CardNode = React.memo<CardNodeProps>(({
 
         <button
           onClick={(e) => { e.stopPropagation(); onGenerateAI(card.id); }}
-          className={`p-2 bg-white rounded-full shadow-md hover:bg-purple-50 text-purple-600 border border-purple-100 ${isProcessingAI ? 'animate-pulse' : ''}`}
+          className={`p-2 bg-white rounded-full shadow-md hover:bg-gray-50 text-black border border-gray-100 ${isProcessingAI ? 'animate-pulse' : ''}`}
           title="AI Brainstorm"
           disabled={isProcessingAI}
         >
-          <Sparkles className="w-4 h-4" />
+          <span className="font-bold text-[11px] leading-none select-none">B</span>
         </button>
 
         <button
@@ -496,6 +526,8 @@ export const CardNode = React.memo<CardNodeProps>(({
     prevProps.card.x === nextProps.card.x &&
     prevProps.card.y === nextProps.card.y &&
     prevProps.card.text === nextProps.card.text &&
+    prevProps.card.image === nextProps.card.image &&
+    prevProps.card.fileName === nextProps.card.fileName &&
     prevProps.card.width === nextProps.card.width &&
     prevProps.card.height === nextProps.card.height &&
     prevProps.card.color === nextProps.card.color &&

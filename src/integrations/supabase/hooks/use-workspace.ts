@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../../../lib/supabase';
 import { SyncEngine } from '../sync-engine';
-import { Session, IdeaCard, Connection, FileSystemItem, ArrowType } from '@/types';
+import { Session, IdeaCard, Connection, FileSystemItem, Collection } from '@/types';
+import { connectionFromDbRow } from '../../../utils/connectionDb';
 import { buildFileSystemTree } from '../utils/tree-transformer';
-import { INITIAL_CARDS } from '@/constants';
+import { INITIAL_CARDS, INITIAL_COLLECTIONS } from '@/constants';
+import { loadChatHistory } from '../../../../services/chatService';
 
 interface UseWorkspaceResult {
     session: Session | null;
@@ -14,12 +16,16 @@ interface UseWorkspaceResult {
     hasUnsavedChanges: boolean;
     error: string | null;
     saveWorkspace: (session: Session) => void;
-    refreshWorkspace: () => void;
+    refreshWorkspace: () => Promise<Session | null>;
     deleteCard: (id: string) => void;
     deleteConnection: (id: string) => void;
+    isHydrated: boolean;
 }
 
-export function useWorkspace(sessionId: string | null): UseWorkspaceResult {
+export function useWorkspace(
+    sessionId: string | null,
+    initialSession?: Session | null
+): UseWorkspaceResult {
     const [syncEngine] = useState(() => new SyncEngine());
     const [session, setSession] = useState<Session | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -29,14 +35,31 @@ export function useWorkspace(sessionId: string | null): UseWorkspaceResult {
         lastSaved: Date.now(),
         error: undefined as string | undefined
     });
+    const [isHydrated, setIsHydrated] = useState(false);
+    const hydratedForIdRef = useRef<string | null>(null);
 
-    // 1. Initial Load
-    const loadSession = useCallback(async () => {
-        if (!sessionId || !supabase) return;
+    const hydrateFromSession = useCallback((data: Session) => {
+        syncEngine.hydrate(data);
+        setSession(data);
+        setIsHydrated(true);
+        hydratedForIdRef.current = data.id;
+    }, [syncEngine]);
+
+    // Hydrate sync engine from App-provided full session (no duplicate DB fetch)
+    useEffect(() => {
+        if (!sessionId || !initialSession?.isFullyLoaded || initialSession.id !== sessionId) {
+            return;
+        }
+        if (hydratedForIdRef.current === sessionId) return;
+        hydrateFromSession(initialSession);
+    }, [sessionId, initialSession, hydrateFromSession]);
+
+    const loadSessionFromDb = useCallback(async (): Promise<Session | null> => {
+        if (!sessionId || !supabase) return null;
 
         setIsLoading(true);
+        setIsHydrated(false);
         try {
-            // Fetch Session
             const { data: sessionData, error: sessionError } = await supabase
                 .from('sessions')
                 .select('*')
@@ -44,59 +67,53 @@ export function useWorkspace(sessionId: string | null): UseWorkspaceResult {
                 .maybeSingle();
 
             if (sessionError) throw sessionError;
+            if (!sessionData) return null;
 
-            // Fetch Cards
-            const { data: cardsData, error: cardsError } = await supabase
-                .from('cards')
-                .select('*')
-                .eq('session_id', sessionId);
+            const [
+                { data: cardsData, error: cardsError },
+                { data: connsData, error: connsError },
+                { data: filesData, error: filesError },
+                { data: collectionsData, error: collectionsError },
+                chatHistory,
+            ] = await Promise.all([
+                supabase.from('cards').select('*').eq('session_id', sessionId),
+                supabase.from('connections').select('*').eq('session_id', sessionId),
+                supabase.from('file_system_nodes').select('*').eq('session_id', sessionId),
+                supabase.from('collections').select('*').eq('session_id', sessionId),
+                loadChatHistory(sessionId),
+            ]);
 
             if (cardsError) throw cardsError;
-
-            // Fetch Connections
-            const { data: connsData, error: connsError } = await supabase
-                .from('connections')
-                .select('*')
-                .eq('session_id', sessionId);
-
             if (connsError) throw connsError;
-
-            // Fetch File System
-            const { data: filesData, error: filesError } = await supabase
-                .from('file_system_nodes')
-                .select('*')
-                .eq('session_id', sessionId);
-
             if (filesError) throw filesError;
+            if (collectionsError) throw collectionsError;
 
-            // Map DB types to App Types
-            const cards: IdeaCard[] = cardsData.map((c: any) => ({
-                id: c.id,
-                x: c.x,
-                y: c.y,
-                text: c.text,
+            const cards: IdeaCard[] = (cardsData || []).map((c: Record<string, unknown>) => ({
+                id: c.id as string,
+                x: c.x as number,
+                y: c.y as number,
+                text: c.text as string,
                 content: c.content,
-                width: c.width,
-                height: c.height,
-                color: c.color,
-                style: c.style,
-                image: c.image,
-                fileName: c.file_name,
-                collectionId: c.collection_id
+                width: c.width as number,
+                height: c.height as number,
+                color: c.color as string,
+                style: c.style as IdeaCard['style'],
+                image: c.image as string | undefined,
+                fileName: c.file_name as string | undefined,
+                collectionId: c.collection_id as string | undefined,
             }));
 
-            const connections: Connection[] = connsData.map((c: any) => ({
-                id: c.id,
-                fromId: c.from_id,
-                toId: c.to_id,
-                style: c.style,
-                color: c.color,
-                relationType: c.relation_type,
-                arrowStart: ArrowType.NONE, // Default or map if stored
-                arrowEnd: ArrowType.STANDARD
-            }));
+            const connections: Connection[] = (connsData || []).map(c =>
+                connectionFromDbRow(c as Record<string, unknown>)
+            );
 
-            const fileSystem = buildFileSystemTree(filesData);
+            const collections: Collection[] =
+                collectionsData && collectionsData.length > 0
+                    ? collectionsData.map((c: { id: string; name: string }) => ({
+                          id: c.id,
+                          name: c.name,
+                      }))
+                    : INITIAL_COLLECTIONS;
 
             const newSession: Session = {
                 id: sessionData.id,
@@ -107,111 +124,103 @@ export function useWorkspace(sessionId: string | null): UseWorkspaceResult {
                 viewport_zoom: sessionData.viewport_zoom,
                 cards: cards.length > 0 ? cards : INITIAL_CARDS,
                 connections,
-                fileSystem,
-                chatHistory: [], // Load chat if needed
-                lastModified: sessionData.last_modified
+                fileSystem: buildFileSystemTree(filesData || []),
+                collections,
+                chatHistory,
+                strokes:
+                    typeof sessionData.strokes === 'string'
+                        ? JSON.parse(sessionData.strokes)
+                        : Array.isArray(sessionData.strokes)
+                          ? sessionData.strokes
+                          : [],
+                lastModified: new Date(sessionData.last_modified).getTime(),
+                isFullyLoaded: true,
             };
 
-            setSession(newSession);
-
-            // Hydrate the SyncEngine with initial state to prevent unnecessary saves
-            syncEngine.hydrate(newSession);
-
-        } catch (e: any) {
+            hydrateFromSession(newSession);
+            return newSession;
+        } catch (e: unknown) {
+            setIsHydrated(false);
+            const message = e instanceof Error ? e.message : 'Failed to load session';
             console.error('Failed to load session:', e);
-            setSyncState(s => ({ ...s, error: e.message }));
+            setSyncState(s => ({ ...s, error: message }));
+            return null;
         } finally {
             setIsLoading(false);
         }
-    }, [sessionId]);
+    }, [sessionId, hydrateFromSession]);
 
-    useEffect(() => {
-        if (sessionId) loadSession();
-    }, [sessionId, loadSession]);
-
-    // 2. Subscribe to SyncEngine
     useEffect(() => {
         return syncEngine.subscribe((state) => {
             setSyncState({
                 isDirty: state.isDirty,
-                status: state.status as any,
+                status: state.status as typeof syncState.status,
                 lastSaved: state.lastSaved,
-                error: state.error
+                error: state.error,
             });
         });
-    }, []);
+    }, [syncEngine]);
 
-    // 3. Save Function (Proxy to SyncEngine)
-    const saveWorkspace = useCallback((updatedSession: Session) => {
-        if (!sessionId) return;
+    const saveWorkspace = useCallback(
+        (updatedSession: Session) => {
+            if (!sessionId || !syncEngine.isHydrated()) return;
 
-        // We diff here or just queue everything. 
-        // For simplicity/robustness match SyncEngine's expectation.
-        // Ideally Workspace tracks granular changes (queueCardUpdate), 
-        // but if Workspace passes full object, we queue session data + files.
-        // Cards/Connections are usually granular in Workspace, but if `saveWorkspace` 
-        // is the only entry point, we might need to diff or queue all.
+            syncEngine.queueSessionUpdate(updatedSession);
+            syncEngine.queueFileSystemUpdate(updatedSession.fileSystem);
 
-        // However, `Workspace.tsx` calls `onSave` with the whole session.
-        // We will queue the Session (viewport) and Files (structure).
-        // For cards/connections, since we don't have diffs here easily without state,
-        // we might rely on the fact that `Workspace` manipulates state.
+            if (updatedSession.collections) {
+                updatedSession.collections.forEach(c => syncEngine.queueCollectionUpdate(c));
+            }
 
-        // BETTER APPROACH: 
-        // We will modify `Workspace.tsx` to use granular updates. 
-        // But if we MUST use `saveWorkspace` (the prop), we can queue all cards for upsert.
-        // It's not efficient but it satisfies "Batch Upsert".
-        // We will queue all cards in the session as "dirty" if `saveWorkspace` is called.
-        // `SyncEngine` handles the batching.
+            updatedSession.cards.forEach(c => syncEngine.queueCardUpdate(c));
+            updatedSession.connections.forEach(c => syncEngine.queueConnectionUpdate(c));
+        },
+        [sessionId, syncEngine]
+    );
 
-        syncEngine.queueSessionUpdate(updatedSession);
-        syncEngine.queueFileSystemUpdate(updatedSession.fileSystem);
-
-        if (updatedSession.collections) {
-            updatedSession.collections.forEach(c => syncEngine.queueCollectionUpdate(c));
-        }
-
-        updatedSession.cards.forEach(c => syncEngine.queueCardUpdate(c));
-        updatedSession.connections.forEach(c => syncEngine.queueConnectionUpdate(c));
-
-    }, [sessionId]);
-
-    // 4. Realtime Subscription
     useEffect(() => {
         if (!sessionId || !supabase) return;
 
-        const channel = supabase.channel(`session-${sessionId}`)
+        const channel = supabase
+            .channel(`session-${sessionId}`)
             .on(
                 'postgres_changes',
-                { event: 'UPDATE', schema: 'public', table: 'sessions', filter: `id=eq.${sessionId}` },
-                (payload) => {
-                    const remoteTime = new Date(payload.new.last_modified).getTime();
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'sessions',
+                    filter: `id=eq.${sessionId}`,
+                },
+                payload => {
+                    const remoteTime = new Date((payload.new as { last_modified: string }).last_modified).getTime();
                     const localTime = session?.lastModified || 0;
-                    // 2s buffer for clock skew
                     if (remoteTime > localTime + 2000) {
-                        // Prompt user or auto-refresh?
-                        // For now, we will just set a flag implicitly or log
                         console.log('Remote update detected, refresh advised');
-                        // We could expose a `remoteUpdateAvailable` state
                     }
                 }
             )
             .subscribe();
 
-        return () => { supabase.removeChannel(channel); };
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [sessionId, session?.lastModified]);
 
     return {
         session,
         isLoading,
-        isSaving: syncState.status !== 'idle' && syncState.status !== 'saved' && syncState.status !== 'error', // derived
+        isSaving:
+            syncState.status !== 'idle' &&
+            syncState.status !== 'saved' &&
+            syncState.status !== 'error',
         saveStatus: syncState.status,
         lastSaved: syncState.lastSaved,
         hasUnsavedChanges: syncState.isDirty,
         error: syncState.error || null,
         saveWorkspace,
-        refreshWorkspace: loadSession,
+        refreshWorkspace: loadSessionFromDb,
         deleteCard: (id: string) => syncEngine.queueCardDeletion(id),
-        deleteConnection: (id: string) => syncEngine.queueConnectionDeletion(id)
+        deleteConnection: (id: string) => syncEngine.queueConnectionDeletion(id),
+        isHydrated,
     };
 }

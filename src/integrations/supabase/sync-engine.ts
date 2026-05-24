@@ -2,6 +2,7 @@
 import { supabase } from '../../../lib/supabase';
 import { IdeaCard, Session, Connection, FileSystemItem, Collection } from '@/types';
 import { flattenFileSystem, FlatFileSystemNode } from './utils/tree-transformer';
+import { connectionToDbRow } from '../../utils/connectionDb';
 
 type SyncStatus = 'idle' | 'working' | 'saving' | 'saved' | 'error';
 
@@ -84,13 +85,23 @@ export class SyncEngine {
         if (session.connections) {
             session.connections.forEach(c => this.lastSyncedConnections.set(c.id, { ...c }));
         }
+
+        this.pendingSession = session;
+        this._hydrated = true;
     }
 
     markDirty() {
+        if (!this._hydrated) return;
         if (!this.state.isDirty) {
             this.updateState({ isDirty: true, status: 'working' });
         }
         this.scheduleSave();
+    }
+
+    private scheduleSaveWithBackoff() {
+        if (this.saveTimer) clearTimeout(this.saveTimer);
+        const delay = this.state.status === 'error' ? 2000 : this.DEBOUNCE_MS;
+        this.saveTimer = setTimeout(() => this.flush(), delay);
     }
 
     queueCardUpdate(card: IdeaCard) {
@@ -136,19 +147,24 @@ export class SyncEngine {
     // --- Internal Logic ---
 
     private _isSaving: boolean = false;
+    private _hydrated = false;
+    private _lastErrorMessage: string | undefined;
+
+    isHydrated() {
+        return this._hydrated;
+    }
 
     private scheduleSave() {
-        if (this.saveTimer) clearTimeout(this.saveTimer);
-        this.saveTimer = setTimeout(() => this.flush(), this.DEBOUNCE_MS);
+        this.scheduleSaveWithBackoff();
     }
 
     async flush() {
         if (this._isSaving) {
-            this.scheduleSave(); // Retry later
+            this.scheduleSaveWithBackoff();
             return;
         }
 
-        if (!this.state.isDirty || !supabase || !this.pendingSession) return;
+        if (!this.state.isDirty || !supabase || !this.pendingSession || !this._hydrated) return;
 
         this._isSaving = true;
         this.updateState({ status: 'saving' });
@@ -276,17 +292,7 @@ export class SyncEngine {
                 });
 
                 if (connsToUpsert.length > 0) {
-                    const connPayload = connsToUpsert.map(c => ({
-                        id: c.id,
-                        session_id: sessionId,
-                        from_id: c.fromId,
-                        to_id: c.toId,
-                        style: c.style,
-                        color: c.color,
-                        relation_type: c.relationType,
-                        arrow_start: c.arrowStart,
-                        arrow_end: c.arrowEnd
-                    }));
+                    const connPayload = connsToUpsert.map(c => connectionToDbRow(c, sessionId));
                     const { error } = await supabase.from('connections').upsert(connPayload);
                     if (error) throw error;
 
@@ -334,18 +340,23 @@ export class SyncEngine {
                 flatNodes.forEach(node => this.lastSyncedFiles.set(node.id, { ...node }));
             }
 
-            this.updateState({ status: 'saved', lastSaved: Date.now(), error: undefined });
+            this._lastErrorMessage = undefined;
+            this.updateState({ status: 'saved', lastSaved: Date.now(), error: undefined, isDirty: false });
 
         } catch (err: any) {
+            const message = err.message || 'Sync failed';
             console.error('Sync Error:', err);
-            this.updateState({ status: 'error', error: err.message || 'Sync failed' });
+            // Avoid UI flicker if the same error repeats on retry
+            if (message !== this._lastErrorMessage) {
+                this._lastErrorMessage = message;
+                this.updateState({ status: 'error', error: message });
+            }
 
-            // Restore dirty items so we retry
             dirtyCardsSnapshot.forEach(c => this.dirtyCards.set(c.id, c));
             dirtyConnectionsSnapshot.forEach(c => this.dirtyConnections.set(c.id, c));
-            // We lose specific deletions restoration here for simplicity, or we could merge Sets too.
-            // Ideally implementation handles merge logic.
-            // For now, simple error handling is better than nothing.
+            deletedCardIdsSnapshot.forEach(id => this.deletedCardIds.add(id));
+            deletedConnectionIdsSnapshot.forEach(id => this.deletedConnectionIds.add(id));
+            if (pendingFilesSnapshot) this.pendingFiles = pendingFilesSnapshot;
         } finally {
             this._isSaving = false;
             // Check if more changes arrived during save

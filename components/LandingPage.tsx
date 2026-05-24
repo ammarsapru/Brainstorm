@@ -11,6 +11,8 @@ interface LandingPageProps {
   onGoShards?: () => void;
 }
 
+const DOWNLOAD_URL = import.meta.env.VITE_DESKTOP_DOWNLOAD_URL || '/Brainstorm-Setup.exe';
+
 // --- Custom Hooks for Animation ---
 const useScrollReveal = () => {
   useEffect(() => {
@@ -403,15 +405,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onGoShar
             >
               Start Brainstorming <ArrowRight className="w-5 h-5" />
             </button>
-            {!navigator.userAgent.includes('Electron') && (
-              <a
-                href="/Brainstorm-Setup.exe"
-                download="Brainstorm-Setup.exe"
-                className="px-8 py-4 bg-white text-gray-900 border border-gray-200 rounded-full font-bold text-lg shadow-sm hover:bg-gray-50 hover:border-gray-300 hover:scale-105 transition-all flex items-center gap-2"
-              >
-                <Download className="w-5 h-5" /> Download App (Windows)
-              </a>
-            )}
+            <a
+              href={DOWNLOAD_URL}
+              download="Brainstorm-Setup.exe"
+              className="px-8 py-4 bg-white text-gray-900 border border-gray-200 rounded-full font-bold text-lg shadow-sm hover:bg-gray-50 hover:border-gray-300 hover:scale-105 transition-all flex items-center gap-2"
+            >
+              <Download className="w-5 h-5" /> Download App (Windows)
+            </a>
           </div>
         </div>
       </main>

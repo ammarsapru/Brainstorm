@@ -9,6 +9,34 @@ const checkSupabaseConfig = () => {
     }
 };
 
+const isElectronRuntime = () => {
+    if (typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('electron')) return true;
+    return typeof window !== 'undefined' && !!(window as any).process?.versions?.electron;
+};
+
+const getGoogleOAuthRedirectUrl = () => {
+    const electron = isElectronRuntime();
+
+    if (electron) {
+        const configuredOrigin = import.meta.env.VITE_ELECTRON_OAUTH_REDIRECT_ORIGIN?.trim();
+        const fallbackOrigin = window.location.origin.startsWith('http://') || window.location.origin.startsWith('https://')
+            ? window.location.origin
+            : '';
+        const baseOrigin = (configuredOrigin || fallbackOrigin).replace(/\/$/, '');
+
+        if (!baseOrigin) {
+            throw new Error('Electron Google sign-in requires VITE_ELECTRON_OAUTH_REDIRECT_ORIGIN to be set to a hosted http(s) origin.');
+        }
+
+        return `${baseOrigin}/callback-electron.html`;
+    }
+
+    // Web, Docker, and npm dev should keep the normal in-app redirect behavior.
+    return window.location.origin + window.location.pathname;
+};
+
+export const isElectronRuntimeEnvironment = isElectronRuntime;
+
 export const authService = {
     signInWithPassword: async (email: string, password: string) => {
         checkSupabaseConfig();
@@ -33,17 +61,22 @@ export const authService = {
 
     signInWithGoogle: async () => {
         checkSupabaseConfig();
-        // Construct the proper redirect URL using the current window path
-        const redirectUrl = window.location.origin + window.location.pathname;
+        const electron = isElectronRuntime();
+        const redirectUrl = getGoogleOAuthRedirectUrl();
         
         const { data, error } = await supabase!.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: redirectUrl
+                redirectTo: redirectUrl,
+                skipBrowserRedirect: electron
             }
         });
         if (error) throw error;
-        return data;
+        return {
+            url: data.url,
+            redirectUrl,
+            shouldOpenExternal: electron,
+        };
     },
 
     signOut: async () => {

@@ -5,7 +5,8 @@
 <p align="center">
   <a href="https://ammarsapru.github.io/Brainstorm/"><img src="https://img.shields.io/badge/Web_App-Live-4ade80?style=flat-square&logoColor=white" alt="Web App"/></a>
   <img src="https://img.shields.io/badge/Desktop-Electron-818cf8?style=flat-square&logo=electron&logoColor=white" alt="Electron"/>
-  <img src="https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js&logoColor=white" alt="Next.js"/>
+  <img src="https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite&logoColor=white" alt="Vite"/>
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white" alt="React"/>
   <img src="https://img.shields.io/badge/TypeScript-blue?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"/>
   <img src="https://img.shields.io/badge/Supabase-S3_Storage-3ecf8e?style=flat-square&logo=supabase&logoColor=white" alt="Supabase"/>
   <img src="https://img.shields.io/badge/AI-BYOK_(Claude_·_Gemini_·_GPT)-f472b6?style=flat-square" alt="AI"/>
@@ -51,11 +52,11 @@ Brainstorm solves this by:
 
 | Layer | Technology |
 |---|---|
-| **Frontend** | Next.js 15, TypeScript, JavaScript, Tailwind CSS |
+| **Frontend** | Vite 6, React 19, TypeScript, Tailwind CSS (CDN) |
 | **Backend & Auth** | Supabase (PostgreSQL, Auth) |
 | **File & Image Storage** | S3 Buckets via Supabase |
 | **On-Device AI/RAG** | `@xenova/transformers` (Transformers.js) — runs entirely in-browser |
-| **LLM Integration** |  Gemini API (BYOK) |
+| **LLM Integration** | Gemini, OpenAI (GPT-4o), Anthropic (Claude) — BYOK, encrypted in browser |
 | **Desktop Packaging** | Electron + electron-builder |
 | **Deployment** | GitHub Pages (web) + `.exe` executable (desktop) |
 
@@ -73,7 +74,7 @@ Visit the live deployment directly in your browser:
 
 **[→ Launch Brainstorm](https://ammarsapru.github.io/Brainstorm/)**
 
-Bring your own API key for  Gemini,  configure it in the AI chat settings panel inside the app.
+Bring your own API keys for Gemini, OpenAI, or Anthropic — configure them in the AI chat settings panel. Keys are encrypted locally (AES-GCM) and never sent to Brainstorm servers.
 
 ---
 
@@ -92,7 +93,7 @@ cp .env.example .env.local
 docker compose up
 ```
 
-Visit `http://localhost:3000`.
+Visit `http://localhost:8080` (Docker maps container port 80 → host 8080).
 
 ---
 

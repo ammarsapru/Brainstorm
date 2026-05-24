@@ -3,13 +3,24 @@ import { IdeaCard, Connection, FileSystemItem, ChatMessage } from "../types";
 import { APIKeys } from '../components/APIKeyModal';
 import { uploadFileToS3 } from '../lib/supabase';
 import { embeddingService } from './embeddingService';
+import debugLog from '../utils/debugLog';
 
-const defaultKey = import.meta.env.VITE_GOOGLE_API_KEY || 'MISSING_KEY';
-const ai = new GoogleGenAI({ apiKey: defaultKey });
+const requireNonEmptyKey = (key: string | undefined | null, providerLabel: string): string => {
+  const trimmed = (key || '').trim();
+  if (!trimmed) throw new Error(`Missing ${providerLabel} API key`);
+  return trimmed;
+};
 
-export const generateRelatedIdeas = async (contextText: string, existingIdeas: string[]): Promise<string[]> => {
+const createGeminiClient = (apiKey: string) => new GoogleGenAI({ apiKey });
+
+export const generateRelatedIdeas = async (
+  apiKey: string,
+  contextText: string,
+  existingIdeas: string[]
+): Promise<string[]> => {
   try {
-    const response = await ai.models.generateContent({
+    const activeAi = createGeminiClient(requireNonEmptyKey(apiKey, 'Google Gemini'));
+    const response = await activeAi.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `
         You are a brainstorming assistant.
@@ -37,9 +48,52 @@ export const generateRelatedIdeas = async (contextText: string, existingIdeas: s
     }
     return [];
   } catch (error) {
-    console.error("Failed to generate ideas:", error);
+    debugLog.error("aiService", "Failed to generate ideas:", error);
     return [];
   }
+};
+
+export type ChatRequestOptions = {
+  /** Injected when user switches LLM mid-thread — plain summary, no JSON actions */
+  handoffContext?: string;
+};
+
+export const summarizeChatHandoff = async (
+  priorThread: ChatMessage[],
+  apiKeys: APIKeys,
+  fromModelId: string,
+  sessionName: string
+): Promise<string> => {
+  const fromLabel = fromModelId;
+  const transcript = priorThread
+    .filter(m => m.text?.trim() && !m.isHandoff)
+    .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.text}`)
+    .join('\n\n');
+
+  if (!transcript.trim()) {
+    return 'The user started a new chat thread with this model. No prior messages on the previous model.';
+  }
+
+  const handoffPrompt = `You are handing this brainstorming session off to a different AI assistant.
+
+Session name: "${sessionName}"
+Your model id: ${fromLabel}
+
+Write a concise briefing (max 350 words) for the next assistant. Include:
+- What the user is trying to accomplish
+- Main topics and decisions so far
+- Open questions or next steps
+- Any canvas/card changes discussed
+
+Do NOT use JSON or function calls. Do NOT greet the user. Plain prose only.
+
+Prior conversation on YOUR model thread:
+${transcript}`;
+
+  return getChatResponse([], handoffPrompt, '', apiKeys, fromModelId, {
+    handoffContext: undefined,
+    plainTextOnly: true,
+  });
 };
 
 export const getChatResponse = async (
@@ -47,15 +101,16 @@ export const getChatResponse = async (
   newMessage: string,
   boardContext: string,
   apiKeys: APIKeys,
-  modelId: string
+  modelId: string,
+  options: ChatRequestOptions & { plainTextOnly?: boolean } = {}
 ): Promise<string> => {
-  const sysPrompt = `You are a sophisticated Creative Strategist and Visual Thinker integrated into "Brainstorm", an infinite canvas tool.
-                
-Your Goal: Help the user expand their thinking, structurally organize ideas, and find connections they missed.
+  const handoffBlock = options.handoffContext
+    ? `\n\n**HANDOFF FROM PREVIOUS ASSISTANT (read carefully, continue seamlessly):**\n${options.handoffContext}\n`
+    : '';
 
-Adhere to these Guidelines:
-1. Avoid "fluff" or generic greetings. Be energetic, concise, and professional.
-2. Context: Use the provided board context (cards and connections) to anchor your answers in reality.
+  const capabilitiesBlock = options.plainTextOnly
+    ? '\nRespond in plain text only. Do not output JSON or canvas actions.\n'
+    : `
 
 **CAPABILITIES (FUNCTION CALLING)**:
 You have the ability to manipulate the canvas. You must output exactly ONE valid JSON object when you want to take an action. 
@@ -66,11 +121,11 @@ Valid Actions Schema (Always include an outer \`actions\` array):
 {
   "actions": [
     {
-      "type": "search_cards",  // Use this to find cards if you don't know their exact IDs
+      "type": "search_cards",
       "query": "marketing"
     },
     {
-      "type": "read_card",     // Use this to read the full rich text content of a specific card
+      "type": "read_card",
       "id": "card-123"
     },
     {
@@ -79,7 +134,7 @@ Valid Actions Schema (Always include an outer \`actions\` array):
     },
     {
       "type": "update_cards",
-      "updates": [ {"id": "card-123", "text": "New Title", "content": "Updated rich text", "color": "#ffffff"} ] // Overwrites the card fields
+      "updates": [ {"id": "card-123", "text": "New Title", "content": "Updated rich text", "color": "#ffffff"} ]
     },
     {
       "type": "delete_cards",
@@ -93,7 +148,16 @@ Valid Actions Schema (Always include an outer \`actions\` array):
 }
 
 If you do not need to take any action, you can omit the JSON completely.
-Colors available: #ffffff (White), #ffeba8 (Yellow), #ffcaca (Red), #e9f5db (Green), #e0f2fe (Blue), #f3e8ff (Purple).
+Colors available: #ffffff (White), #ffeba8 (Yellow), #ffcaca (Red), #e9f5db (Green), #e0f2fe (Blue), #f3e8ff (Purple).`;
+
+  const sysPrompt = `You are a sophisticated Creative Strategist and Visual Thinker integrated into "Brainstorm", an infinite canvas tool.
+                
+Your Goal: Help the user expand their thinking, structurally organize ideas, and find connections they missed.
+
+Adhere to these Guidelines:
+1. Avoid "fluff" or generic greetings. Be energetic, concise, and professional.
+2. Context: Use the provided board context (cards and connections) to anchor your answers in reality.
+${capabilitiesBlock}${handoffBlock}
 
 Current Board Context:
 ${boardContext}`;
@@ -163,22 +227,17 @@ ${boardContext}`;
       }
       else {
         // Gemini fallback
-        const userKey = apiKeys.gemini && apiKeys.gemini.trim() ? apiKeys.gemini.trim() : null;
-        const envKey = import.meta.env.VITE_GOOGLE_API_KEY;
-        const targetApiKey = userKey || envKey;
+        const targetApiKey = apiKeys.gemini?.trim();
+        if (!targetApiKey) return "Please add your Google Gemini API Key in Settings (⚙️).";
 
-        if (!targetApiKey) {
-          return "Please add your Google Gemini API Key in Settings (⚙️).";
-        }
-
-        const activeAi = new GoogleGenAI({ apiKey: targetApiKey });
+        const activeAi = createGeminiClient(targetApiKey);
 
         const chatHistory = history.map(msg => ({
           role: msg.role,
           parts: [{ text: msg.text }]
         }));
 
-        const TargetModel = 'gemini-2.5-flash';
+        const TargetModel = modelId && modelId.startsWith('gemini-') ? modelId : 'gemini-2.5-flash';
 
         const chat = activeAi.chats.create({
           model: TargetModel,
@@ -188,6 +247,10 @@ ${boardContext}`;
 
         const result = await chat.sendMessage({ message: currentMessage });
         resultText = result.text || "I didn't catch that.";
+      }
+
+      if (options.plainTextOnly) {
+        return resultText;
       }
 
       // RLM Loop Interception Logic
@@ -225,13 +288,13 @@ ${boardContext}`;
         }
       } catch (e) {
         // If JSON parse fails or no actions found, we just return the result to the UI
-        console.warn("No RLM JSON intercepted, passing text to UI");
+        debugLog.warn("aiService", "No RLM JSON intercepted, passing text to UI");
       }
 
       return resultText;
 
     } catch (error: any) {
-      console.error("Chat attempt failed", error);
+      debugLog.error("aiService", "Chat attempt failed", error);
       let errorMsg = error.message || 'Unknown error. Check the console.';
       if (errorMsg.includes("API key not valid")) return "Your API key is not valid.";
       return `Sorry, I encountered an error: ${errorMsg}`;
@@ -241,83 +304,74 @@ ${boardContext}`;
   return await executeAttempt(newMessage, 0);
 }
 
-export const generateSessionIcon = async (sessionName: string, cardTexts: string[]): Promise<string> => {
+const persistGeneratedImageBytes = async (
+  imageBytes: string,
+  filePrefix: string
+): Promise<string | null> => {
+  const mime = 'image/png';
+  const dataUrl = `data:${mime};base64,${imageBytes}`;
   try {
-    const prompt = `A colorful, unique 3D render icon representing the concept of "${sessionName}". 
-    Context keywords: ${cardTexts.slice(0, 3).join(', ')}. 
-    Style: Cute 3D isometric icon, vibrant colors, claymorphism or glossy 3d, white background, high quality. 
-    Ensure the object is centered and looks like an app icon.`;
-
-    const response = await ai.models.generateContent({
-      model: 'imagen-3.0-generate-001',
-      contents: {
-        parts: [{ text: prompt }],
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: "1:1",
-        }
-      }
-    });
-
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        const dataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-        try {
-          const res = await fetch(dataUrl);
-          const blob = await res.blob();
-          (blob as any).name = `ai-icon-${Date.now()}.${(part.inlineData.mimeType.split('/')[1] || 'png')}`;
-          const s3Url = await uploadFileToS3(blob);
-          if (s3Url) return s3Url;
-        } catch (e) {
-          console.error("Failed to upload AI icon to S3:", e);
-        }
-        return dataUrl;
-      }
-    }
-    return "💡";
-  } catch (error) {
-    console.error("Failed to generate icon:", error);
-    return "💡";
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    (blob as File & { name?: string }).name = `${filePrefix}-${Date.now()}.png`;
+    const s3Url = await uploadFileToS3(blob);
+    if (s3Url) return s3Url;
+  } catch (e) {
+    debugLog.error('aiService', 'Failed to upload generated image', e);
   }
-}
+  return dataUrl;
+};
 
-export const generateSessionImage = async (sessionName: string, cardTexts: string[]): Promise<string | null> => {
+const generateImagenAsset = async (
+  apiKey: string,
+  prompt: string,
+  aspectRatio: '1:1' | '16:9',
+  filePrefix: string
+): Promise<string | null> => {
+  const activeAi = createGeminiClient(requireNonEmptyKey(apiKey, 'Google Gemini'));
+  const response = await activeAi.models.generateImages({
+    model: 'imagen-3.0-generate-002',
+    prompt,
+    config: {
+      numberOfImages: 1,
+      aspectRatio,
+    },
+  });
+
+  const bytes = response.generatedImages?.[0]?.image?.imageBytes;
+  if (!bytes) {
+    throw new Error('Imagen returned no image. Check that your Gemini API key has image generation enabled.');
+  }
+  return persistGeneratedImageBytes(bytes, filePrefix);
+};
+
+export const generateSessionIcon = async (
+  apiKey: string,
+  sessionName: string,
+  cardTexts: string[]
+): Promise<string> => {
   try {
-    const prompt = `An abstract, artistic, and colorful cover image representing the concept of "${sessionName}". 
-    Key themes: ${cardTexts.slice(0, 5).join(', ')}. 
-    High quality, modern digital art style, 4k resolution, minimalistic but vibrant, suitable for a card background.`;
-
-    const response = await ai.models.generateContent({
-      model: 'imagen-3.0-generate-001',
-      contents: {
-        parts: [{ text: prompt }],
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: "16:9",
-        }
-      }
-    });
-
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        const dataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-        try {
-          const res = await fetch(dataUrl);
-          const blob = await res.blob();
-          (blob as any).name = `ai-session-img-${Date.now()}.${(part.inlineData.mimeType.split('/')[1] || 'png')}`;
-          const s3Url = await uploadFileToS3(blob);
-          if (s3Url) return s3Url;
-        } catch (e) {
-          console.error("Failed to upload AI session image to S3:", e);
-        }
-        return dataUrl;
-      }
-    }
-    return null;
+    const prompt = `A colorful, unique 3D render icon representing the concept of "${sessionName}". Context keywords: ${cardTexts.slice(0, 3).join(', ')}. Style: cute 3D isometric app icon, vibrant colors, white background, centered.`;
+    const url = await generateImagenAsset(apiKey, prompt, '1:1', 'ai-icon');
+    return url || '💡';
   } catch (error) {
-    console.error("Failed to generate image:", error);
-    return null;
+    const msg = error instanceof Error ? error.message : 'Image generation failed';
+    debugLog.error('aiService', 'Failed to generate icon', error);
+    throw new Error(msg);
   }
-}
+};
+
+export const generateSessionImage = async (
+  apiKey: string,
+  sessionName: string,
+  cardTexts: string[]
+): Promise<string | null> => {
+  try {
+    const prompt = `An abstract artistic cover image for "${sessionName}". Themes: ${cardTexts.slice(0, 5).join(', ')}. Modern digital art, vibrant, minimal, suitable as a card wallpaper.`;
+    return await generateImagenAsset(apiKey, prompt, '16:9', 'ai-session-img');
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Image generation failed';
+    debugLog.error('aiService', 'Failed to generate session image', error);
+    throw new Error(msg);
+  }
+};
