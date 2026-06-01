@@ -13,7 +13,7 @@ type ChatMessageRow = {
 };
 
 const toDbRole = (role: ChatMessage['role']): string =>
-  role === 'user' ? 'user' : 'assistant';
+  role === 'user' ? 'user' : 'model';
 
 const fromDbRole = (role: string): ChatMessage['role'] =>
   role === 'user' ? 'user' : 'model';

@@ -24,6 +24,9 @@ export interface ParsedBlock {
   italic: boolean;
   fontSize: number;
   isCode: boolean;
+  isTable?: boolean;
+  tableData?: string[][];
+  imageUrls?: string[];
 }
 
 const stripHtml = (html: string): string =>
@@ -36,6 +39,17 @@ const stripHtml = (html: string): string =>
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .trim();
+
+const extractImageUrls = (html: string): string[] => {
+  const urls: string[] = [];
+  const regex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+  let match = regex.exec(html);
+  while (match) {
+    if (match[1]) urls.push(match[1]);
+    match = regex.exec(html);
+  }
+  return urls;
+};
 
 export const parseDocContent = (content: unknown): DocBlock[] => {
   if (!content) return [];
@@ -61,14 +75,20 @@ export const parseDocContent = (content: unknown): DocBlock[] => {
 };
 
 export const blocksToRenderable = (blocks: DocBlock[]): ParsedBlock[] =>
-  blocks.map(block => ({
-    plainText: stripHtml(block.text || ''),
-    listType: block.style?.listType ?? 'none',
-    bold: !!block.style?.bold,
-    italic: !!block.style?.italic,
-    fontSize: block.style?.fontSize ?? 16,
-    isCode: block.type === 'code',
-  }));
+  blocks.map(block => {
+    const rawText = block.text || '';
+    return {
+      plainText: stripHtml(rawText),
+      listType: block.style?.listType ?? 'none',
+      bold: !!block.style?.bold,
+      italic: !!block.style?.italic,
+      fontSize: block.style?.fontSize ?? 16,
+      isCode: block.type === 'code',
+      isTable: block.type === 'table',
+      tableData: block.tableData,
+      imageUrls: rawText ? extractImageUrls(rawText) : [],
+    };
+  });
 
 export const isGenericTitle = (text: string): boolean => {
   const t = text.trim();
