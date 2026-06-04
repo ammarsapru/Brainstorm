@@ -1,17 +1,37 @@
 
 services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - brainstorm
+
   brainstorm:
     image: brainstorm-app:0.0.1
+    environment:
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        APP_VERSION: 0.0.1
-        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
-        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
-        VITE_GOOGLE_API_KEY: ${VITE_GOOGLE_API_KEY}
-        GEMINI_API_KEY: ${GEMINI_API_KEY}
-    ports:
-      - "8080:80"
+    expose:
+      - "80"
     restart: unless-stopped
     container_name: brainstorm-app
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+      - /var/run
+    read_only: true
+
+volumes:
+  caddy_data:
+  caddy_config:

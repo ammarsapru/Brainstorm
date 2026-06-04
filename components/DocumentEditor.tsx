@@ -13,6 +13,7 @@ import 'prismjs/components/prism-css';
 import 'prismjs/components/prism-json';
 import 'prismjs/components/prism-bash';
 import { uploadFileToS3 } from '../lib/supabase';
+import DOMPurify from 'dompurify';
 
 interface DocumentEditorProps {
   doc: FileSystemItem;
@@ -90,7 +91,7 @@ const ContentBlock = React.memo(({
     if (contentEditable.current && contentEditable.current.innerHTML !== html) {
       // Only update if content is different.
       // This allows the user to type without React overwriting the DOM and resetting cursor.
-      contentEditable.current.innerHTML = html;
+      contentEditable.current.innerHTML = DOMPurify.sanitize(html);
     }
   }, [html]);
 
@@ -134,7 +135,7 @@ const ContentBlock = React.memo(({
                   sel?.removeAllRanges();
                   sel?.addRange(range);
                 }
-                const imgNode = `<img src="${dataUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px; margin-bottom: 8px;" alt="Dropped image" />`;
+                const imgNode = DOMPurify.sanitize(`<img src="${dataUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px; margin-bottom: 8px;" alt="Dropped image" />`, { ALLOWED_TAGS: ['img'], ALLOWED_ATTR: ['src', 'style', 'alt'] });
                 document.execCommand('insertHTML', false, imgNode);
               }
             });
@@ -152,7 +153,7 @@ const ContentBlock = React.memo(({
                 e.preventDefault();
                 uploadFileToS3(blob).then(dataUrl => {
                   if (dataUrl) {
-                    const imgNode = `<img src="${dataUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px; margin-bottom: 8px;" alt="Pasted image" />`;
+                    const imgNode = DOMPurify.sanitize(`<img src="${dataUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px; margin-bottom: 8px;" alt="Pasted image" />`, { ALLOWED_TAGS: ['img'], ALLOWED_ATTR: ['src', 'style', 'alt'] });
                     document.execCommand('insertHTML', false, imgNode);
                   }
                 });

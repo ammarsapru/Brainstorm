@@ -11,14 +11,15 @@ interface CardNodeProps {
   scale: number;
   onUpdate: (id: string, updates: Partial<IdeaCard>) => void;
   onDelete: (id: string) => void;
-  onMouseDown: (e: React.MouseEvent, id: string) => void;
+  onPointerDown: (e: React.PointerEvent, id: string) => void;
   onDoubleClick?: (e: React.MouseEvent, id: string) => void;
   onConnectStart: (e: React.MouseEvent, id: string) => void;
   onGenerateAI: (id: string) => void;
   isProcessingAI: boolean;
-  onGripDown?: (e: React.MouseEvent, id: string) => void;
+  onGripDown?: (e: React.PointerEvent, id: string) => void;
   isConnecting?: boolean;
   onImageClick?: (url: string) => void;
+  onOpenCard?: (card: IdeaCard) => void;
   onMoveFocusVertical?: (fromCardId: string, direction: 'up' | 'down') => void;
   onRegisterTextarea?: (cardId: string, el: HTMLTextAreaElement | null) => void;
 }
@@ -34,6 +35,10 @@ const FONTS = [
   { value: 'hand', label: 'Caveat' },
   { value: 'comic', label: 'Comic Neue' },
 ];
+
+export const isPdfCard = (image?: string, fileName?: string): boolean =>
+  !!image?.startsWith('data:application/pdf') ||
+  (!!image && !!fileName?.toLowerCase().endsWith('.pdf'));
 
 export const usePdfBlobUrl = (dataUrl: string | undefined) => {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
@@ -72,7 +77,7 @@ export const CardNode = React.memo<CardNodeProps>(({
   scale,
   onUpdate,
   onDelete,
-  onMouseDown,
+  onPointerDown,
   onDoubleClick,
   onConnectStart,
   onGenerateAI,
@@ -80,12 +85,14 @@ export const CardNode = React.memo<CardNodeProps>(({
   onGripDown,
   isConnecting,
   onImageClick,
+  onOpenCard,
   onMoveFocusVertical,
   onRegisterTextarea
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const isPdf = isPdfCard(card.image, card.fileName);
   const pdfBlobUrl = usePdfBlobUrl(card.image);
 
   const handleExportPDF = async (e: React.MouseEvent) => {
@@ -181,9 +188,10 @@ export const CardNode = React.memo<CardNodeProps>(({
         backgroundColor: card.color,
         borderRadius: '8px',
         transform: `translate(-50%, -50%)`,
-        cursor: 'default'
+        cursor: 'default',
+        touchAction: 'none'
       }}
-      onMouseDown={(e) => onMouseDown(e, card.id)}
+      onPointerDown={(e) => onPointerDown(e, card.id)}
       onDoubleClick={(e) => onDoubleClick?.(e, card.id)}
     >
       {/* Connection Selection Overlay */}
@@ -214,7 +222,7 @@ export const CardNode = React.memo<CardNodeProps>(({
             transform: 'translateX(-50%)',
             whiteSpace: 'nowrap'
           }}
-          onMouseDown={(e) => e.stopPropagation()} // Prevent deselection
+          onPointerDown={(e) => e.stopPropagation()} // Prevent deselection
         >
           <button
             onClick={() => updateStyle('isBold', !card.style.isBold)}
@@ -315,7 +323,7 @@ export const CardNode = React.memo<CardNodeProps>(({
       {/* Drag Handle */}
       <div
         data-html2canvas-ignore="true"
-        onMouseDown={(e) => {
+        onPointerDown={(e) => {
           // Trigger mode switch if provided
           onGripDown?.(e, card.id);
         }}
@@ -327,20 +335,20 @@ export const CardNode = React.memo<CardNodeProps>(({
       {/* Media Content */}
       {card.image && (
         <div
-          className={`w-full overflow-hidden border-b border-black/5 bg-gray-50 ${card.image.startsWith('data:application/pdf') ? 'flex-1 min-h-[300px]' : 'h-32 cursor-pointer hover:opacity-90 transition-opacity'}`}
-          onMouseDown={(e) => {
-            if (card.image?.startsWith('data:application/pdf')) {
+          className={`w-full overflow-hidden border-b border-black/5 bg-gray-50 ${isPdf ? 'flex-1 min-h-[300px]' : 'h-32 cursor-pointer hover:opacity-90 transition-opacity'}`}
+          onPointerDown={(e) => {
+            if (isPdf) {
               e.stopPropagation(); // Allow interacting with the PDF
             }
           }}
           onClick={(e) => {
-            if (!card.image?.startsWith('data:application/pdf')) {
+            if (!isPdf) {
               e.stopPropagation();
               onImageClick?.(card.image!);
             }
           }}
         >
-          {card.image.startsWith('data:application/pdf') ? (
+          {isPdf ? (
             <embed src={pdfBlobUrl || card.image} type="application/pdf" className="w-full h-full border-none bg-white" title="PDF Viewer" />
           ) : (
             <img src={card.image} alt="Card attachment" className="w-full h-full object-cover pointer-events-none" />
@@ -355,14 +363,14 @@ export const CardNode = React.memo<CardNodeProps>(({
             <FileText className="w-4 h-4 shrink-0" />
             <span className="truncate">{card.fileName}</span>
           </div>
-          {card.image?.startsWith('data:application/pdf') && (
+          {isPdf && (
             <button
               data-html2canvas-ignore="true"
-              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
 
               onClick={(e) => {
                 e.stopPropagation();
-                onDoubleClick?.(e, card.id);
+                onOpenCard?.(card);
               }}
               className="flex items-center gap-1 bg-white/80 hover:bg-white text-gray-700 font-medium px-2 py-1 rounded shadow-sm border border-gray-200 shrink-0 transition-colors"
               title="Open PDF Full Screen"
@@ -375,10 +383,10 @@ export const CardNode = React.memo<CardNodeProps>(({
       )}
 
       {/* Text Content */}
-      <div className={`p-3 flex flex-col ${card.image?.startsWith('data:application/pdf') ? 'shrink-0' : 'flex-grow'}`}>
+      <div className={`p-3 flex flex-col ${isPdf ? 'shrink-0' : 'flex-grow'}`}>
         {isExporting ? (
           <div
-            className={`w-full bg-transparent text-gray-800 whitespace-pre-wrap break-words ${getFontFamily(card.style.fontFamily)} ${card.image?.startsWith('data:application/pdf') ? '' : 'flex-grow'}`}
+            className={`w-full bg-transparent text-gray-800 whitespace-pre-wrap break-words ${getFontFamily(card.style.fontFamily)} ${isPdf ? '' : 'flex-grow'}`}
             style={{
               minHeight: card.image ? '40px' : '60px',
               fontWeight: card.style.isHeader ? '800' : card.style.isBold ? 'bold' : 'normal',
@@ -464,7 +472,7 @@ export const CardNode = React.memo<CardNodeProps>(({
               }
             }}
             placeholder={card.image ? "Add caption..." : "Enter idea..."}
-            className={`w-full bg-transparent resize-none outline-none text-gray-800 placeholder-gray-400 overflow-hidden ${getFontFamily(card.style.fontFamily)} ${card.image?.startsWith('data:application/pdf') ? '' : 'flex-grow'}`}
+            className={`w-full bg-transparent resize-none outline-none text-gray-800 placeholder-gray-400 overflow-hidden ${getFontFamily(card.style.fontFamily)} ${isPdf ? '' : 'flex-grow'}`}
             style={{
               minHeight: card.image ? '40px' : '60px',
               fontWeight: card.style.isHeader ? '800' : card.style.isBold ? 'bold' : 'normal',
@@ -472,13 +480,21 @@ export const CardNode = React.memo<CardNodeProps>(({
               fontSize: card.style.isHeader ? '24px' : `${card.style.fontSize}px`,
               textAlign: card.style.textAlign || 'center'
             }}
-            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
           />
         )}
       </div>
 
       {/* Action Bar */}
-      <div data-html2canvas-ignore="true" className={`absolute -bottom-5 left-1/2 -translate-x-1/2 translate-y-full flex gap-2 transition-opacity duration-200 ${isSelected ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+      <div data-html2canvas-ignore="true" className={`absolute -bottom-5 left-1/2 -translate-x-1/2 translate-y-full flex gap-2 transition-opacity duration-200 ${isSelected ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onPointerDown={(e) => e.stopPropagation()}>
+        <button
+          onClick={(e) => { e.stopPropagation(); onOpenCard?.(card); }}
+          className="p-2 bg-white rounded-full shadow-md hover:bg-gray-50 text-black border border-gray-100"
+          title="Open"
+        >
+          <Maximize2 className="w-4 h-4" />
+        </button>
+
         <button
 
           onClick={(e) => { e.stopPropagation(); onConnectStart(e, card.id); }}

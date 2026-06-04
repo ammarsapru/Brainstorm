@@ -69,7 +69,7 @@ export const CreationModal: React.FC<CreationModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onPointerDown={(e) => e.stopPropagation()}>
       <div className="w-96 bg-white rounded-xl shadow-2xl border border-gray-100 p-6 scale-100 animate-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">

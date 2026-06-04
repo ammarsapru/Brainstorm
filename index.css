@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base resets ────────────────────────────────────────── */
+body,
+html {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background-color: #fafafa;
+  font-family: 'Manrope', sans-serif;
+  color: #0f172a;
+  overflow-x: hidden;
+}
+
+button,
+input,
+select,
+textarea,
+[role='button'] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Touch / coarse-pointer overrides ───────────────────── */
+@media (hover: none) and (pointer: coarse) {
+  .group-hover\:opacity-100,
+  .group-hover\:opacity-0:hover,
+  .group-hover\:opacity-0 {
+    opacity: 1 !important;
+  }
+
+  .group-hover\:scale-110 {
+    transform: scale(1.05) !important;
+  }
+}
+
+/* ── Scrollbar hiding ───────────────────────────────────── */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ── Print ──────────────────────────────────────────────── */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #summary-content,
+  #summary-content * {
+    visibility: visible;
+  }
+
+  #summary-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}

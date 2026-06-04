@@ -23,7 +23,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
     },
     // Use the Brainstorm logo on Windows frame
     icon: path.join(__dirname, '../public/brainstorm-logo.png'),

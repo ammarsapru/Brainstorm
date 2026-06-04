@@ -55,6 +55,7 @@ const FullScreenImageOverlay = ({ src, onClose }: { src: string, onClose: () => 
       ref={containerRef}//references the container ref element
       className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-8 animate-in fade-in duration-200"
       onClick={onClose}
+      onPointerDown={(e) => e.stopPropagation()}
     >
       <img
         src={src}
@@ -83,7 +84,7 @@ import { usePdfBlobUrl } from './CardNode';
 const FullScreenPdfOverlay = ({ src, title, onClose }: { src: string, title?: string, onClose: () => void }) => {//handles pdf overlay
   const pdfBlobUrl = usePdfBlobUrl(src);//object handling pdf file.
   return (
-    <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col p-8 animate-in fade-in duration-200" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col p-8 animate-in fade-in duration-200" onClick={onClose} onPointerDown={(e) => e.stopPropagation()}>
       <div className="flex justify-between items-center text-white mb-4 shrink-0 px-4 w-full max-w-6xl mx-auto" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-xl font-medium truncate pr-4">{title || 'PDF Document'}</h2>
         <button
@@ -212,6 +213,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<Point>({ x: 0, y: 0 });
   const [dragCardOffset, setDragCardOffset] = useState<Point>({ x: 0, y: 0 });
+  const activePointerIdRef = useRef<number | null>(null);
+  const autoPanRestoreRef = useRef<ToolMode | null>(null);
   const [connectingFromId, setConnectingFromId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState<Point>({ x: 0, y: 0 });
   const [isProcessingAI, setIsProcessingAI] = useState(false);
@@ -908,7 +911,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   }, []);
 
   const handleOpenCard = useCallback((card: IdeaCard) => {
-    if (card.image) return;
+    if (card.image) {
+      if (card.image.startsWith('data:application/pdf') || card.fileName?.toLowerCase().endsWith('.pdf')) {
+        setFullScreenPdf({ src: card.image, title: card.fileName });
+      } else {
+        setFullScreenImage(card.image);
+      }
+      return;
+    }
 
     if (card.fileName) {
       // Note: We need to access fileSystem here. 
@@ -949,13 +959,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       attachments,
       model: modelId,
     };
-    const modelThread = filterHistoryForModel(chatHistory, modelId);
     const updatedHistory = [...chatHistory, newUserMsg];
     setChatHistory(updatedHistory);
     const userSave = await saveChatMessage(session.id, newUserMsg);
     if (!userSave.ok) {
       debugLog.error('Workspace', 'Failed to save user chat message', userSave.error);
-      alert(`Could not save your message: ${userSave.error}`);
+      alert('Your message could not be saved. Please check your connection and try again.');
     }
 
     // Compress tokens: Only send a small snippet of the text inside the prompt to save hitting the quota fast!
@@ -963,8 +972,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     const truncate = (str: string, max = 50) => str.length > max ? str.substring(0, max).replace(/\n/g, ' ') + '...' : str.replace(/\n/g, ' ');
     const context = `Cards on Board:\n${cardsRef.current.map(c => `- ID: ${c.id} | Snippet: ${truncate(c.text || c.fileName || 'Untitled')} | Color: ${c.color}`).join('\n')}`;
 
-    // Pass only the last 10 messages to save heavy token accumulation on long sessions
-    const truncatedHistory = [...filterHistoryForModel(updatedHistory, modelId), newUserMsg].slice(-10);
+    // Pass only the last 10 prior messages — newUserMsg is already sent separately as `text`
+    const truncatedHistory = filterHistoryForModel(chatHistory, modelId).slice(-10);
 
     const responseText = await getChatResponse(
       truncatedHistory.filter(m => !m.isHandoff),
@@ -998,11 +1007,16 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
             }
             if (action.type === 'update_cards' && Array.isArray(action.updates)) {
               action.updates.forEach((updateData: any) => {
-                if (updateData.id) handleUpdateCard(updateData.id, updateData);
+                if (updateData.id && cardsRef.current.some(c => c.id === updateData.id)) {
+                  handleUpdateCard(updateData.id, updateData);
+                }
               });
             }
             if (action.type === 'delete_cards' && Array.isArray(action.ids)) {
-              action.ids.forEach((id: string) => handleDeleteCard(id));
+              const validIds = (action.ids as string[]).filter(id =>
+                cardsRef.current.some(c => c.id === id)
+              );
+              validIds.forEach((id: string) => handleDeleteCard(id));
             }
             if (action.type === 'connect_cards' && Array.isArray(action.connections)) {
               action.connections.forEach((conn: any) => {
@@ -1040,7 +1054,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     const assistantSave = await saveChatMessage(session.id, assistantMsg);
     if (!assistantSave.ok) {
       debugLog.error('Workspace', 'Failed to save assistant chat message', assistantSave.error);
-      alert(`Could not save the assistant reply: ${assistantSave.error}`);
+      alert('The assistant reply could not be saved. Please check your connection and try again.');
     }
 
   }, [chatHistory, apiKeys, ensureKeyForModel, selectedModelId, session.id, handleAddCard, handleUpdateCard, handleDeleteCard]);
@@ -1213,9 +1227,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     }
   };
 
-  const handleMouseDownCanvas = useCallback((e: React.MouseEvent) => {
+  const handlePointerDownCanvas = useCallback((e: React.PointerEvent) => {
+    if (!e.isPrimary) return;
     setClickPopup(null);
     if (connectingFromId) {
+      if (e.currentTarget.setPointerCapture) {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        activePointerIdRef.current = e.pointerId;
+      }
       const newCardId = generateId();
       handleAddCard(e.clientX, e.clientY, { id: newCardId });
 
@@ -1237,6 +1256,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     setSelectedConnectionId(null);
     setSelectedId(null);
 
+    if (e.currentTarget.setPointerCapture) {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      activePointerIdRef.current = e.pointerId;
+    }
+
     // Auto-switch to pan mode on left click if no other tool is active (or just always for background drag)
     if (e.button === 0 && !e.shiftKey && !e.ctrlKey) {
       if (mode === 'draw') {
@@ -1255,6 +1279,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
         });
         return;
       }
+      autoPanRestoreRef.current = mode;
       setMode('pan');
       setIsDragging(true);
       setDragStart({ x: e.clientX, y: e.clientY });
@@ -1262,14 +1287,22 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     }
 
     if (mode === 'pan' || e.button === 1 || e.shiftKey) {
+      if (mode !== 'pan') autoPanRestoreRef.current = mode;
       setIsDragging(true);
       setDragStart({ x: e.clientX, y: e.clientY });
       setMode('pan');
     }
   }, [connectingFromId, mode, drawingTool, strokeColor, strokeRadius, screenToWorld]);
 
-  const handleMouseDownCard = useCallback((e: React.MouseEvent, id: string) => {
+  const handlePointerDownCard = useCallback((e: React.PointerEvent, id: string) => {
     e.stopPropagation();
+
+    if (!e.isPrimary) return;
+
+    if (wrapperRef.current?.setPointerCapture) {
+      wrapperRef.current.setPointerCapture(e.pointerId);
+      activePointerIdRef.current = e.pointerId;
+    }
 
     // We use connectingFromId from closure (dependency) because it changes rarely compared to drag
     // Ideally we'd use a ref for this too if we wanted 0 re-binds, but this is acceptable.
@@ -1306,19 +1339,16 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   const handleCardDoubleClick = useCallback((e: React.MouseEvent, id: string) => {
     const card = cardsRef.current.find(c => c.id === id); // Use ref
     if (card) {
-      const isPdfUrl = card.image && (card.image.startsWith('data:application/pdf') || card.fileName?.toLowerCase().endsWith('.pdf'));
-      if (isPdfUrl) {
-        setFullScreenPdf({ src: card.image!, title: card.fileName });
-        return;
-      }
       handleOpenCard(card);
     }
   }, [handleOpenCard]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
     // OPTIMIZATION: Do NOT update state on every mouse move unless absolutely necessary
     // Only update mousePos if we are drawing a connection line (connectingFromId)
     // Or if we need it for something else critical (like eraser cursor).
+
+    if (activePointerIdRef.current != null && e.pointerId !== activePointerIdRef.current) return;
 
     if (connectingFromId || (mode === 'draw' && drawingTool === 'eraser' && !isDragging)) {
       const worldMouse = screenToWorld(e.clientX, e.clientY);
@@ -1348,10 +1378,31 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     }
   }, [connectingFromId, isDragging, mode, drawingTool, selectedId, dragStart, dragCardOffset, screenToWorld, handleUpdateCard, currentStroke]);
 
-  const handleGripDown = useCallback((e: React.MouseEvent, id: string) => {
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    if (activePointerIdRef.current != null && e.pointerId !== activePointerIdRef.current) return;
+    setIsDragging(false);
+    activePointerIdRef.current = null;
+    if (mode === 'draw' && currentStroke) {
+      setStrokes(prev => [...prev, currentStroke]);
+      setCurrentStroke(null);
+    }
+    if (autoPanRestoreRef.current) {
+      setMode(autoPanRestoreRef.current);
+      autoPanRestoreRef.current = null;
+    }
+  }, [mode, currentStroke]);
+
+  const handleGripDown = useCallback((e: React.PointerEvent, id: string) => {
     e.stopPropagation();
     const card = cardsRef.current.find(c => c.id === id);
     if (!card) return;
+
+    if (!e.isPrimary) return;
+
+    if (e.currentTarget.setPointerCapture) {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      activePointerIdRef.current = e.pointerId;
+    }
 
     setMode('select');
     setSelectedId(id);
@@ -1661,15 +1712,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     <div
       ref={wrapperRef}
       className="fixed inset-0 overflow-hidden bg-black select-none font-sans"
-      onMouseDown={handleMouseDownCanvas}
-      onMouseMove={handleMouseMove}
-      onMouseUp={(e) => {
-        setIsDragging(false);
-        if (mode === 'draw' && currentStroke) {
-          setStrokes(prev => [...prev, currentStroke]);
-          setCurrentStroke(null);
-        }
-      }}
+      onPointerDown={handlePointerDownCanvas}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       onDoubleClick={(e) => { if (e.target === containerRef.current || e.target === wrapperRef.current) handleAddCard(e.clientX, e.clientY); }}
       onContextMenu={(e) => {
         const target = e.target as HTMLElement;
@@ -1681,6 +1727,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       style={{
+        touchAction: 'none',
+        overscrollBehavior: 'none',
         backgroundImage: `linear-gradient(to right, #333333 ${3 * viewport.scale}px, transparent ${3 * viewport.scale}px), linear-gradient(to bottom, #333333 ${3 * viewport.scale}px, transparent ${3 * viewport.scale}px)`,
         backgroundPosition: `${viewport.x}px ${viewport.y}px`,
         backgroundSize: `${50 * viewport.scale}px ${50 * viewport.scale}px`
@@ -1693,8 +1741,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
         >
           <button
             className="bg-zinc-900 text-white px-5 py-3 rounded-xl shadow-2xl border border-zinc-700 hover:bg-zinc-800 flex items-center gap-2 font-medium transition-colors"
-            onMouseLeave={() => setClickPopup(null)}
-            onMouseDown={(e) => {
+            onPointerLeave={() => setClickPopup(null)}
+            onPointerDown={(e) => {
               e.stopPropagation();
               e.preventDefault();
               handleAddCard(clickPopup.x, clickPopup.y);
@@ -1707,7 +1755,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
         </div>
       )}
 
-      <div onMouseDown={(e) => e.stopPropagation()}>
+      <div onPointerDown={(e) => e.stopPropagation()}>
         <Header
           sessionName={sessionName}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -1781,7 +1829,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
               transform: 'translate(-50%, -50%)',
               transition: 'none'
             }}
-            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-1 bg-white p-1.5 rounded-lg shadow-xl border border-gray-200 animate-in fade-in zoom-in duration-200">
               {/* Relationship Toggle */}
@@ -1881,13 +1929,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
             scale={viewport.scale}
             onUpdate={handleUpdateCard}
             onDelete={handleDeleteCard}
-            onMouseDown={handleMouseDownCard}
+            onPointerDown={handlePointerDownCard}
             onDoubleClick={handleCardDoubleClick}
             onConnectStart={startConnection}
             onGenerateAI={handleGenerateAI}
             isProcessingAI={isProcessingAI}
             isConnecting={!!connectingFromId}
             onImageClick={setFullScreenImage}
+            onOpenCard={handleOpenCard}
             onMoveFocusVertical={handleMoveFocusVertical}
             onRegisterTextarea={registerCardTextarea}
             onGripDown={handleGripDown}
@@ -1985,6 +2034,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
         <div
           className="fixed inset-0 z-[60] flex flex-row items-center justify-center p-4 gap-4 bg-black/20 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => { setActiveDocId(null); setSecondaryDocId(null); setSplitDropdownOpen(null); }}
+          onPointerDown={(e) => e.stopPropagation()}
         >
           {/* Primary View container */}
           <div className="relative flex h-[95%] transition-all duration-300" style={{ width: secondaryDocId ? '50%' : '900px', maxWidth: secondaryDocId ? '800px' : '900px' }} onClick={(e) => e.stopPropagation()}>
@@ -2090,11 +2140,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
         variant={apiKeyModalVariant}
         requiredProvider={requiredProvider}
       />
-
-      {/* Full Screen Image Overlay */}
-      {fullScreenImage && (
-        <FullScreenImageOverlay src={fullScreenImage} onClose={() => setFullScreenImage(null)} />
-      )}
     </div>
   );
 };

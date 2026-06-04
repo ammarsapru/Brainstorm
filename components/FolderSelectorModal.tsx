@@ -37,7 +37,7 @@ export const FolderSelectorModal: React.FC<FolderSelectorModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4" onPointerDown={(e) => e.stopPropagation()}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in duration-200">
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-800">Move to Folder</h2>

@@ -3,21 +3,6 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Declare build arguments for Vite env variables
-# These get inlined at build time by Vite
-ARG APP_VERSION
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_ANON_KEY
-ARG VITE_GOOGLE_API_KEY
-ARG GEMINI_API_KEY
-
-# Set them as env vars so Vite can pick them up during build
-ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
-ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
-ENV VITE_GOOGLE_API_KEY=$VITE_GOOGLE_API_KEY
-ENV GEMINI_API_KEY=$GEMINI_API_KEY
-ENV APP_VERSION=$APP_VERSION
-
 # Copy package files
 COPY package*.json ./
 
@@ -34,12 +19,20 @@ RUN npm run build
 FROM nginx:alpine
 
 LABEL org.opencontainers.image.title="Brainstorm"
-LABEL org.opencontainers.image.version=$APP_VERSION
+
+# Generate a runtime env file from container environment variables.
+COPY docker-entrypoint.sh /docker-entrypoint.d/99-env.sh
+RUN chmod +x /docker-entrypoint.d/99-env.sh
 
 # Add a custom Nginx configuration to support client-side routing for Single Page Applications
 RUN echo "server { \
     listen       80; \
     server_name  localhost; \
+    add_header X-Content-Type-Options 'nosniff' always; \
+    add_header X-Frame-Options 'DENY' always; \
+    add_header Referrer-Policy 'strict-origin-when-cross-origin' always; \
+    add_header Permissions-Policy 'camera=(), microphone=(), geolocation=()' always; \
+    add_header Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://generativelanguage.googleapis.com https://api.openai.com https://api.anthropic.com; img-src 'self' blob: data: https://*.supabase.co; worker-src blob:; object-src 'self' blob: https://*.supabase.co;\" always; \
     location / { \
         root   /usr/share/nginx/html; \
         index  index.html index.htm; \
@@ -53,6 +46,10 @@ RUN echo "server { \
 
 # Copy built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Run as non-root nginx user
+RUN chown -R nginx:nginx /usr/share/nginx/html
+USER nginx
 
 # Expose default HTTP port
 EXPOSE 80

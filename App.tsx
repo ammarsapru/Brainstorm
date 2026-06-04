@@ -530,7 +530,7 @@ function App() {
     setWorkspaceSession(readySession);
     setActiveSessionId(newSession.id);
     setView('workspace');
-    setLoadingPhase(null);
+    clearLoader();
   };
 
   const handleDeleteSession = async (id: string) => {

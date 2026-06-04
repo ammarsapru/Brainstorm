@@ -1,10 +1,18 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { X, Send, User, ChevronDown, Paperclip, Image as ImageIcon, File, Check, Copy, Settings, Sparkles } from 'lucide-react';
 import { ChatMessage, ChatAttachment } from '../types';
 import { uploadFileToS3 } from '../lib/supabase';
 import debugLog from '../utils/debugLog';
 import { LLM_MODELS, LLMModel, getModelById } from '../utils/llmModels';
 import { ProviderIcon } from './LLMIcons';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
+
+// Configure marked once — GFM + line breaks so single newlines render as <br>
+marked.setOptions({ gfm: true, breaks: true });
+
+const renderMarkdown = (text: string): string =>
+  DOMPurify.sanitize(marked.parse(text) as string);
 
 interface AIChatProps {
     history: ChatMessage[];
@@ -14,6 +22,107 @@ interface AIChatProps {
     selectedModelId: string;
     onModelChange: (modelId: string) => void | Promise<void>;
 }
+
+// ── Per-message bubble with self-contained copy state ───────────────────────
+const MessageBubble = React.memo(({ msg, selectedModelId }: { msg: ChatMessage; selectedModelId: string }) => {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(msg.text).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }).catch(() => {
+            // fallback for environments that block clipboard access
+            const el = document.createElement('textarea');
+            el.value = msg.text;
+            el.style.position = 'fixed';
+            el.style.opacity = '0';
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
+    };
+
+    const htmlContent = useMemo(
+        () => msg.role === 'model' ? renderMarkdown(msg.text) : null,
+        [msg.text, msg.role]
+    );
+
+    return (
+        <div className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                msg.role === 'user'
+                    ? 'bg-slate-700 text-white'
+                    : 'bg-white border border-slate-200 text-violet-600 shadow-sm'
+            }`}>
+                {msg.role === 'user'
+                    ? <User className="w-4 h-4" />
+                    : <ProviderIcon provider={getModelById(msg.model || selectedModelId).provider} className="w-4 h-4" />}
+            </div>
+            <div className={`flex flex-col gap-1 max-w-[88%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                {msg.attachments?.map(att => (
+                    <div key={att.id} className="rounded-xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+                        {att.type === 'image' ? (
+                            <img src={att.url} alt={att.name} className="max-w-[200px] max-h-32 object-cover" />
+                        ) : (
+                            <div className="px-3 py-2 flex items-center gap-2 text-xs text-slate-600">
+                                <File className="w-4 h-4" />
+                                {att.name}
+                            </div>
+                        )}
+                    </div>
+                ))}
+                {msg.text && (
+                    <div className={`rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
+                        msg.role === 'user'
+                            ? 'bg-slate-800 text-white rounded-tr-md'
+                            : msg.isHandoff
+                              ? 'bg-violet-50 border border-violet-200 text-violet-950 rounded-tl-md'
+                              : 'bg-white border border-slate-100 text-slate-800 rounded-tl-md'
+                    }`}>
+                        {msg.role === 'model' && htmlContent ? (
+                            <>
+                                <div
+                                    className="prose prose-sm prose-slate max-w-none
+                                        prose-p:my-1 prose-p:leading-relaxed
+                                        prose-headings:font-semibold prose-headings:text-slate-800 prose-headings:mt-3 prose-headings:mb-1
+                                        prose-ul:my-1 prose-ul:pl-4 prose-ol:my-1 prose-ol:pl-4
+                                        prose-li:my-0.5
+                                        prose-code:bg-slate-100 prose-code:text-violet-700 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:font-mono
+                                        prose-pre:bg-slate-900 prose-pre:text-slate-100 prose-pre:rounded-xl prose-pre:p-4 prose-pre:overflow-x-auto
+                                        prose-blockquote:border-violet-300 prose-blockquote:text-slate-600 prose-blockquote:italic
+                                        prose-strong:text-slate-900
+                                        prose-a:text-violet-600 prose-a:underline"
+                                    dangerouslySetInnerHTML={{ __html: htmlContent }}
+                                />
+                                <div className="flex justify-end mt-2 pt-1 border-t border-slate-100">
+                                    <button
+                                        onClick={handleCopy}
+                                        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                                        title="Copy response"
+                                    >
+                                        {copied
+                                            ? <><Check className="w-3.5 h-3.5 text-green-500" /><span className="text-green-500">Copied</span></>
+                                            : <><Copy className="w-3.5 h-3.5" /><span>Copy</span></>
+                                        }
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <span className="whitespace-pre-wrap">{msg.text}</span>
+                        )}
+                    </div>
+                )}
+                {msg.role === 'model' && msg.model && (
+                    <span className="text-[10px] text-slate-400 px-1">{getModelById(msg.model).name}</span>
+                )}
+            </div>
+        </div>
+    );
+});
 
 export const AIChat = React.memo<AIChatProps>(({
     history,
@@ -56,6 +165,10 @@ export const AIChat = React.memo<AIChatProps>(({
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    const renderedHistory = history.map(msg => (
+        <MessageBubble key={msg.id} msg={msg} selectedModelId={selectedModelId} />
+    ));
+
     useEffect(() => {
         if (isOpen) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [history, isOpen, isProcessing]);
@@ -65,12 +178,15 @@ export const AIChat = React.memo<AIChatProps>(({
         if ((!input.trim() && attachments.length === 0) || isProcessing) return;
         const msg = input;
         const currentAttachments = [...attachments];
+        // Clear immediately so the box feels responsive
+        setInput('');
+        setAttachments([]);
         try {
             await onSendMessage(msg, currentAttachments, selectedModelId);
-            setInput('');
-            setAttachments([]);
         } catch (err) {
             debugLog.warn('AIChat', 'Message send failed', err);
+            // Restore message so the user doesn't lose what they typed
+            setInput(msg);
         }
     };
 
@@ -119,6 +235,7 @@ export const AIChat = React.memo<AIChatProps>(({
         <>
             <button
                 onClick={() => setIsOpen(true)}
+                onPointerDown={(e) => e.stopPropagation()}
                 className={`fixed top-36 z-[70] w-11 h-11 flex items-center justify-center rounded-2xl shadow-lg border transition-all duration-300 ${
                     isOpen
                         ? 'translate-x-full opacity-0 pointer-events-none'
@@ -130,6 +247,7 @@ export const AIChat = React.memo<AIChatProps>(({
             </button>
 
             <div
+                onPointerDown={(e) => e.stopPropagation()}
                 className={`fixed right-0 top-0 h-full z-[70] flex flex-col shadow-2xl border-l border-slate-200/80 transition-transform duration-300 ease-out ${
                     isOpen ? 'translate-x-0' : 'translate-x-full'
                 }`}
@@ -202,55 +320,7 @@ export const AIChat = React.memo<AIChatProps>(({
                             </p>
                         </div>
                     )}
-                    {history.map(msg => (
-                        <div key={msg.id} className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                                msg.role === 'user'
-                                    ? 'bg-slate-700 text-white'
-                                    : 'bg-white border border-slate-200 text-violet-600 shadow-sm'
-                            }`}>
-                                {msg.role === 'user'
-                                    ? <User className="w-4 h-4" />
-                                    : <ProviderIcon provider={getModelById(msg.model || selectedModelId).provider} className="w-4 h-4" />}
-                            </div>
-                            <div className={`flex flex-col gap-1 max-w-[88%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                                {msg.attachments?.map(att => (
-                                    <div key={att.id} className="rounded-xl border border-slate-200 overflow-hidden bg-white shadow-sm">
-                                        {att.type === 'image' ? (
-                                            <img src={att.url} alt={att.name} className="max-w-[200px] max-h-32 object-cover" />
-                                        ) : (
-                                            <div className="px-3 py-2 flex items-center gap-2 text-xs text-slate-600">
-                                                <File className="w-4 h-4" />
-                                                {att.name}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                                {msg.text && (
-                                    <div className={`group relative rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
-                                        msg.role === 'user'
-                                            ? 'bg-slate-800 text-white rounded-tr-md'
-                                            : msg.isHandoff
-                                              ? 'bg-violet-50 border border-violet-200 text-violet-950 rounded-tl-md'
-                                              : 'bg-white border border-slate-100 text-slate-800 rounded-tl-md pr-10'
-                                    }`}>
-                                        <span className="whitespace-pre-wrap">{msg.text}</span>
-                                        {msg.role === 'model' && (
-                                            <button
-                                                onClick={() => navigator.clipboard.writeText(msg.text)}
-                                                className="absolute top-2 right-2 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-slate-100 text-slate-400"
-                                            >
-                                                <Copy className="w-3.5 h-3.5" />
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
-                                {msg.role === 'model' && msg.model && (
-                                    <span className="text-[10px] text-slate-400 px-1">{getModelById(msg.model).name}</span>
-                                )}
-                            </div>
-                        </div>
-                    ))}
+                    {renderedHistory}
                     {isProcessing && (
                         <div className="flex gap-2.5">
                             <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center">

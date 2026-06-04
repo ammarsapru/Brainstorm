@@ -95,6 +95,14 @@ docker compose up
 
 Visit `http://localhost:8080` (Docker maps container port 80 → host 8080).
 
+Run Docker with your local env file so the container can generate `env.js` at startup:
+
+```bash
+docker compose --env-file .env.local up --build
+```
+
+The Supabase URL and anon key must exist in `.env.local` before you start the container.
+
 ---
 
 ### Option 3  Local Development

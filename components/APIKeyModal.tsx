@@ -49,7 +49,10 @@ export const APIKeyModal: React.FC<APIKeyModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+      onPointerDown={e => e.stopPropagation()}
+    >
       <div
         className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={e => e.stopPropagation()}
@@ -76,7 +79,7 @@ export const APIKeyModal: React.FC<APIKeyModalProps> = ({
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-4 flex gap-2">
             <Shield className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
             <p className="text-xs text-emerald-900 leading-relaxed">
-              Keys are encrypted with AES-256 (AES-GCM) in your browser before storage. They are never sent to Brainstorm servers — only directly to the AI provider you choose.
+              Keys are stored locally in your browser and never sent to Brainstorm servers — only directly to the AI provider you choose. They are obfuscated with AES-GCM to prevent passive extension scans, but are not protected against XSS attacks on this page.
             </p>
           </div>
 

@@ -23,7 +23,7 @@ export const SummaryModal: React.FC<SummaryModalProps> = ({ content, onClose }) 
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in" onPointerDown={(e) => e.stopPropagation()}>
       <div className="w-[800px] h-[90%] bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden relative">
         {/* Header */}
         <div className="h-16 border-b border-gray-100 flex items-center justify-between px-6 bg-gray-50/50">
