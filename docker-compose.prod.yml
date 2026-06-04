@@ -1,0 +1,28 @@
+# Production overlay — adds Caddy TLS in front of the brainstorm container.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Before running, replace 'yourdomain.com' in Caddyfile with your real domain.
+# Caddy will auto-provision a Let's Encrypt TLS certificate.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - brainstorm
+
+  brainstorm:
+    ports: []          # Remove the local 8080 binding — Caddy handles external traffic
+    expose:
+      - "8080"
+
+volumes:
+  caddy_data:
+  caddy_config:

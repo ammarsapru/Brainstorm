@@ -26,7 +26,7 @@ RUN chmod +x /docker-entrypoint.d/99-env.sh
 
 # Add a custom Nginx configuration to support client-side routing for Single Page Applications
 RUN echo "server { \
-    listen       80; \
+    listen       8080; \
     server_name  localhost; \
     add_header X-Content-Type-Options 'nosniff' always; \
     add_header X-Frame-Options 'DENY' always; \
@@ -47,12 +47,8 @@ RUN echo "server { \
 # Copy built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Run as non-root nginx user
-RUN chown -R nginx:nginx /usr/share/nginx/html
-USER nginx
-
-# Expose default HTTP port
-EXPOSE 80
+# Expose on 8080
+EXPOSE 8080
 
 # Start Nginx server
 CMD ["nginx", "-g", "daemon off;"]

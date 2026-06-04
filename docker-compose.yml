@@ -1,18 +1,5 @@
 
 services:
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - brainstorm
-
   brainstorm:
     image: brainstorm-app:0.0.1
     environment:
@@ -21,8 +8,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    expose:
-      - "80"
+    ports:
+      - "8080:8080"
     restart: unless-stopped
     container_name: brainstorm-app
     security_opt:
@@ -30,8 +17,5 @@ services:
     tmpfs:
       - /tmp
       - /var/run
-    read_only: true
-
-volumes:
-  caddy_data:
-  caddy_config:
+      - /var/cache/nginx
+      - /var/log/nginx

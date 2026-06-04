@@ -3,5 +3,5 @@
 # For local testing without a domain, use 'localhost' and accept the self-signed cert.
 
 yourdomain.com {
-    reverse_proxy brainstorm:80
+    reverse_proxy brainstorm:8080
 }
