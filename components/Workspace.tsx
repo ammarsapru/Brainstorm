@@ -1426,12 +1426,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     const sourceCard = cardsRef.current.find(c => c.id === sourceId);
     if (!sourceCard || !sourceCard.text.trim()) return;
 
-    const geminiKey = ensureGeminiKey();
-    if (!geminiKey) return;
+    if (!ensureKeyForModel(selectedModelId)) return;
 
     setIsProcessingAI(true);
     const existingIdeas = cardsRef.current.map(c => c.text);
-    const ideas = await generateRelatedIdeas(geminiKey, sourceCard.text, existingIdeas);
+    const ideas = await generateRelatedIdeas(selectedModelId, apiKeys, sourceCard.text, existingIdeas);
 
     if (ideas.length > 0) {
       const radius = 300;
@@ -1471,7 +1470,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       setConnections(prev => [...prev, ...newConnections]);
     }
     setIsProcessingAI(false);
-  }, [ensureGeminiKey]);
+  }, [ensureKeyForModel, selectedModelId, apiKeys]);
 
   const handleExportMasterPDF = useCallback(async () => {
     try {

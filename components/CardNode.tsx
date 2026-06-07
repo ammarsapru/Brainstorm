@@ -547,6 +547,7 @@ export const CardNode = React.memo<CardNodeProps>(({
     prevProps.card.width === nextProps.card.width &&
     prevProps.card.height === nextProps.card.height &&
     prevProps.card.color === nextProps.card.color &&
+    JSON.stringify(prevProps.card.content) === JSON.stringify(nextProps.card.content) &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isProcessingAI === nextProps.isProcessingAI &&
     prevProps.isConnecting === nextProps.isConnecting &&

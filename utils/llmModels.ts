@@ -44,5 +44,5 @@ export const saveSelectedModelId = (userId: string | undefined, modelId: string)
 };
 
 /** Image/icon generation currently requires Gemini Imagen. */
-export const requiresGemini = (feature: 'image' | 'icon' | 'brainstorm'): boolean =>
-  feature === 'image' || feature === 'icon' || feature === 'brainstorm';
+export const requiresGemini = (feature: 'image' | 'icon'): boolean =>
+  feature === 'image' || feature === 'icon';
