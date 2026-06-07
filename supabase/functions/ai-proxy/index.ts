@@ -84,7 +84,7 @@ async function callOpenAI(
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model: 'gpt-4o', messages, max_tokens: 4096 }),
+    body: JSON.stringify({ model: 'gpt-4o', messages, max_tokens: 4096, temperature: 0.8 }),
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error?.message ?? `OpenAI ${res.status}`)
@@ -101,7 +101,7 @@ async function callAnthropic(
     ...history.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text })),
     { role: 'user', content: newMessage },
   ]
-  const body: Record<string, unknown> = { model: 'claude-3-5-sonnet-20241022', messages, max_tokens: 4096 }
+  const body: Record<string, unknown> = { model: 'claude-3-5-sonnet-20241022', messages, max_tokens: 4096, temperature: 0.8 }
   if (systemPrompt) body.system = systemPrompt
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -121,9 +121,9 @@ const providerForModel = (modelId: string): 'google' | 'openai' | 'anthropic' =>
 }
 
 const BRAINSTORM_PROMPT = (contextText: string, existingIdeas: string[]) =>
-  `You are a brainstorming assistant. Generate 3–5 new, distinct, short creative related concepts for the idea below. Keep each under 5 words. Return ONLY a JSON array of strings — no other text.
-Idea: ${contextText}
-Avoid duplicating: ${existingIdeas.join(', ')}`
+  `You are a lateral thinking specialist. Generate 5–7 ideas related to the concept below, spanning genuinely different angles: direct applications, analogies from unrelated domains, hidden sub-problems, unexpected combinations, simplified or amplified versions, and contrarian takes. Every idea should shift thinking in a new direction — no synonyms or trivial variations. Keep each under 7 words. Return ONLY a JSON array of strings, no preamble, no markdown.
+Concept: ${contextText}
+Already on canvas (do not duplicate): ${existingIdeas.join(', ')}`
 
 function parseIdeasJson(text: string): string[] {
   try {

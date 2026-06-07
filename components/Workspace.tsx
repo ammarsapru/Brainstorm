@@ -967,10 +967,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       alert('Your message could not be saved. Please check your connection and try again.');
     }
 
-    // Compress tokens: Only send a small snippet of the text inside the prompt to save hitting the quota fast!
-    // The AI will utilize 'search_cards' organically if it needs to scan the full internal text body.
-    const truncate = (str: string, max = 50) => str.length > max ? str.substring(0, max).replace(/\n/g, ' ') + '...' : str.replace(/\n/g, ' ');
-    const context = `Cards on Board:\n${cardsRef.current.map(c => `- ID: ${c.id} | Snippet: ${truncate(c.text || c.fileName || 'Untitled')} | Color: ${c.color}`).join('\n')}`;
+    const truncate = (str: string, max = 60) => str.length > max ? str.substring(0, max).replace(/\n/g, ' ') + '…' : str.replace(/\n/g, ' ');
+    const cardLines = cardsRef.current.map(c => `- [${c.id}] "${truncate(c.text || c.fileName || 'Untitled')}" color:${c.color}`).join('\n');
+    const connLines = connectionsRef.current.length > 0
+      ? `\nConnections (${connectionsRef.current.length}):\n` + connectionsRef.current.slice(0, 30).map(c => `- ${c.fromId} → ${c.toId}`).join('\n')
+      : '\nConnections: none yet';
+    const context = `Canvas (${cardsRef.current.length} cards):\n${cardLines}${connLines}`;
 
     // Pass only the last 10 prior messages — newUserMsg is already sent separately as `text`
     const truncatedHistory = filterHistoryForModel(chatHistory, modelId).slice(-10);
