@@ -994,6 +994,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
         if (parsed.actions && Array.isArray(parsed.actions)) {
           // Remove the JSON string from display message
           finalDisplayMsg = responseText.replace(jsonMatch[0], '').trim();
+          // Strip orphaned code-fence markers left when the AI wrapped JSON in backticks (e.g. ```json\n\n```)
+          finalDisplayMsg = finalDisplayMsg.replace(/```[a-zA-Z]*\s*```/g, '').trim();
 
           parsed.actions.forEach((action: any) => {
             if (action.type === 'create_cards' && Array.isArray(action.cards)) {

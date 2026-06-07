@@ -116,7 +116,7 @@ export const getChatResponse = async (
 
 **CAPABILITIES (FUNCTION CALLING)**:
 You have the ability to manipulate the canvas. You must output exactly ONE valid JSON object when you want to take an action. 
-Do NOT wrap the JSON in Markdown formatting characters if it is the ONLY thing you are outputting.
+NEVER wrap the JSON in Markdown code fences or backticks — not even when combined with text.
 You can output normal text to talk to the user, and if you want to execute an action, place the JSON object at the end of your message.
 
 Valid Actions Schema (Always include an outer \`actions\` array):
