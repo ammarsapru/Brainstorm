@@ -1,5 +1,6 @@
 import React, { useRef, useState, useMemo } from 'react';
 import { Plus, Move, MousePointer2, Image as ImageIcon, FileText, ChevronLeft, ChevronRight, FolderPlus, FilePlus, ChevronDown, ChevronUp, StickyNote, Folder, PlusCircle, PenTool, Highlighter, Type, MousePointer, Eraser } from 'lucide-react';
+import { Tooltip } from './Tooltip';
 import { ToolMode, FileSystemItem, IdeaCard, Connection, Collection, DrawingTool } from '../types';
 import { FileSystem } from './FileSystem';
 
@@ -137,12 +138,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <>
       {/* Floating Toggle Button (Visible when closed) */}
       {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="fixed left-6 top-24 z-40 p-2 bg-white rounded-lg shadow-md border border-gray-100 text-gray-600 hover:bg-gray-50 transition-colors"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
+        <Tooltip text="Open tools sidebar" position="right">
+          <button
+            onClick={() => setIsOpen(true)}
+            className="fixed left-6 top-24 z-40 p-2 bg-white rounded-lg shadow-md border border-gray-100 text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </Tooltip>
       )}
 
       {/* Sidebar Container */}
@@ -161,9 +164,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100 shrink-0">
           <span className="font-semibold text-gray-700">Tools</span>
-          <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-gray-100 rounded text-gray-500">
-            <ChevronLeft className="w-5 h-5" />
-          </button>
+          <Tooltip text="Close sidebar" position="bottom">
+            <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-gray-100 rounded text-gray-500">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          </Tooltip>
         </div>
 
         {/* Scrollable Content */}
@@ -329,26 +334,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
               {/* Root Level Creation */}
               <div className="flex items-center gap-1">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCreateFile(null);
-                  }}
-                  className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-black transition-colors"
-                  title="New File (Root)"
-                >
-                  <FilePlus className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCreateFolder(null);
-                  }}
-                  className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-black transition-colors"
-                  title="New Folder (Root)"
-                >
-                  <FolderPlus className="w-3.5 h-3.5" />
-                </button>
+                <Tooltip text="New file" position="bottom">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onCreateFile(null); }}
+                    className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-black transition-colors"
+                  >
+                    <FilePlus className="w-3.5 h-3.5" />
+                  </button>
+                </Tooltip>
+                <Tooltip text="New folder" position="bottom">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onCreateFolder(null); }}
+                    className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-black transition-colors"
+                  >
+                    <FolderPlus className="w-3.5 h-3.5" />
+                  </button>
+                </Tooltip>
               </div>
             </div>
 
@@ -388,16 +389,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {isCardsExpanded ? <ChevronUp className="w-3 h-3 text-gray-400 group-hover:text-gray-600" /> : <ChevronDown className="w-3 h-3 text-gray-400 group-hover:text-gray-600" />}
               </button>
 
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onCreateCollection();
-                }}
-                className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-black transition-colors"
-                title="New Collection"
-              >
-                <PlusCircle className="w-3.5 h-3.5" />
-              </button>
+              <Tooltip text="New collection" position="bottom">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onCreateCollection(); }}
+                  className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-black transition-colors"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                </button>
+              </Tooltip>
             </div>
 
             {isCardsExpanded && (

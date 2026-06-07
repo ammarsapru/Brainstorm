@@ -3,6 +3,7 @@ import { IdeaCard, CardStyle } from '../types';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { Trash2, GripHorizontal, Bold, Italic, Type, Image as ImageIcon, FileText, Maximize2, Download, AlignLeft, AlignCenter, AlignRight, Heading } from 'lucide-react';
+import { Tooltip } from './Tooltip';
 import { uploadFileToS3 } from '../lib/supabase';
 
 interface CardNodeProps {
@@ -229,54 +230,60 @@ export const CardNode = React.memo<CardNodeProps>(({
           }}
           onPointerDown={(e) => e.stopPropagation()} // Prevent deselection
         >
-          <button
-            onClick={() => updateStyle('isBold', !card.style.isBold)}
-            className={`p-1.5 rounded hover:bg-gray-100 ${card.style.isBold ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
-            title="Bold"
-          >
-            <Bold className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => updateStyle('isItalic', !card.style.isItalic)}
-            className={`p-1.5 rounded hover:bg-gray-100 ${card.style.isItalic ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
-            title="Italic"
-          >
-            <Italic className="w-4 h-4" />
-          </button>
+          <Tooltip text="Bold" position="top">
+            <button
+              onClick={() => updateStyle('isBold', !card.style.isBold)}
+              className={`p-1.5 rounded hover:bg-gray-100 ${card.style.isBold ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
+            >
+              <Bold className="w-4 h-4" />
+            </button>
+          </Tooltip>
+          <Tooltip text="Italic" position="top">
+            <button
+              onClick={() => updateStyle('isItalic', !card.style.isItalic)}
+              className={`p-1.5 rounded hover:bg-gray-100 ${card.style.isItalic ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
+            >
+              <Italic className="w-4 h-4" />
+            </button>
+          </Tooltip>
 
           <div className="w-px h-4 bg-gray-200 mx-1" />
 
-          <button
-            onClick={() => updateStyle('textAlign', 'left')}
-            className={`p-1.5 rounded hover:bg-gray-100 ${card.style.textAlign === 'left' ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
-            title="Align Left"
-          >
-            <AlignLeft className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => updateStyle('textAlign', 'center')}
-            className={`p-1.5 rounded hover:bg-gray-100 ${card.style.textAlign === 'center' || !card.style.textAlign ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
-            title="Align Center"
-          >
-            <AlignCenter className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => updateStyle('textAlign', 'right')}
-            className={`p-1.5 rounded hover:bg-gray-100 ${card.style.textAlign === 'right' ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
-            title="Align Right"
-          >
-            <AlignRight className="w-4 h-4" />
-          </button>
+          <Tooltip text="Align left" position="top">
+            <button
+              onClick={() => updateStyle('textAlign', 'left')}
+              className={`p-1.5 rounded hover:bg-gray-100 ${card.style.textAlign === 'left' ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
+            >
+              <AlignLeft className="w-4 h-4" />
+            </button>
+          </Tooltip>
+          <Tooltip text="Align center" position="top">
+            <button
+              onClick={() => updateStyle('textAlign', 'center')}
+              className={`p-1.5 rounded hover:bg-gray-100 ${card.style.textAlign === 'center' || !card.style.textAlign ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
+            >
+              <AlignCenter className="w-4 h-4" />
+            </button>
+          </Tooltip>
+          <Tooltip text="Align right" position="top">
+            <button
+              onClick={() => updateStyle('textAlign', 'right')}
+              className={`p-1.5 rounded hover:bg-gray-100 ${card.style.textAlign === 'right' ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
+            >
+              <AlignRight className="w-4 h-4" />
+            </button>
+          </Tooltip>
 
           <div className="w-px h-4 bg-gray-200 mx-1" />
 
-          <button
-            onClick={() => updateStyle('isHeader', !card.style.isHeader)}
-            className={`p-1.5 rounded hover:bg-gray-100 ${card.style.isHeader ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
-            title="Header"
-          >
-            <Heading className="w-4 h-4" />
-          </button>
+          <Tooltip text="Toggle heading style" position="top">
+            <button
+              onClick={() => updateStyle('isHeader', !card.style.isHeader)}
+              className={`p-1.5 rounded hover:bg-gray-100 ${card.style.isHeader ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
+            >
+              <Heading className="w-4 h-4" />
+            </button>
+          </Tooltip>
 
           <div className="w-px h-4 bg-gray-200 mx-1" />
 
@@ -492,51 +499,55 @@ export const CardNode = React.memo<CardNodeProps>(({
 
       {/* Action Bar */}
       <div data-html2canvas-ignore="true" className={`absolute -bottom-5 left-1/2 -translate-x-1/2 translate-y-full flex gap-2 transition-opacity duration-200 ${isSelected ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onPointerDown={(e) => e.stopPropagation()}>
-        <button
-          onClick={(e) => { e.stopPropagation(); onOpenCard?.(card); }}
-          className="p-2 bg-white rounded-full shadow-md hover:bg-gray-50 text-black border border-gray-100"
-          title="Open"
-        >
-          <Maximize2 className="w-4 h-4" />
-        </button>
+        <Tooltip text="Open document editor" position="bottom">
+          <button
+            onClick={(e) => { e.stopPropagation(); onOpenCard?.(card); }}
+            className="p-2 bg-white rounded-full shadow-md hover:bg-gray-50 text-black border border-gray-100"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
+        </Tooltip>
 
-        <button
+        <Tooltip text="Connect to another card" position="bottom">
+          <button
+            onClick={(e) => { e.stopPropagation(); onConnectStart(e, card.id); }}
+            className="p-2 bg-white rounded-full shadow-md hover:bg-gray-50 text-black border border-gray-100"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M5 12h14" />
+              <path d="M12 5l7 7-7 7" />
+            </svg>
+          </button>
+        </Tooltip>
 
-          onClick={(e) => { e.stopPropagation(); onConnectStart(e, card.id); }}
-          className="p-2 bg-white rounded-full shadow-md hover:bg-gray-50 text-black border border-gray-100"
-          title="Connect"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M5 12h14" />
-            <path d="M12 5l7 7-7 7" />
-          </svg>
-        </button>
+        <Tooltip text="AI brainstorm — generate related ideas" position="bottom">
+          <button
+            onClick={(e) => { e.stopPropagation(); onGenerateAI(card.id); }}
+            className={`p-2 bg-white rounded-full shadow-md hover:bg-gray-50 text-black border border-gray-100 ${isProcessingAI ? 'animate-pulse' : ''}`}
+            disabled={isProcessingAI}
+          >
+            <span className="font-bold text-[11px] leading-none select-none">B</span>
+          </button>
+        </Tooltip>
 
-        <button
-          onClick={(e) => { e.stopPropagation(); onGenerateAI(card.id); }}
-          className={`p-2 bg-white rounded-full shadow-md hover:bg-gray-50 text-black border border-gray-100 ${isProcessingAI ? 'animate-pulse' : ''}`}
-          title="AI Brainstorm"
-          disabled={isProcessingAI}
-        >
-          <span className="font-bold text-[11px] leading-none select-none">B</span>
-        </button>
+        <Tooltip text="Export this card as PDF" position="bottom">
+          <button
+            onClick={handleExportPDF}
+            className={`p-2 bg-white rounded-full shadow-md hover:bg-green-50 text-green-600 border border-green-100 ${isExporting ? 'animate-pulse' : ''}`}
+            disabled={isExporting}
+          >
+            <Download className="w-4 h-4" />
+          </button>
+        </Tooltip>
 
-        <button
-          onClick={handleExportPDF}
-          className={`p-2 bg-white rounded-full shadow-md hover:bg-green-50 text-green-600 border border-green-100 ${isExporting ? 'animate-pulse' : ''}`}
-          title="Export as PDF"
-          disabled={isExporting}
-        >
-          <Download className="w-4 h-4" />
-        </button>
-
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete(card.id); }}
-          className="p-2 bg-white rounded-full shadow-md hover:bg-red-50 text-red-500 border border-red-100"
-          title="Delete"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        <Tooltip text="Delete card" position="bottom">
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(card.id); }}
+            className="p-2 bg-white rounded-full shadow-md hover:bg-red-50 text-red-500 border border-red-100"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { X, Send, User, ChevronDown, Paperclip, Image as ImageIcon, File, Check, Copy, Settings, Sparkles } from 'lucide-react';
+import { Tooltip } from './Tooltip';
 import { ChatMessage, ChatAttachment } from '../types';
 import { uploadFileToS3 } from '../lib/supabase';
 import debugLog from '../utils/debugLog';
@@ -233,18 +234,19 @@ export const AIChat = React.memo<AIChatProps>(({
 
     return (
         <>
-            <button
-                onClick={() => setIsOpen(true)}
-                onPointerDown={(e) => e.stopPropagation()}
-                className={`fixed top-36 z-[70] w-11 h-11 flex items-center justify-center rounded-2xl shadow-lg border transition-all duration-300 ${
-                    isOpen
-                        ? 'translate-x-full opacity-0 pointer-events-none'
-                        : 'right-4 bg-gradient-to-br from-violet-600 to-indigo-600 text-white border-violet-500/30 hover:shadow-violet-500/25 opacity-100'
-                }`}
-                title="Open AI Chat"
-            >
-                <Sparkles className="w-5 h-5" />
-            </button>
+            <Tooltip text="Open AI Chat" position="left">
+              <button
+                  onClick={() => setIsOpen(true)}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className={`fixed top-36 z-[70] w-11 h-11 flex items-center justify-center rounded-2xl shadow-lg border transition-all duration-300 ${
+                      isOpen
+                          ? 'translate-x-full opacity-0 pointer-events-none'
+                          : 'right-4 bg-gradient-to-br from-violet-600 to-indigo-600 text-white border-violet-500/30 hover:shadow-violet-500/25 opacity-100'
+                  }`}
+              >
+                  <Sparkles className="w-5 h-5" />
+              </button>
+            </Tooltip>
 
             <div
                 onPointerDown={(e) => e.stopPropagation()}
@@ -279,19 +281,22 @@ export const AIChat = React.memo<AIChatProps>(({
                         </div>
                     </div>
                     <div className="flex items-center gap-1">
-                        <button
-                            onClick={onSettingsClick}
-                            className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-violet-600"
-                            title="API keys"
-                        >
-                            <Settings className="w-4 h-4" />
-                        </button>
-                        <button
-                            onClick={() => setIsOpen(false)}
-                            className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
+                        <Tooltip text="API key settings" position="bottom">
+                          <button
+                              onClick={onSettingsClick}
+                              className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-violet-600"
+                          >
+                              <Settings className="w-4 h-4" />
+                          </button>
+                        </Tooltip>
+                        <Tooltip text="Close chat" position="bottom">
+                          <button
+                              onClick={() => setIsOpen(false)}
+                              className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"
+                          >
+                              <X className="w-5 h-5" />
+                          </button>
+                        </Tooltip>
                     </div>
 
                     {isModelMenuOpen && (
@@ -364,12 +369,16 @@ export const AIChat = React.memo<AIChatProps>(({
                     )}
                     <form onSubmit={handleSubmit} className="flex gap-2 items-end">
                         <div className="flex gap-0.5 pb-1">
-                            <button type="button" onClick={() => document.getElementById('ai-chat-img')?.click()} className="p-2 text-slate-400 hover:text-violet-600 rounded-lg">
-                                <ImageIcon className="w-5 h-5" />
-                            </button>
-                            <button type="button" onClick={() => document.getElementById('ai-chat-file')?.click()} className="p-2 text-slate-400 hover:text-violet-600 rounded-lg">
-                                <Paperclip className="w-5 h-5" />
-                            </button>
+                            <Tooltip text="Attach image" position="top">
+                              <button type="button" onClick={() => document.getElementById('ai-chat-img')?.click()} className="p-2 text-slate-400 hover:text-violet-600 rounded-lg">
+                                  <ImageIcon className="w-5 h-5" />
+                              </button>
+                            </Tooltip>
+                            <Tooltip text="Attach file" position="top">
+                              <button type="button" onClick={() => document.getElementById('ai-chat-file')?.click()} className="p-2 text-slate-400 hover:text-violet-600 rounded-lg">
+                                  <Paperclip className="w-5 h-5" />
+                              </button>
+                            </Tooltip>
                         </div>
                         <input id="ai-chat-img" type="file" className="hidden" accept="image/*" onChange={e => handleFileSelect(e, 'image')} />
                         <input id="ai-chat-file" type="file" className="hidden" onChange={e => handleFileSelect(e, 'file')} />
@@ -380,13 +389,15 @@ export const AIChat = React.memo<AIChatProps>(({
                             placeholder="Message your canvas..."
                             className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400 outline-none"
                         />
-                        <button
-                            type="submit"
-                            disabled={(!input.trim() && attachments.length === 0) || isProcessing}
-                            className="p-2.5 bg-violet-600 text-white rounded-xl hover:bg-violet-700 disabled:opacity-40 mb-0.5"
-                        >
-                            <Send className="w-4 h-4" />
-                        </button>
+                        <Tooltip text="Send message" position="top">
+                          <button
+                              type="submit"
+                              disabled={(!input.trim() && attachments.length === 0) || isProcessing}
+                              className="p-2.5 bg-violet-600 text-white rounded-xl hover:bg-violet-700 disabled:opacity-40 mb-0.5"
+                          >
+                              <Send className="w-4 h-4" />
+                          </button>
+                        </Tooltip>
                     </form>
                 </div>
             </div>

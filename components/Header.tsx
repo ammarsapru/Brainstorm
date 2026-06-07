@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Menu, Save, Share2, ArrowLeft, UserCircle, Edit2, Download } from 'lucide-react';
+import { Tooltip } from './Tooltip';
 import { UserProfile } from '../types';
 
 interface HeaderProps {
@@ -78,13 +79,14 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Left Actions (Back, Logo) */}
       <div className="flex items-center gap-3 w-1/3">
         {isWorkspace && onBack && (
-          <button
-            onClick={onBack}
-            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Back to Dashboard"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
+          <Tooltip text="Back to sessions" position="bottom">
+            <button
+              onClick={onBack}
+              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          </Tooltip>
         )}
 
         {/* Logo */}
@@ -148,14 +150,15 @@ export const Header: React.FC<HeaderProps> = ({
             )}
 
             {onExportMasterPDF && (
-              <button
-                onClick={onExportMasterPDF}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                title="Export session as a multi-page PDF document"
-              >
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Master PDF</span>
-              </button>
+              <Tooltip text="Export entire session as a structured PDF" position="bottom">
+                <button
+                  onClick={onExportMasterPDF}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Master PDF</span>
+                </button>
+              </Tooltip>
             )}
 
             <div className="w-px h-6 bg-gray-200 mx-2 hidden sm:block"></div>
@@ -163,26 +166,29 @@ export const Header: React.FC<HeaderProps> = ({
         )}
 
         {onGoShards && (
-          <button
-            onClick={onGoShards}
-            className="flex items-center gap-2 hover:bg-gray-100 p-2 rounded-full transition-colors text-blue-600 mr-2"
-            title="Shards (Extensions)"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.952.151-1.251.583a1.738 1.738 0 0 0 .172 2.15l1.01 1.01c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.047 1.047c-.47.47-1.087.706-1.704.706s-1.233-.235-1.704-.706l-1.25-1.25a.98.98 0 0 0-1.428-.016c-.43.342-.644.88-.567 1.41.053.364-.065.731-.32 1l-1.464 1.464c-.47.47-1.087.706-1.704.706s-1.233-.235-1.704-.706M9.544 3.013c.47-.47 1.087-.706 1.704-.706s1.233.235 1.704.706l1.373 1.373c.277.277.66.388 1.034.29a1.74 1.74 0 0 1 1.83 1.259c.123.366.425.642.8.72a.98.98 0 0 0 1.008-.344l1.31-1.31M15.439 12.15l-8.625 8.625c-.47.47-1.087.706-1.704.706s-1.233-.235-1.704-.706l-1.047-1.047c-.47-.47-.706-1.087-.706-1.704s.235-1.233.706-1.704l8.625-8.625"/></svg>
-          </button>
+          <Tooltip text="Shards — global clipboard" position="bottom">
+            <button
+              onClick={onGoShards}
+              className="flex items-center gap-2 hover:bg-gray-100 p-2 rounded-full transition-colors text-blue-600 mr-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.952.151-1.251.583a1.738 1.738 0 0 0 .172 2.15l1.01 1.01c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.047 1.047c-.47.47-1.087.706-1.704.706s-1.233-.235-1.704-.706l-1.25-1.25a.98.98 0 0 0-1.428-.016c-.43.342-.644.88-.567 1.41.053.364-.065.731-.32 1l-1.464 1.464c-.47.47-1.087.706-1.704.706s-1.233-.235-1.704-.706M9.544 3.013c.47-.47 1.087-.706 1.704-.706s1.233.235 1.704.706l1.373 1.373c.277.277.66.388 1.034.29a1.74 1.74 0 0 1 1.83 1.259c.123.366.425.642.8.72a.98.98 0 0 0 1.008-.344l1.31-1.31M15.439 12.15l-8.625 8.625c-.47.47-1.087.706-1.704.706s-1.233-.235-1.704-.706l-1.047-1.047c-.47-.47-.706-1.087-.706-1.704s.235-1.233.706-1.704l8.625-8.625"/></svg>
+            </button>
+          </Tooltip>
         )}
 
         <div className="relative">
-          <button
-            onClick={() => user ? setShowUserMenu(!showUserMenu) : onLogin?.()}
-            className="flex items-center gap-2 hover:bg-gray-100 p-1.5 rounded-full transition-colors"
-          >
+          <Tooltip text={user ? 'Account' : 'Sign in'} position="bottom">
+            <button
+              onClick={() => user ? setShowUserMenu(!showUserMenu) : onLogin?.()}
+              className="flex items-center gap-2 hover:bg-gray-100 p-1.5 rounded-full transition-colors"
+            >
             {user?.avatar_url ? (
               <img src={user.avatar_url} alt="Profile" className="w-9 h-9 rounded-full border border-gray-200" />
             ) : (
               <UserCircle className="w-9 h-9 text-gray-400" />
             )}
-          </button>
+            </button>
+          </Tooltip>
 
           {showUserMenu && user && (
             <>
