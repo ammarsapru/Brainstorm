@@ -38,3 +38,10 @@ DESKTOP_APP_INSTRUCTIONS.txt
 PRODUCT_BRIEF.txt
 conv*.md
 electron-builder.yml
+
+# Internal dev / audit documents — not for public repo
+CURSOR_SUMMARY.md
+IMPLEMENTATION_PLAN.md
+antigravity_observations.txt
+API_KEY_SECURITY.md
+*_SECURITY.md
