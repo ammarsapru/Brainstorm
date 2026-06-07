@@ -41,6 +41,8 @@ export default {
         'float-delayed': 'float 6s ease-in-out 3s infinite',
         'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         glow: 'glow 2s ease-in-out infinite alternate',
+        'card-appear': 'cardAppear 0.2s ease-out forwards',
+        'canvas-hint': 'canvasHint 2s ease-in-out infinite',
       },
       keyframes: {
         blob: {
@@ -59,6 +61,14 @@ export default {
             boxShadow:
               '0 0 20px rgba(139, 92, 246, 0.8), 0 0 10px rgba(139, 92, 246, 0.6)',
           },
+        },
+        cardAppear: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        canvasHint: {
+          '0%, 100%': { opacity: '0.4', transform: 'translateY(0px)' },
+          '50%': { opacity: '0.8', transform: 'translateY(-4px)' },
         },
       },
     },

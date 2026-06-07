@@ -22,6 +22,7 @@ interface CardNodeProps {
   onOpenCard?: (card: IdeaCard) => void;
   onMoveFocusVertical?: (fromCardId: string, direction: 'up' | 'down') => void;
   onRegisterTextarea?: (cardId: string, el: HTMLTextAreaElement | null) => void;
+  isNew?: boolean;
 }
 
 const FONTS = [
@@ -87,7 +88,8 @@ export const CardNode = React.memo<CardNodeProps>(({
   onImageClick,
   onOpenCard,
   onMoveFocusVertical,
-  onRegisterTextarea
+  onRegisterTextarea,
+  isNew,
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -178,8 +180,11 @@ export const CardNode = React.memo<CardNodeProps>(({
   return (
     <div
       ref={cardRef}
+      role="article"
+      aria-label={card.text?.trim() || card.fileName || 'Idea card'}
       className={`absolute flex flex-col shadow-sm transition-shadow duration-200 group
         ${isSelected ? 'ring-2 ring-emerald-500 shadow-xl z-20' : 'hover:shadow-md hover:ring-2 hover:ring-[#0055ff] z-10'}
+        ${isNew ? 'animate-card-appear' : ''}
       `}
       style={{
         left: card.x,

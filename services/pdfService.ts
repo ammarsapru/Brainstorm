@@ -144,13 +144,50 @@ export const generateMasterPDF = async (
     const indent = opts.indent ?? 0;
     pdf.setFontSize(fontSize);
     pdf.setTextColor(...(opts.color ?? [0, 0, 0]));
-    pdf.setFont(undefined, opts.bold ? 'bold' : opts.italic ? 'italic' : 'normal');
+    pdf.setFont('helvetica', opts.bold ? 'bold' : opts.italic ? 'italic' : 'normal');
     const lh = lineHeight(fontSize);
     lines.forEach(line => {
       ensureSpace(lh);
       pdf.text(line, margin + indent, y);
       y += lh;
     });
+  };
+
+  const drawTable = (tableData: string[][]) => {
+    if (!tableData || tableData.length === 0) return;
+    const colCount = Math.max(...tableData.map(r => r.length));
+    const colWidth = contentWidth / colCount;
+    const cellH = 7;
+    const fontSize = 9;
+    pdf.setFontSize(fontSize);
+    pdf.setFont('helvetica', 'normal');
+    tableData.forEach((row, ri) => {
+      ensureSpace(cellH + 1);
+      const isHeader = ri === 0;
+      if (isHeader) pdf.setFont('helvetica', 'bold');
+      else pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(...([30, 30, 30] as [number, number, number]));
+      pdf.setDrawColor(180, 180, 180);
+      row.forEach((cell, ci) => {
+        const cx = margin + ci * colWidth;
+        pdf.rect(cx, y - cellH + 2, colWidth, cellH);
+        const truncated = pdf.splitTextToSize(cell ?? '', colWidth - 3)[0] ?? '';
+        pdf.text(truncated, cx + 2, y);
+      });
+      y += cellH;
+    });
+    y += 2;
+  };
+
+  const addPageNumbers = () => {
+    const total = (pdf as unknown as { internal: { pages: unknown[] } }).internal.pages.length - 1;
+    for (let i = 1; i <= total; i++) {
+      pdf.setPage(i);
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(150, 150, 150);
+      pdf.text(`${i} / ${total}`, pageWidth - margin, pageHeight - 6, { align: 'right' });
+    }
   };
 
   // Title
@@ -213,9 +250,17 @@ export const generateMasterPDF = async (
 
       const blocks = blocksToRenderable(parseDocContent(card.content));
       let listCounter = 0;
+      let renderedAny = false;
 
       blocks.forEach(block => {
+        if (block.isTable && block.tableData) {
+          drawTable(block.tableData);
+          renderedAny = true;
+          return;
+        }
+
         if (!block.plainText) return;
+        renderedAny = true;
 
         const fontSize = block.isCode
           ? 9
@@ -249,9 +294,16 @@ export const generateMasterPDF = async (
         if (block.isCode) y += 1;
       });
 
+      // Text-only cards: content is in card.text, not in document blocks
+      if (!renderedAny && card.text?.trim()) {
+        const wrapped = pdf.splitTextToSize(card.text.trim(), contentWidth);
+        drawLines(wrapped, 10, { color: [30, 30, 30] });
+      }
+
       if (cardIdx < orderedCards.length - 1) y += 3;
     });
   });
 
+  addPageNumbers();
   pdf.save(`${sessionName.replace(/[^\w\- ]+/g, '_')}-master.pdf`);
 };

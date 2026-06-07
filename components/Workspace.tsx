@@ -25,7 +25,7 @@ import {
   getProviderForModel,
   getModelById,
 } from '../utils/llmModels';
-import { Minus, Plus, RefreshCcw, Save, Cloud, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { Minus, Plus, RefreshCcw, Save, Cloud, CheckCircle, AlertCircle, X, MousePointerClick } from 'lucide-react';
 import { useWorkspace } from '../src/integrations/supabase/hooks/use-workspace';
 import { supabase, uploadFileToS3 } from '../lib/supabase';
 import { embeddingService } from '../services/embeddingService';
@@ -124,6 +124,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   const [strokes, setStrokes] = useState<Stroke[]>(session.strokes || []);
   const syncedSessionIdRef = useRef<string | null>(null);
   const [sessionReady, setSessionReady] = useState(!!session.isFullyLoaded);
+
+  const [newCardId, setNewCardId] = useState<string | null>(null);
 
   const [currentStroke, setCurrentStroke] = useState<Stroke | null>(null);
   const [drawingTool, setDrawingTool] = useState<DrawingTool>('pen');
@@ -615,6 +617,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     });
     setSelectedId(newCard.id);
     setSelectedConnectionId(null);
+    setNewCardId(newCard.id);
+    setTimeout(() => setNewCardId(null), 400);
   }, []);
 
   const handleAddCard = useCallback((x?: number, y?: number, partial?: Partial<IdeaCard>) => {
@@ -1720,6 +1724,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   return (
     <div
       ref={wrapperRef}
+      role="application"
+      aria-label="Brainstorm canvas"
       className="fixed inset-0 overflow-hidden bg-black select-none font-sans"
       onPointerDown={handlePointerDownCanvas}
       onPointerMove={handlePointerMove}
@@ -1930,6 +1936,21 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
           </div>
         )}
 
+        {cards.length === 0 && (
+          <div
+            className="fixed inset-0 flex flex-col items-center justify-center pointer-events-none select-none"
+            aria-hidden="true"
+          >
+            <MousePointerClick className="w-10 h-10 text-zinc-500 mb-4 animate-canvas-hint" />
+            <p className="text-zinc-500 text-base font-medium tracking-wide animate-canvas-hint">
+              Double-click anywhere to add your first idea
+            </p>
+            <p className="text-zinc-600 text-sm mt-2 animate-canvas-hint">
+              or right-click for options
+            </p>
+          </div>
+        )}
+
         {cards.map(card => (
           <CardNode
             key={card.id}
@@ -1949,6 +1970,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
             onMoveFocusVertical={handleMoveFocusVertical}
             onRegisterTextarea={registerCardTextarea}
             onGripDown={handleGripDown}
+            isNew={card.id === newCardId}
           />
         ))}
       </div>
