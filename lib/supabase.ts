@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const runtimeEnv = window.__APP_ENV__ || {};
-const supabaseUrl = runtimeEnv.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL || '';
+export const supabaseUrl = runtimeEnv.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = runtimeEnv.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 // Debug logging for development
@@ -23,6 +23,23 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
   : null as any;
 
 export const isSupabaseConfigured = () => !!supabase;
+
+export const callAIProxy = async (body: Record<string, unknown>): Promise<Record<string, unknown>> => {
+  if (!supabase || !supabaseUrl) throw new Error('Supabase not configured');
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+  const res = await fetch(`${supabaseUrl}/functions/v1/ai-proxy`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? `Proxy error ${res.status}`);
+  return data;
+};
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50 MB
 

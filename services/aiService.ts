@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { IdeaCard, Connection, FileSystemItem, ChatMessage } from "../types";
 import { APIKeys } from '../components/APIKeyModal';
-import { uploadFileToS3 } from '../lib/supabase';
+import { uploadFileToS3, callAIProxy } from '../lib/supabase';
 import { embeddingService } from './embeddingService';
 import debugLog from '../utils/debugLog';
 
@@ -33,6 +33,15 @@ export const generateRelatedIdeas = async (
   };
 
   try {
+    // Try server-side proxy first (keys stored server-side, never sent to browser)
+    try {
+      const data = await callAIProxy({ action: 'brainstorm', modelId, contextText, existingIdeas });
+      const ideas = data.ideas;
+      if (Array.isArray(ideas)) return ideas as string[];
+    } catch (proxyErr) {
+      debugLog.warn('aiService', 'Brainstorm proxy unavailable, falling back to direct call', proxyErr);
+    }
+
     if (modelId.startsWith('gemini')) {
       const activeAi = createGeminiClient(requireNonEmptyKey(apiKeys.gemini, 'Google Gemini'));
       const response = await activeAi.models.generateContent({
@@ -214,6 +223,23 @@ ${boardContext}`;
     let resultText = "";
 
     try {
+      // Try server-side proxy first — keys stored encrypted, never in browser
+      let usedProxy = false;
+      try {
+        const data = await callAIProxy({
+          action: 'chat',
+          modelId,
+          systemPrompt: sysPrompt,
+          history: history.map(m => ({ role: m.role, text: m.text })),
+          newMessage: currentMessage,
+        });
+        resultText = (data.text as string) ?? '';
+        usedProxy = true;
+      } catch {
+        // Proxy unavailable or no server-side key — fall through to direct calls
+      }
+
+      if (!usedProxy) {
       if (modelId === 'gpt-4o') {
         if (!apiKeys.openai) return "Please add your OpenAI API Key in Settings (⚙️).";
 
@@ -294,6 +320,7 @@ ${boardContext}`;
         const result = await chat.sendMessage({ message: currentMessage });
         resultText = result.text || "I didn't catch that.";
       }
+      } // end if (!usedProxy)
 
       if (options.plainTextOnly) {
         return resultText;
