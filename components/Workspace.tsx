@@ -129,7 +129,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   const [newCardId, setNewCardId] = useState<string | null>(null);
 
   const onboardingKey = `brainstorm_onboarding_v1_${user?.id ?? 'guest'}`;
-  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem(onboardingKey));
+  // isNewUser is set once on mount — stays false for returning users even after onboarding completes
+  const [isNewUser] = useState(() => !localStorage.getItem(onboardingKey));
+  const [showOnboarding, setShowOnboarding] = useState(() => isNewUser);
   const handleOnboardingDone = () => {
     localStorage.setItem(onboardingKey, 'done');
     setShowOnboarding(false);
@@ -2166,7 +2168,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       />
 
       {/* Empty canvas hint — must be outside containerRef (transform breaks fixed positioning) */}
-      {cards.length === 0 && !showOnboarding && (
+      {cards.length === 0 && isNewUser && !showOnboarding && (
         <div
           className="fixed inset-0 flex flex-col items-center justify-center pointer-events-none select-none"
           aria-hidden="true"
