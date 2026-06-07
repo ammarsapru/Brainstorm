@@ -75,7 +75,7 @@ export const APIKeyModal: React.FC<APIKeyModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSave} className="p-5">
+        <form onSubmit={handleSave} className="p-5" autoComplete="off">
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-4 flex gap-2">
             <Shield className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
             <p className="text-xs text-emerald-900 leading-relaxed">
@@ -101,6 +101,9 @@ export const APIKeyModal: React.FC<APIKeyModalProps> = ({
                 placeholder="AIzaSy..."
                 value={keys.gemini || ''}
                 onChange={e => setKeys(prev => ({ ...prev, gemini: e.target.value }))}
+                autoComplete="off"
+                data-lpignore="true"
+                data-1p-ignore
                 className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none font-mono text-xs"
               />
             </div>
@@ -115,6 +118,9 @@ export const APIKeyModal: React.FC<APIKeyModalProps> = ({
                 placeholder="sk-..."
                 value={keys.openai || ''}
                 onChange={e => setKeys(prev => ({ ...prev, openai: e.target.value }))}
+                autoComplete="off"
+                data-lpignore="true"
+                data-1p-ignore
                 className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none font-mono text-xs"
               />
             </div>
@@ -129,6 +135,9 @@ export const APIKeyModal: React.FC<APIKeyModalProps> = ({
                 placeholder="sk-ant-..."
                 value={keys.anthropic || ''}
                 onChange={e => setKeys(prev => ({ ...prev, anthropic: e.target.value }))}
+                autoComplete="off"
+                data-lpignore="true"
+                data-1p-ignore
                 className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none font-mono text-xs"
               />
             </div>
