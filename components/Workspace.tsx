@@ -994,8 +994,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
         if (parsed.actions && Array.isArray(parsed.actions)) {
           // Remove the JSON string from display message
           finalDisplayMsg = responseText.replace(jsonMatch[0], '').trim();
-          // Strip orphaned code-fence markers left when the AI wrapped JSON in backticks (e.g. ```json\n\n```)
-          finalDisplayMsg = finalDisplayMsg.replace(/```[a-zA-Z]*\s*```/g, '').trim();
 
           parsed.actions.forEach((action: any) => {
             if (action.type === 'create_cards' && Array.isArray(action.cards)) {
@@ -1041,6 +1039,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     } catch (e) {
       console.error("Failed to parse JSON actions payload from AI", e);
     }
+
+    // Always strip code-fence markers — runs regardless of whether canvas actions were found.
+    // Handles: matched pairs (```json\n\n```), orphaned openers (```json with no closer),
+    // and bare closers (```). An unclosed fence causes marked to render the rest as a dark <pre>.
+    finalDisplayMsg = finalDisplayMsg
+      .replace(/```[a-zA-Z]*\s*```/g, '') // matched empty pairs
+      .replace(/```[a-zA-Z]*/g, '')        // any remaining single fence marker
+      .trim();
 
     if (!finalDisplayMsg) finalDisplayMsg = "I've successfully updated your canvas!";
 

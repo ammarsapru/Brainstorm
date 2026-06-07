@@ -92,7 +92,7 @@ const MessageBubble = React.memo(({ msg, selectedModelId }: { msg: ChatMessage; 
                                         prose-ul:my-1 prose-ul:pl-4 prose-ol:my-1 prose-ol:pl-4
                                         prose-li:my-0.5
                                         prose-code:bg-slate-100 prose-code:text-violet-700 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:font-mono
-                                        prose-pre:bg-slate-900 prose-pre:text-slate-100 prose-pre:rounded-xl prose-pre:p-4 prose-pre:overflow-x-auto
+                                        prose-pre:bg-slate-100 prose-pre:text-slate-800 prose-pre:rounded-xl prose-pre:p-4 prose-pre:overflow-x-auto prose-pre:border prose-pre:border-slate-200
                                         prose-blockquote:border-violet-300 prose-blockquote:text-slate-600 prose-blockquote:italic
                                         prose-strong:text-slate-900
                                         prose-a:text-violet-600 prose-a:underline"
