@@ -41,6 +41,7 @@ electron-builder.yml
 
 # Personal reference files — not for public repo
 RESUME_PHRASING.txt
+CLAUDE.md
 
 # Internal dev / audit documents — not for public repo
 CURSOR_SUMMARY.md

@@ -1,5 +1,7 @@
 {
   "name": "brainstorm",
+  "description": "AI-powered infinite canvas brainstorming and mind-mapping application",
+  "author": "Ammar Sapru",
   "private": true,
   "version": "0.0.1",
   "type": "module",
