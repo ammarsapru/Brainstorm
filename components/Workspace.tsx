@@ -17,6 +17,7 @@ import { DEFAULT_CONNECTION_STYLE, DEFAULT_ARROW_END, DEFAULT_ARROW_START, DEFAU
 import { generateRelatedIdeas, getChatResponse, summarizeChatHandoff } from '../services/aiService';
 import { filterHistoryForModel, getOutgoingThread, countThreadMessages } from '../utils/chatModelThread';
 import { generateMasterPDF } from '../services/pdfService';
+import { OnboardingOverlay } from './OnboardingOverlay';
 import { saveChatMessage } from '../services/chatService';
 import { useApiKeys } from '../hooks/useApiKeys';
 import {
@@ -126,6 +127,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   const [sessionReady, setSessionReady] = useState(!!session.isFullyLoaded);
 
   const [newCardId, setNewCardId] = useState<string | null>(null);
+
+  const onboardingKey = `brainstorm_onboarding_v1_${user?.id ?? 'guest'}`;
+  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem(onboardingKey));
+  const handleOnboardingDone = () => {
+    localStorage.setItem(onboardingKey, 'done');
+    setShowOnboarding(false);
+  };
 
   const [currentStroke, setCurrentStroke] = useState<Stroke | null>(null);
   const [drawingTool, setDrawingTool] = useState<DrawingTool>('pen');
@@ -1936,21 +1944,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
           </div>
         )}
 
-        {cards.length === 0 && (
-          <div
-            className="fixed inset-0 flex flex-col items-center justify-center pointer-events-none select-none"
-            aria-hidden="true"
-          >
-            <MousePointerClick className="w-10 h-10 text-zinc-500 mb-4 animate-canvas-hint" />
-            <p className="text-zinc-500 text-base font-medium tracking-wide animate-canvas-hint">
-              Double-click anywhere to add your first idea
-            </p>
-            <p className="text-zinc-600 text-sm mt-2 animate-canvas-hint">
-              or right-click for options
-            </p>
-          </div>
-        )}
-
         {cards.map(card => (
           <CardNode
             key={card.id}
@@ -2171,6 +2164,25 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
         variant={apiKeyModalVariant}
         requiredProvider={requiredProvider}
       />
+
+      {/* Empty canvas hint — must be outside containerRef (transform breaks fixed positioning) */}
+      {cards.length === 0 && !showOnboarding && (
+        <div
+          className="fixed inset-0 flex flex-col items-center justify-center pointer-events-none select-none"
+          aria-hidden="true"
+          style={{ zIndex: 1 }}
+        >
+          <MousePointerClick className="w-9 h-9 text-zinc-500 mb-3 animate-canvas-hint" />
+          <p className="text-zinc-500 text-sm font-medium tracking-wide animate-canvas-hint">
+            Double-click anywhere to add your first idea
+          </p>
+          <p className="text-zinc-600 text-xs mt-1 animate-canvas-hint">
+            or right-click for options
+          </p>
+        </div>
+      )}
+
+      {showOnboarding && <OnboardingOverlay onDone={handleOnboardingDone} />}
     </div>
   );
 };
