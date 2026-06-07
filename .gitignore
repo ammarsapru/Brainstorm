@@ -39,6 +39,9 @@ PRODUCT_BRIEF.txt
 conv*.md
 electron-builder.yml
 
+# Personal reference files — not for public repo
+RESUME_PHRASING.txt
+
 # Internal dev / audit documents — not for public repo
 CURSOR_SUMMARY.md
 IMPLEMENTATION_PLAN.md
