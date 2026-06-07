@@ -69,10 +69,10 @@
     "prismjs": "^1.30.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "react-simple-code-editor": "^0.14.1",
-    "sharp": "^0.34.5"
+    "react-simple-code-editor": "^0.14.1"
   },
   "devDependencies": {
+    "sharp": "^0.34.5",
     "@tailwindcss/typography": "^0.5.19",
     "@types/node": "^22.14.0",
     "@types/prismjs": "^1.26.6",
@@ -88,6 +88,7 @@
     "tailwindcss-animate": "^1.0.7",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
+    "vite-plugin-pwa": "^0.21.1",
     "wait-on": "^9.0.4"
   }
 }

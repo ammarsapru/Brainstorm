@@ -148,6 +148,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </Tooltip>
       )}
 
+      {/* Mobile backdrop — closes sidebar on outside tap */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          onPointerDown={(e) => { e.stopPropagation(); setIsOpen(false); }}
+        />
+      )}
+
       {/* Sidebar Container */}
       <div
         onWheel={(e) => e.stopPropagation()}
@@ -157,7 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         onDoubleClick={(e) => e.stopPropagation()}
         onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
         onDrop={(e) => { e.preventDefault(); e.stopPropagation(); }}
-        className={`fixed left-4 top-20 bottom-8 w-72 bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border-4 transition-all duration-300 ease-in-out z-50 flex flex-col group ${isOpen ? 'translate-x-0' : '-translate-x-[120%]'
+        className={`fixed left-0 sm:left-4 top-16 sm:top-20 bottom-0 sm:bottom-8 w-72 max-w-[85vw] bg-white/95 backdrop-blur-sm rounded-none sm:rounded-2xl shadow-xl border-4 transition-all duration-300 ease-in-out z-50 flex flex-col group ${isOpen ? 'translate-x-0' : '-translate-x-[120%]'
           } ${'border-transparent hover:border-emerald-500 shadow-emerald-500/0 hover:shadow-emerald-500/10'
           }`}
       >

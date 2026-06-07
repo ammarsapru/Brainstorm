@@ -224,6 +224,7 @@ ${boardContext}`;
       }
 
       if (!usedProxy) {
+      debugLog.warn('aiService', 'Proxy unavailable — falling back to direct browser API call. Key will be visible in network tab.');
       if (modelId === 'gpt-4o') {
         if (!apiKeys.openai) return "Please add your OpenAI API Key in Settings (⚙️).";
 

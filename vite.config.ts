@@ -1,9 +1,12 @@
 import path from 'path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
 
 // GitHub Pages serves from /Brainstorm/ — all other targets (Docker, Electron, dev) use ./
-const base = process.env.GITHUB_PAGES === 'true' ? '/Brainstorm/' : './';
+const isGithubPages = process.env.GITHUB_PAGES === 'true';
+const isElectron = process.env.ELECTRON === 'true';
+const base = isGithubPages ? '/Brainstorm/' : './';
 
 export default defineConfig(() => {
   return {
@@ -17,8 +20,29 @@ export default defineConfig(() => {
     },
     base,
     plugins: [
-      react()
-    ],
+      react(),
+      // PWA disabled for Electron (uses local files, not a web origin)
+      !isElectron && VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: ['brainstorm-logo.png', 'brainstorm-logo.svg'],
+        manifest: false, // We use our own public/manifest.json
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+              handler: 'CacheFirst',
+              options: { cacheName: 'google-fonts-cache', expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 } },
+            },
+            {
+              urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+              handler: 'CacheFirst',
+              options: { cacheName: 'gstatic-fonts-cache', expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 } },
+            },
+          ],
+        },
+      }),
+    ].filter(Boolean),
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

@@ -9,6 +9,7 @@ import { INITIAL_CARDS } from './constants';
 import { supabase } from './lib/supabase';
 import { AuthModal } from './components/AuthModal';
 import debugLog from './utils/debugLog';
+import { showToast } from './utils/toast';
 import {
   fetchSessionSummaries,
   fetchFullSession,
@@ -175,9 +176,7 @@ function App() {
           clearLoader();
           if (options?.restoreWorkspace && viewRef.current === 'workspace') {
             localStorage.removeItem('last_active_session_id');
-            alert(
-              'Could not load your session in time. Please check your connection and try again from the sessions page.'
-            );
+            showToast('Could not restore your last session. Please check your connection.', 'error');
             setView('dashboard');
             setActiveSessionId(null);
             setWorkspaceSession(null);
@@ -213,14 +212,14 @@ function App() {
         setSessions(prev => mergeSessionIntoList(prev, full));
         clearLoader();
       } else {
-        alert('Could not load this session.');
+        showToast('Could not load this session. Please try again.', 'error');
         setView('dashboard');
         setActiveSessionId(null);
         clearLoader();
       }
     } catch (err) {
       debugLog.error('App', 'Failed to load session', err);
-      alert('Could not load this session. Please try again.');
+      showToast('Could not load this session. Please check your connection.', 'error');
       setView('dashboard');
       setActiveSessionId(null);
       clearLoader();
@@ -234,17 +233,22 @@ function App() {
     if (heavyLoadedForRef.current === id) return;
     heavyLoadedForRef.current = id;
 
-    void fetchSessionHeavyData(id).then(({ strokes, chatHistory }) => {
-      const merge = (prev: Session | null): Session | null => {
-        if (!prev || prev.id !== id) return prev;
-        return {
-          ...prev,
-          strokes: strokes.length > 0 ? strokes : prev.strokes,
-          chatHistory: chatHistory.length > 0 ? chatHistory : prev.chatHistory,
+    fetchSessionHeavyData(id)
+      .then(({ strokes, chatHistory }) => {
+        const merge = (prev: Session | null): Session | null => {
+          if (!prev || prev.id !== id) return prev;
+          return {
+            ...prev,
+            strokes: strokes.length > 0 ? strokes : prev.strokes,
+            chatHistory: chatHistory.length > 0 ? chatHistory : prev.chatHistory,
+          };
         };
-      };
-      setWorkspaceSession(merge);
-    });
+        setWorkspaceSession(merge);
+      })
+      .catch(err => {
+        debugLog.error('App', 'Failed to load drawings/chat history', err);
+        showToast('Could not load drawings or chat history. Check your connection.', 'error');
+      });
   }, [workspaceSession?.id, workspaceSession?.isFullyLoaded]);
 
   // Load dashboard sessions lazily when the view changes to dashboard

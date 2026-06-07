@@ -26,6 +26,9 @@
     },
     "allowImportingTsExtensions": true,
     "ignoreDeprecations": "6.0",
-    "noEmit": true
+    "noEmit": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true
   }
 }

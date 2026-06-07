@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, X, Save, Key, AlertCircle, Shield } from 'lucide-react';
+import { Settings, X, Save, Key, AlertCircle, Shield, CheckCircle, Loader } from 'lucide-react';
 
 export interface APIKeys {
   openai?: string;
@@ -42,11 +42,38 @@ export const APIKeyModal: React.FC<APIKeyModalProps> = ({
   const [keys, setKeys] = useState<APIKeys>(currentKeys);
   const [isSaved, setIsSaved] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof APIKeys, string>>>({});
+  const [verifying, setVerifying] = useState(false);
+  const [verified, setVerified] = useState<Partial<Record<keyof APIKeys, boolean>>>({});
 
   useEffect(() => {
     setKeys(currentKeys);
     setErrors({});
+    setVerified({});
   }, [currentKeys, isOpen]);
+
+  const verifyKeys = async (keysToVerify: APIKeys) => {
+    setVerifying(true);
+    const results: Partial<Record<keyof APIKeys, boolean>> = {};
+    await Promise.allSettled([
+      keysToVerify.gemini?.trim() ? fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${keysToVerify.gemini.trim()}`
+      ).then(r => { results.gemini = r.ok; }).catch(() => { results.gemini = false; }) : Promise.resolve(),
+
+      keysToVerify.openai?.trim() ? fetch('https://api.openai.com/v1/models', {
+        headers: { Authorization: `Bearer ${keysToVerify.openai.trim()}` },
+      }).then(r => { results.openai = r.ok; }).catch(() => { results.openai = false; }) : Promise.resolve(),
+
+      keysToVerify.anthropic?.trim() ? fetch('https://api.anthropic.com/v1/models', {
+        headers: {
+          'x-api-key': keysToVerify.anthropic.trim(),
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+      }).then(r => { results.anthropic = r.ok; }).catch(() => { results.anthropic = false; }) : Promise.resolve(),
+    ]);
+    setVerified(results);
+    setVerifying(false);
+  };
 
   if (!isOpen) return null;
 
@@ -72,10 +99,11 @@ export const APIKeyModal: React.FC<APIKeyModalProps> = ({
     }
     await onSave(keys);
     setIsSaved(true);
+    void verifyKeys(keys);
     setTimeout(() => {
       setIsSaved(false);
       onClose();
-    }, 1000);
+    }, 2500);
   };
 
   return (
@@ -188,16 +216,33 @@ export const APIKeyModal: React.FC<APIKeyModalProps> = ({
             </div>
           </div>
 
-          <div className="mt-8">
+          <div className="mt-8 space-y-2">
             <button
               type="button"
               onClick={handleSave}
+              disabled={verifying}
               className={`w-full py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
-                isSaved ? 'bg-emerald-500 text-white' : 'bg-violet-600 text-white hover:bg-violet-700'
+                isSaved ? 'bg-emerald-500 text-white' : 'bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-60'
               }`}
             >
-              {isSaved ? <>Saved securely</> : <><Save className="w-4 h-4" /> Save keys</>}
+              {verifying ? <><Loader className="w-4 h-4 animate-spin" /> Verifying keys…</> :
+               isSaved ? <>Saved securely</> : <><Save className="w-4 h-4" /> Save keys</>}
             </button>
+            {Object.entries(verified).length > 0 && (
+              <div className="flex flex-col gap-1">
+                {(['gemini', 'openai', 'anthropic'] as Array<keyof APIKeys>).map(field => {
+                  const status = verified[field];
+                  if (status === undefined) return null;
+                  const label = field === 'gemini' ? 'Gemini' : field === 'openai' ? 'OpenAI' : 'Anthropic';
+                  return (
+                    <div key={field} className={`flex items-center gap-1.5 text-xs font-medium ${status ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {status ? <CheckCircle className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+                      {label}: {status ? 'Key verified' : 'Invalid or expired key'}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -1,0 +1,27 @@
+{
+  "name": "Brainstorm",
+  "short_name": "Brainstorm",
+  "description": "Infinite canvas for brainstorming with AI — create cards, connect ideas, think bigger.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "any",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "./brainstorm-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "./brainstorm-logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -16,7 +16,8 @@ interface HeaderProps {
   onSave?: () => void; // Added onSave prop
   onSwitchAccount?: () => void; // New Prop
   onGoShards?: () => void; // Shards navigation
-  onExportMasterPDF?: () => void; // Master PDF export
+  onExportMasterPDF?: () => void;
+  onExportJSON?: () => void;
   isSaving?: boolean;
   saveStatus?: 'idle' | 'working' | 'saving' | 'saved' | 'error';
   error?: string | null;
@@ -36,6 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSwitchAccount,
   onGoShards,
   onExportMasterPDF,
+  onExportJSON,
   isSaving = false,
   saveStatus = 'saved',
   error
@@ -157,6 +159,17 @@ export const Header: React.FC<HeaderProps> = ({
                 >
                   <Download className="w-4 h-4" />
                   <span className="hidden sm:inline">Master PDF</span>
+                </button>
+              </Tooltip>
+            )}
+            {onExportJSON && (
+              <Tooltip text="Download session as JSON for backup or import" position="bottom">
+                <button
+                  onClick={onExportJSON}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">JSON</span>
                 </button>
               </Tooltip>
             )}

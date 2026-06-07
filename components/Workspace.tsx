@@ -31,6 +31,7 @@ import { useWorkspace } from '../src/integrations/supabase/hooks/use-workspace';
 import { supabase, uploadFileToS3 } from '../lib/supabase';
 import { embeddingService } from '../services/embeddingService';
 import debugLog from '../utils/debugLog';
+import { showToast } from '../utils/toast';
 
 const generateId = () => crypto.randomUUID();
 
@@ -227,6 +228,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   const [dragCardOffset, setDragCardOffset] = useState<Point>({ x: 0, y: 0 });
   const activePointerIdRef = useRef<number | null>(null);
   const autoPanRestoreRef = useRef<ToolMode | null>(null);
+  const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
+  const activeTouchesRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchRef = useRef<{ id1: number; x1: number; y1: number; id2: number; x2: number; y2: number } | null>(null);
+  const lastBrainstormRef = useRef<number>(0);
   const [connectingFromId, setConnectingFromId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState<Point>({ x: 0, y: 0 });
   const [isProcessingAI, setIsProcessingAI] = useState(false);
@@ -978,7 +983,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     const userSave = await saveChatMessage(session.id, newUserMsg);
     if (!userSave.ok) {
       debugLog.error('Workspace', 'Failed to save user chat message', userSave.error);
-      alert('Your message could not be saved. Please check your connection and try again.');
+      showToast('Message could not be saved to history.', 'error');
     }
 
     const truncate = (str: string, max = 60) => str.length > max ? str.substring(0, max).replace(/\n/g, ' ') + '…' : str.replace(/\n/g, ' ');
@@ -1078,7 +1083,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     const assistantSave = await saveChatMessage(session.id, assistantMsg);
     if (!assistantSave.ok) {
       debugLog.error('Workspace', 'Failed to save assistant chat message', assistantSave.error);
-      alert('The assistant reply could not be saved. Please check your connection and try again.');
+      showToast('Reply could not be saved to history.', 'error');
     }
 
   }, [chatHistory, apiKeys, ensureKeyForModel, selectedModelId, session.id, handleAddCard, handleUpdateCard, handleDeleteCard]);
@@ -1252,7 +1257,32 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   };
 
   const handlePointerDownCanvas = useCallback((e: React.PointerEvent) => {
+    // Track all active touches for pinch-to-zoom
+    activeTouchesRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    // Pinch-to-zoom: when a second finger lands, initialise pinch state
+    if (activeTouchesRef.current.size === 2) {
+      const pts = Array.from(activeTouchesRef.current.entries());
+      pinchRef.current = { id1: pts[0][0], x1: pts[0][1].x, y1: pts[0][1].y, id2: pts[1][0], x2: pts[1][1].x, y2: pts[1][1].y };
+      setIsDragging(false);
+      return;
+    }
+
     if (!e.isPrimary) return;
+
+    // Double-tap to create card on touch devices
+    if (e.pointerType === 'touch') {
+      const now = Date.now();
+      const last = lastTapRef.current;
+      const dist = last ? Math.hypot(e.clientX - last.x, e.clientY - last.y) : 999;
+      if (last && now - last.time < 300 && dist < 40) {
+        lastTapRef.current = null;
+        handleAddCard(e.clientX, e.clientY);
+        return;
+      }
+      lastTapRef.current = { time: now, x: e.clientX, y: e.clientY };
+    }
+
     setClickPopup(null);
     if (connectingFromId) {
       if (e.currentTarget.setPointerCapture) {
@@ -1368,9 +1398,25 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   }, [handleOpenCard]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    // OPTIMIZATION: Do NOT update state on every mouse move unless absolutely necessary
-    // Only update mousePos if we are drawing a connection line (connectingFromId)
-    // Or if we need it for something else critical (like eraser cursor).
+    // Update touch position
+    activeTouchesRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    // Pinch-to-zoom when two fingers are active
+    if (pinchRef.current && activeTouchesRef.current.size >= 2) {
+      const { id1, id2 } = pinchRef.current;
+      const p1 = activeTouchesRef.current.get(id1);
+      const p2 = activeTouchesRef.current.get(id2);
+      if (p1 && p2) {
+        const prevDist = Math.hypot(pinchRef.current.x2 - pinchRef.current.x1, pinchRef.current.y2 - pinchRef.current.y1);
+        const newDist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        if (prevDist > 0) {
+          const ratio = newDist / prevDist;
+          setViewport(prev => ({ ...prev, scale: Math.min(Math.max(0.1, prev.scale * ratio), 5) }));
+        }
+        pinchRef.current = { id1, x1: p1.x, y1: p1.y, id2, x2: p2.x, y2: p2.y };
+      }
+      return;
+    }
 
     if (activePointerIdRef.current != null && e.pointerId !== activePointerIdRef.current) return;
 
@@ -1403,6 +1449,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   }, [connectingFromId, isDragging, mode, drawingTool, selectedId, dragStart, dragCardOffset, screenToWorld, handleUpdateCard, currentStroke]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    activeTouchesRef.current.delete(e.pointerId);
+    if (pinchRef.current && (e.pointerId === pinchRef.current.id1 || e.pointerId === pinchRef.current.id2)) {
+      pinchRef.current = null;
+      return;
+    }
     if (activePointerIdRef.current != null && e.pointerId !== activePointerIdRef.current) return;
     setIsDragging(false);
     activePointerIdRef.current = null;
@@ -1449,6 +1500,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     if (!sourceCard || !sourceCard.text.trim()) return;
 
     if (!ensureKeyForModel(selectedModelId)) return;
+
+    const now = Date.now();
+    if (now - lastBrainstormRef.current < 2000) {
+      showToast('Please wait a moment before brainstorming again.', 'info');
+      return;
+    }
+    lastBrainstormRef.current = now;
 
     setIsProcessingAI(true);
     const existingIdeas = cardsRef.current.map(c => c.text);
@@ -1498,10 +1556,24 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     try {
       await generateMasterPDF(sessionName, cards, connections);
     } catch (error) {
-      console.error('Failed to export master PDF:', error);
-      alert('Failed to export PDF. Please check the console for details.');
+      debugLog.error('Workspace', 'Failed to export master PDF', error);
+      showToast('Failed to export PDF. Please try again.', 'error');
     }
   }, [sessionName, cards, connections]);
+
+  const handleExportJSON = useCallback(() => {
+    const exportData = { name: sessionName, exportedAt: new Date().toISOString(), cards, connections, fileSystem, collections, strokes };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${sessionName.replace(/[^\w\- ]+/g, '_')}-brainstorm.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Session exported as JSON.', 'success');
+  }, [sessionName, cards, connections, fileSystem, collections, strokes]);
 
   // Keyboard
   useEffect(() => {
@@ -1794,6 +1866,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
           onSwitchAccount={onSwitchAccount}
           onGoShards={onGoShards}
           onExportMasterPDF={handleExportMasterPDF}
+          onExportJSON={handleExportJSON}
           isSaving={isSaving || hasUnsavedChanges}
           saveStatus={saveStatus}
           error={error}
