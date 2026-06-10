@@ -143,6 +143,7 @@ export const ConnectionLayer: React.FC<ConnectionLayerProps> = ({
 
         return (
           <g key={conn.id}
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); onSelectConnection?.(conn.id); }}
             className="pointer-events-auto cursor-pointer group"
           >

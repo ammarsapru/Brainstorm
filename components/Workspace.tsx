@@ -1582,29 +1582,39 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
       // Card-to-card textarea navigation (ArrowUp/ArrowDown)
-      if (target.tagName === 'TEXTAREA' && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (target.tagName === 'TEXTAREA' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
         const ta = target as HTMLTextAreaElement;
         const cardId = ta.dataset.cardId;
         if (cardId) {
-          const value = ta.value || '';
-          const caret = ta.selectionStart ?? 0;
-          const before = value.slice(0, caret);
-          const currentLineIndex = before.split('\n').length - 1;
-          const totalLines = value.split('\n').length;
-          const atFirstLine = currentLineIndex <= 0;
-          const atLastLine = currentLineIndex >= totalLines - 1;
-
-          if (e.key === 'ArrowUp' && atFirstLine) {
+          // Ctrl+Arrow always jumps to nearest card regardless of cursor position
+          if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             e.stopPropagation();
-            handleMoveFocusVertical(cardId, 'up');
+            handleMoveFocusVertical(cardId, e.key === 'ArrowUp' ? 'up' : 'down');
             return;
           }
-          if (e.key === 'ArrowDown' && atLastLine) {
-            e.preventDefault();
-            e.stopPropagation();
-            handleMoveFocusVertical(cardId, 'down');
-            return;
+
+          if (!e.altKey) {
+            const value = ta.value || '';
+            const caret = ta.selectionStart ?? 0;
+            const before = value.slice(0, caret);
+            const currentLineIndex = before.split('\n').length - 1;
+            const totalLines = value.split('\n').length;
+            const atFirstLine = currentLineIndex <= 0;
+            const atLastLine = currentLineIndex >= totalLines - 1;
+
+            if (e.key === 'ArrowUp' && atFirstLine) {
+              e.preventDefault();
+              e.stopPropagation();
+              handleMoveFocusVertical(cardId, 'up');
+              return;
+            }
+            if (e.key === 'ArrowDown' && atLastLine) {
+              e.preventDefault();
+              e.stopPropagation();
+              handleMoveFocusVertical(cardId, 'down');
+              return;
+            }
           }
         }
       }

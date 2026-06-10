@@ -95,6 +95,7 @@ export const CardNode = React.memo<CardNodeProps>(({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const isPdf = isPdfCard(card.image, card.fileName);
   const pdfBlobUrl = usePdfBlobUrl(card.image);
 
@@ -428,7 +429,9 @@ export const CardNode = React.memo<CardNodeProps>(({
                       const el = textareaRef.current;
                       const start = el?.selectionStart ?? card.text.length;
                       const end = el?.selectionEnd ?? start;
+                      setIsUploading(true);
                       uploadFileToS3(blob).then(url => {
+                        setIsUploading(false);
                         if (!url) return;
                         const insert = `\n${url}\n`;
                         const nextText = (card.text || '').slice(0, start) + insert + (card.text || '').slice(end);
@@ -440,7 +443,7 @@ export const CardNode = React.memo<CardNodeProps>(({
                           t.selectionStart = nextPos;
                           t.selectionEnd = nextPos;
                         });
-                      });
+                      }).catch(() => setIsUploading(false));
                       e.preventDefault();
                       e.stopPropagation();
                       return;
@@ -464,7 +467,9 @@ export const CardNode = React.memo<CardNodeProps>(({
                   const el = textareaRef.current;
                   const start = el?.selectionStart ?? card.text.length;
                   const end = el?.selectionEnd ?? start;
+                  setIsUploading(true);
                   uploadFileToS3(file).then(url => {
+                    setIsUploading(false);
                     if (!url) return;
                     const insert = `\n${url}\n`;
                     const nextText = (card.text || '').slice(0, start) + insert + (card.text || '').slice(end);
@@ -476,15 +481,16 @@ export const CardNode = React.memo<CardNodeProps>(({
                       t.selectionStart = nextPos;
                       t.selectionEnd = nextPos;
                     });
-                  });
+                  }).catch(() => setIsUploading(false));
                   e.preventDefault();
                 }
               } else {
                 // Allow text drops to act normally
               }
             }}
-            placeholder={card.image ? "Add caption..." : "Enter idea..."}
-            className={`w-full bg-transparent resize-none outline-none text-gray-800 placeholder-gray-400 overflow-hidden ${getFontFamily(card.style.fontFamily)} ${isPdf ? '' : 'flex-grow'}`}
+            placeholder={isUploading ? "Uploading image…" : card.image ? "Add caption..." : "Enter idea..."}
+            disabled={isUploading}
+            className={`w-full bg-transparent resize-none outline-none placeholder-gray-400 overflow-hidden transition-opacity duration-200 ${getFontFamily(card.style.fontFamily)} ${isPdf ? '' : 'flex-grow'} ${isUploading ? 'opacity-40 text-gray-400 cursor-wait' : 'text-gray-800'}`}
             style={{
               minHeight: card.image ? '40px' : '60px',
               fontWeight: card.style.isHeader ? '800' : card.style.isBold ? 'bold' : 'normal',

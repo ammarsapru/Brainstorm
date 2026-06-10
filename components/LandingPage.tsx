@@ -3,7 +3,8 @@ import {
   ArrowRight, Brain, Zap, Share2, Layout, FileText,
   Users, Lightbulb, Target, Layers, Instagram, Linkedin, Github, Mail,
   CheckCircle2, Globe, Sparkles, MessageCircle, Send, Bot, User, GripHorizontal, Plus, Play,
-  MousePointer2, Network, GitFork, MessageSquareText, Wand2, Maximize2, MousePointerClick, Download
+  MousePointer2, Network, GitFork, MessageSquareText, Wand2, Maximize2, MousePointerClick, Download,
+  X, Shield, Lock, Database, Eye, Trash2
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -29,6 +30,256 @@ const useScrollReveal = () => {
     return () => observer.disconnect();
   }, []);
 };
+
+// --- Modal Components ---
+
+const PrivacyModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
+  <div
+    className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+    onClick={onClose}
+  >
+    <div
+      className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto"
+      onClick={e => e.stopPropagation()}
+    >
+      <div className="sticky top-0 bg-white border-b border-gray-100 px-8 py-5 flex items-center justify-between rounded-t-2xl">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+            <Shield className="w-4 h-4 text-white" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900">Privacy Policy</h2>
+        </div>
+        <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+          <X className="w-5 h-5 text-gray-500" />
+        </button>
+      </div>
+
+      <div className="px-8 py-6 space-y-6 text-gray-600 text-sm leading-relaxed">
+        <p className="text-gray-500 text-xs">Last updated: June 2026</p>
+
+        <p>
+          Brainstorm is a personal brainstorming and note-taking tool. We designed it with privacy in mind —
+          your ideas belong to you. Here is a straightforward account of what we collect and why.
+        </p>
+
+        <div className="space-y-5">
+          <div className="flex gap-4">
+            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Mail className="w-4 h-4 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 mb-1">Account Information</h3>
+              <p>
+                When you sign in, we collect your <strong>email address</strong> via Supabase Auth (supports email/password
+                and Google OAuth). We use this solely to identify your account and let you access your sessions across devices.
+                We do not share your email with third parties.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Database className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 mb-1">Your Canvas Data</h3>
+              <p>
+                Everything you create — <strong>idea cards, connections between cards, freehand drawings, notes,
+                and session names</strong> — is stored in our Supabase database. This data is tied to your account
+                so you can access it from any device. It is not used to train AI models or shared with anyone.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+              <MessageCircle className="w-4 h-4 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 mb-1">AI Chat History</h3>
+              <p>
+                Your <strong>AI chat conversations</strong> within each session are stored in our database. This
+                lets you pick up where you left off. When you send a message to an AI model, your text is
+                transmitted to the respective AI provider (Google Gemini, OpenAI, or Anthropic) using your own
+                API key. We do not log or retain the raw API calls ourselves.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+              <FileText className="w-4 h-4 text-amber-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 mb-1">Uploaded Files</h3>
+              <p>
+                <strong>PDFs and images</strong> you attach to cards are stored in Supabase Storage. Files are
+                associated with your account and are accessible only to you. We validate file types using
+                magic-byte inspection before storage.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <div className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Lock className="w-4 h-4 text-red-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 mb-1">API Keys (BYOK)</h3>
+              <p>
+                If you add your own AI API keys (Google Gemini, OpenAI, Anthropic), they are <strong>encrypted
+                client-side using AES-GCM-256</strong> with a non-extractable key stored in your browser's
+                IndexedDB. Your raw API keys are never transmitted to our servers or stored in our database.
+                They stay in your browser only.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Eye className="w-4 h-4 text-gray-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 mb-1">What We Do Not Collect</h3>
+              <ul className="list-disc list-inside space-y-1 mt-1">
+                <li>No physical location or IP logging</li>
+                <li>No payment information (the app is free)</li>
+                <li>No third-party advertising or tracking pixels</li>
+                <li>No browser fingerprinting</li>
+                <li>No analytics beyond standard Supabase request logs</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Trash2 className="w-4 h-4 text-gray-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 mb-1">Data Deletion</h3>
+              <p>
+                You can delete individual sessions and cards at any time from within the app. To request full
+                account and data deletion, email us at <strong>ammarsaboor40@gmail.com</strong> and we will
+                process it within 30 days.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-50 rounded-xl p-4 text-xs text-gray-500">
+          Questions about your data? Contact us at{' '}
+          <a href="mailto:ammarsaboor40@gmail.com" className="text-black font-semibold hover:underline">
+            ammarsaboor40@gmail.com
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const TermsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
+  <div
+    className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+    onClick={onClose}
+  >
+    <div
+      className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto"
+      onClick={e => e.stopPropagation()}
+    >
+      <div className="sticky top-0 bg-white border-b border-gray-100 px-8 py-5 flex items-center justify-between rounded-t-2xl">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+            <FileText className="w-4 h-4 text-white" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900">Terms of Service</h2>
+        </div>
+        <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+          <X className="w-5 h-5 text-gray-500" />
+        </button>
+      </div>
+
+      <div className="px-8 py-6 space-y-6 text-gray-600 text-sm leading-relaxed">
+        <p className="text-gray-500 text-xs">Last updated: June 2026</p>
+
+        <p>
+          By using Brainstorm, you agree to these terms. They are intentionally simple and straightforward.
+        </p>
+
+        <div className="space-y-5">
+          <div>
+            <h3 className="font-bold text-gray-900 mb-2">1. Your Content</h3>
+            <p>
+              Everything you create in Brainstorm — cards, notes, drawings, uploaded files — belongs to you.
+              We do not claim any ownership over your content, and we will never use it for advertising or sell it.
+              You are responsible for ensuring the content you upload does not violate any laws or third-party rights.
+            </p>
+          </div>
+
+          <div>
+            <h3 className="font-bold text-gray-900 mb-2">2. Acceptable Use</h3>
+            <p>You agree not to:</p>
+            <ul className="list-disc list-inside space-y-1 mt-2">
+              <li>Use the app for any illegal activity</li>
+              <li>Upload malicious files or attempt to compromise the service</li>
+              <li>Attempt to access other users' data</li>
+              <li>Abuse or scrape the Supabase backend in ways that degrade service for others</li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="font-bold text-gray-900 mb-2">3. AI API Keys</h3>
+            <p>
+              Brainstorm is a bring-your-own-key (BYOK) application. When you provide API keys for Google Gemini,
+              OpenAI, or Anthropic, you are responsible for your usage under each provider's terms of service.
+              Any costs incurred from AI API usage are your responsibility. Your keys are stored encrypted in
+              your browser only — we cannot access them.
+            </p>
+          </div>
+
+          <div>
+            <h3 className="font-bold text-gray-900 mb-2">4. Service Availability</h3>
+            <p>
+              Brainstorm is provided as-is, free of charge. We make reasonable efforts to keep the service
+              running but do not guarantee uptime or data preservation. We recommend exporting important work
+              using the built-in PDF or JSON export features.
+            </p>
+          </div>
+
+          <div>
+            <h3 className="font-bold text-gray-900 mb-2">5. Open Source</h3>
+            <p>
+              Brainstorm is open source. The source code is available on{' '}
+              <a
+                href="https://github.com/ammarsapru/Brainstorm"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-black font-semibold hover:underline"
+              >
+                GitHub
+              </a>
+              {' '}under its respective license. Contributions and forks are welcome.
+            </p>
+          </div>
+
+          <div>
+            <h3 className="font-bold text-gray-900 mb-2">6. Changes</h3>
+            <p>
+              We may update these terms as the app evolves. Continued use of the service after changes
+              constitutes acceptance of the updated terms. Major changes will be communicated via the app.
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-gray-50 rounded-xl p-4 text-xs text-gray-500">
+          Questions? Contact us at{' '}
+          <a href="mailto:ammarsaboor40@gmail.com" className="text-black font-semibold hover:underline">
+            ammarsaboor40@gmail.com
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 // --- Preview Components ---
 
@@ -314,13 +565,39 @@ const ChatPreview = () => {
 export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onGoShards }) => {
   useScrollReveal();
 
+  const [showDownloadToast, setShowDownloadToast] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+
   const scrollToSection = (id: string) => (e: React.MouseEvent) => {
     e.preventDefault();
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const handleDownload = () => {
+    setShowDownloadToast(true);
+    setTimeout(() => setShowDownloadToast(false), 4000);
+    const link = document.createElement('a');
+    link.href = DOWNLOAD_URL;
+    link.download = 'Brainstorm-Setup.exe';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="min-h-screen w-full font-sans overflow-x-hidden selection:bg-black selection:text-white text-gray-900 bg-white">
+
+      {showPrivacy && <PrivacyModal onClose={() => setShowPrivacy(false)} />}
+      {showTerms && <TermsModal onClose={() => setShowTerms(false)} />}
+
+      {/* Download Toast */}
+      <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[150] transition-all duration-500 ${showDownloadToast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+        <div className="flex items-center gap-3 bg-gray-900 text-white px-5 py-3 rounded-full shadow-2xl border border-white/10">
+          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+          <span className="text-sm font-semibold">Your download will start in a moment…</span>
+        </div>
+      </div>
 
       <style>{`
         .reveal {
@@ -355,26 +632,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onGoShar
               </button>
             )}
             <button
-            onClick={onGetStarted}
-            className="px-5 py-2 bg-black text-white rounded-full font-semibold text-sm hover:bg-gray-800 transition-all hover:scale-105 active:scale-95 shadow-lg"
-          >
-            Launch App
-          </button>
-        </div>
+              onClick={onGetStarted}
+              className="px-5 py-2 bg-black text-white rounded-full font-semibold text-sm hover:bg-gray-800 transition-all hover:scale-105 active:scale-95 shadow-lg"
+            >
+              Launch App
+            </button>
+          </div>
         </div>
       </nav>
 
       {/* =========================================================================
-          SECTION 1: HERO - THEME: AURORA / BREATHING
+          SECTION 1: HERO
           ========================================================================= */}
       <main className="relative pt-32 pb-32 px-6 flex flex-col items-center text-center overflow-hidden">
 
         {/* Enhanced Background with Dot Grid + Blobs */}
         <div className="absolute inset-0 -z-10 bg-white">
-          {/* Stronger Grid for texture */}
           <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:20px_20px]"></div>
-
-          {/* Animated Blobs */}
           <div className="absolute top-[10%] left-[20%] w-[600px] h-[600px] bg-purple-200/40 rounded-full mix-blend-multiply filter blur-[80px] animate-blob"></div>
           <div className="absolute top-[20%] right-[20%] w-[500px] h-[500px] bg-blue-200/40 rounded-full mix-blend-multiply filter blur-[80px] animate-blob animation-delay-2000"></div>
           <div className="absolute bottom-[20%] left-[40%] w-[600px] h-[600px] bg-pink-200/40 rounded-full mix-blend-multiply filter blur-[80px] animate-blob animation-delay-4000"></div>
@@ -405,29 +679,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onGoShar
             >
               Start Brainstorming <ArrowRight className="w-5 h-5" />
             </button>
-            <a
-              href={DOWNLOAD_URL}
-              download="Brainstorm-Setup.exe"
-              className="px-8 py-4 bg-white text-gray-900 border border-gray-200 rounded-full font-bold text-lg shadow-sm hover:bg-gray-50 hover:border-gray-300 hover:scale-105 transition-all flex items-center gap-2"
+            <button
+              onClick={handleDownload}
+              className="px-8 py-4 bg-white text-gray-900 border border-gray-200 rounded-full font-bold text-lg shadow-sm hover:bg-gray-50 hover:border-gray-300 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
             >
               <Download className="w-5 h-5" /> Download App (Windows)
-            </a>
+            </button>
           </div>
         </div>
       </main>
 
       {/* =========================================================================
-          SECTION 2: CANVAS - THEME: CANVAS SIMULATION (DOT GRID)
-          LAYOUT: Full width background, Floating Card Left, Interactive Space Right
+          SECTION 2: CANVAS
           ========================================================================= */}
       <section id="canvas" className="py-24 bg-slate-50 relative overflow-hidden">
-        {/* Specific Background Pattern: Dot Grid */}
         <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:20px_20px]"></div>
 
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="flex flex-col md:flex-row items-center gap-12">
 
-            {/* Text Card Floating */}
             <div className="w-full md:w-1/3 bg-white/90 backdrop-blur-sm border border-white/50 p-8 rounded-2xl shadow-xl reveal">
               <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center text-white mb-6 shadow-md">
                 <MousePointer2 className="w-6 h-6" />
@@ -448,7 +718,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onGoShar
               </ul>
             </div>
 
-            {/* Preview Space */}
             <div className="w-full md:w-2/3 h-[400px] reveal delay-200">
               <CanvasPreview />
             </div>
@@ -457,7 +726,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onGoShar
       </section>
 
       {/* =========================================================================
-          SECTION 2.5: DEEP DIVE - NEW TRANSITION SECTION
+          SECTION 2.5: DEEP DIVE
           ========================================================================= */}
       <section id="deep-dive" className="py-24 bg-white relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-6 relative z-10">
@@ -493,14 +762,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onGoShar
       </section>
 
       {/* =========================================================================
-          SECTION 3: AI - THEME: DARK COMMAND CENTER
-          LAYOUT: Centered Text Top, Wide Dashboard Preview Bottom
+          SECTION 3: AI - DARK COMMAND CENTER
           ========================================================================= */}
       <section id="ai" className="py-32 bg-[#0F1117] relative overflow-hidden text-white">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:100px_100px]"></div>
 
         <div className="max-w-4xl mx-auto px-6 relative z-10 flex flex-col items-center">
-          {/* Header Centered */}
           <div className="text-center mb-16 reveal">
             <div className="inline-flex items-center justify-center w-12 h-12 bg-purple-500/10 border border-purple-500/20 rounded-xl mb-6">
               <Wand2 className="w-6 h-6 text-purple-400" />
@@ -511,12 +778,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onGoShar
             </p>
           </div>
 
-          {/* Wide Preview */}
           <div className="w-full reveal delay-200">
             <AIPreview />
           </div>
 
-          {/* Feature Pills */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-16 w-full reveal delay-300">
             <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-center">
               <div className="font-bold text-purple-300 mb-1">Expansion</div>
@@ -535,26 +800,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onGoShar
       </section>
 
       {/* =========================================================================
-          SECTION 4: CHAT - THEME: LIGHT & AIRY
-          LAYOUT: Preview Left, Text Right (Alternating)
+          SECTION 4: CHAT
           ========================================================================= */}
       <section id="chat" className="py-24 bg-blue-50/30 border-y border-blue-50 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="grid lg:grid-cols-2 gap-20 items-center">
 
-            {/* Preview Left */}
             <div className="order-2 lg:order-1 reveal">
               <ChatPreview />
             </div>
 
-            {/* Text Right */}
             <div className="order-1 lg:order-2 reveal delay-200 pl-0 lg:pl-10">
               <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 mb-6">
                 <MessageSquareText className="w-6 h-6" />
               </div>
               <h2 className="text-3xl font-bold text-gray-900 mb-4">Contextual Chat</h2>
               <p className="text-lg text-gray-600 leading-relaxed mb-6 font-medium">
-                Don't leave your canvas to get answers. Chat with Gemini directly alongside your work. It sees what you're working on and provides relevant advice.
+                Don't leave your canvas to get answers. Chat with your AI model directly alongside your work. It sees what you're working on and provides relevant advice.
               </p>
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
@@ -573,8 +835,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onGoShar
       </section>
 
       {/* =========================================================================
-          SECTION 5: CONNECTIONS - THEME: STRUCTURED GRID
-          LAYOUT: Text Top Left, Preview Bottom Right (Diagonal Split)
+          SECTION 5: CONNECTIONS
           ========================================================================= */}
       <section id="connections" className="py-24 bg-white relative">
         <div className="max-w-7xl mx-auto px-6 relative z-10">
@@ -646,7 +907,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onGoShar
       {/* --- Footer --- */}
       <footer className="bg-white border-t border-gray-200 pt-16 pb-8 relative z-10">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="grid md:grid-cols-4 gap-12 mb-12">
+          <div className="grid md:grid-cols-3 gap-12 mb-12">
             <div className="col-span-1 md:col-span-2">
               <div className="flex items-center gap-2 mb-4 group cursor-pointer">
                 <div className="w-9 h-9 bg-black rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-105 transition-transform">B</div>
@@ -656,41 +917,36 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onGoShar
                 The ultimate tool for thinking, planning, and creating. Open source and free for everyone.
               </p>
               <div className="flex gap-4">
-                <a href="https://www.instagram.com/ammarsaboorr11" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 rounded-full text-gray-600 hover:bg-gray-100 hover:text-black transition-all">
+                <a href="https://www.instagram.com/ammarsaboorr11" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 rounded-full text-gray-600 hover:bg-gray-100 hover:text-black transition-all" aria-label="Instagram">
                   <Instagram className="w-4 h-4" />
                 </a>
-                <a href="https://github.com/ammarsapru" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 rounded-full text-gray-600 hover:bg-gray-100 hover:text-black transition-all">
+                <a href="https://github.com/ammarsapru" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 rounded-full text-gray-600 hover:bg-gray-100 hover:text-black transition-all" aria-label="GitHub">
                   <Github className="w-4 h-4" />
                 </a>
-                <a href="https://www.linkedin.com/in/ammar-sheikh-703247317?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base_contact_details%3B73%2BoUod6Rb2vL75sr%2FI1mg%3D%3D" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 rounded-full text-gray-600 hover:bg-gray-100 hover:text-black transition-all">
+                <a href="https://www.linkedin.com/in/ammar-sheikh-703247317" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 rounded-full text-gray-600 hover:bg-gray-100 hover:text-black transition-all" aria-label="LinkedIn">
                   <Linkedin className="w-4 h-4" />
                 </a>
               </div>
             </div>
 
             <div>
-              <h4 className="font-bold text-gray-900 mb-4 text-sm">Product</h4>
-              <ul className="space-y-2 text-gray-500 text-sm font-medium">
-                <li><a href="#" className="hover:text-black transition-colors">Features</a></li>
-                <li><a href="#" className="hover:text-black transition-colors">Integrations</a></li>
-                <li><a href="#" className="hover:text-black transition-colors">Pricing</a></li>
-              </ul>
-            </div>
-
-            <div>
               <h4 className="font-bold text-gray-900 mb-4 text-sm">Contact</h4>
               <ul className="space-y-2 text-gray-500 text-sm font-medium">
-                <li className="flex items-center gap-2"><Mail className="w-4 h-4" /> ammarsaboor115@gmail.com</li>
-                <li className="pt-2">102 Stamford Heights<br />State College PA 16803</li>
+                <li className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 flex-shrink-0" />
+                  <a href="mailto:ammarsaboor40@gmail.com" className="hover:text-black transition-colors">
+                    ammarsaboor40@gmail.com
+                  </a>
+                </li>
               </ul>
             </div>
           </div>
 
           <div className="border-t border-gray-100 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-400 font-medium">
-            <p>© 2024 Brainstorm App Inc.</p>
+            <p>© {new Date().getFullYear()} Brainstorm. Open source.</p>
             <div className="flex gap-6">
-              <a href="#" className="hover:text-gray-900 transition-colors">Privacy</a>
-              <a href="#" className="hover:text-gray-900 transition-colors">Terms</a>
+              <button onClick={() => setShowPrivacy(true)} className="hover:text-gray-900 transition-colors">Privacy</button>
+              <button onClick={() => setShowTerms(true)} className="hover:text-gray-900 transition-colors">Terms</button>
             </div>
           </div>
         </div>
