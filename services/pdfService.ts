@@ -30,18 +30,25 @@ export const findCardClusters = (cards: IdeaCard[], connections: Connection[]): 
   const visited = new Set<string>();
   const clusters: CardCluster[] = [];
 
-  const dfs = (cardId: string, component: Set<string>) => {
-    visited.add(cardId);
-    component.add(cardId);
-    (adjacencyMap.get(cardId) || new Set()).forEach(neighborId => {
-      if (!visited.has(neighborId)) dfs(neighborId, component);
-    });
+  // Iterative DFS — avoids call-stack overflow on deeply chained canvases (500+ cards)
+  const collectComponent = (startId: string): Set<string> => {
+    const component = new Set<string>();
+    const stack = [startId];
+    while (stack.length > 0) {
+      const cardId = stack.pop()!;
+      if (visited.has(cardId)) continue;
+      visited.add(cardId);
+      component.add(cardId);
+      (adjacencyMap.get(cardId) || new Set()).forEach(neighborId => {
+        if (!visited.has(neighborId)) stack.push(neighborId);
+      });
+    }
+    return component;
   };
 
   cards.forEach(card => {
     if (visited.has(card.id)) return;
-    const component = new Set<string>();
-    dfs(card.id, component);
+    const component = collectComponent(card.id);
     const componentCards = Array.from(component)
       .map(id => cards.find(c => c.id === id))
       .filter((c): c is IdeaCard => c !== undefined)

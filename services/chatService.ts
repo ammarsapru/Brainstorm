@@ -140,7 +140,8 @@ export const fetchSessionsWithChatFlags = async (
   const { data, error } = await supabase
     .from('chat_messages')
     .select('session_id')
-    .in('session_id', sessionIds);
+    .in('session_id', sessionIds)
+    .limit(Math.max(sessionIds.length * 10, 500));
 
   if (error || !data) return new Set();
   return new Set(data.map(r => r.session_id));

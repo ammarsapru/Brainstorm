@@ -43,7 +43,7 @@ export const generateRelatedIdeas = async (
       debugLog.warn('aiService', 'Brainstorm proxy unavailable, falling back to direct call', proxyErr);
     }
 
-    if (modelId.startsWith('gemini')) {
+    if (getProviderForModel(modelId) === 'google') {
       const activeAi = createGeminiClient(requireNonEmptyKey(apiKeys.gemini, 'Google Gemini'));
       const response = await activeAi.models.generateContent({
         model: modelId,

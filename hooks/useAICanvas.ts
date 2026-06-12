@@ -222,7 +222,7 @@ export function useAICanvas({
         }
       }
     } catch (e) {
-      console.error('Failed to parse AI actions payload', e);
+      debugLog.error('useAICanvas', 'Failed to parse AI actions payload', e);
     }
 
     finalDisplayMsg = finalDisplayMsg

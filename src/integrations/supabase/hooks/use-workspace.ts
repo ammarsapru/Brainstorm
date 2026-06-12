@@ -41,6 +41,8 @@ export function useWorkspace(
     });
     const [isHydrated, setIsHydrated] = useState(false);
     const hydratedForIdRef = useRef<string | null>(null);
+    // Tracks when this client last completed a sync flush so realtime echoes can be ignored
+    const lastLocalFlushRef = useRef(0);
 
     const hydrateFromSession = useCallback((data: Session) => {
         syncEngine.hydrate(data);
@@ -164,6 +166,7 @@ export function useWorkspace(
 
     useEffect(() => {
         return syncEngine.subscribe((state) => {
+            if (state.status === 'saved') lastLocalFlushRef.current = Date.now();
             setSyncState({
                 isDirty: state.isDirty,
                 status: state.status as typeof syncState.status,
@@ -193,29 +196,33 @@ export function useWorkspace(
     useEffect(() => {
         if (!sessionId || !supabase) return;
 
+        let shownRemoteToast = false;
+        const notifyRemoteChange = (table: string) => {
+            // Ignore echoes from our own writes (sync engine flushes within ~300ms, add 2s buffer)
+            const isOwnWrite = Date.now() - lastLocalFlushRef.current < 2500;
+            if (isOwnWrite || shownRemoteToast) return;
+            shownRemoteToast = true;
+            showToast(`Canvas updated from another device (${table}). Refresh to see the latest changes.`, 'info', 8000);
+        };
+
         const channel = supabase
-            .channel(`session-${sessionId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'sessions',
-                    filter: `id=eq.${sessionId}`,
-                },
+            .channel(`session-live-${sessionId}`)
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sessions', filter: `id=eq.${sessionId}` },
                 payload => {
                     const remoteTime = new Date((payload.new as { last_modified: string }).last_modified).getTime();
                     const localTime = session?.lastModified || 0;
-                    if (remoteTime > localTime + 2000) {
-                        showToast('This session was updated from another device. Refresh to see the latest changes.', 'info', 6000);
-                    }
+                    if (remoteTime > localTime + 2000) notifyRemoteChange('session metadata');
                 }
+            )
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'cards', filter: `session_id=eq.${sessionId}` },
+                () => notifyRemoteChange('cards')
+            )
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'connections', filter: `session_id=eq.${sessionId}` },
+                () => notifyRemoteChange('connections')
             )
             .subscribe();
 
-        return () => {
-            supabase.removeChannel(channel);
-        };
+        return () => { supabase.removeChannel(channel); };
     }, [sessionId, session?.lastModified]);
 
     return {

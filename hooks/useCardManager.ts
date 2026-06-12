@@ -182,7 +182,11 @@ export function useCardManager({
     let bestId: string | null = null;
     let bestScore = Number.POSITIVE_INFINITY;
     for (const c of candidates) {
-      const score = Math.abs(c.y - from.y) * 10000 + Math.abs(c.x - from.x);
+      const dy = Math.abs(c.y - from.y);
+      const dx = Math.abs(c.x - from.x);
+      // Weight vertical distance 3× over horizontal so Arrow navigation prefers
+      // cards in the intended direction without locking out slightly offset cards.
+      const score = dy * 3 + dx;
       if (score < bestScore) { bestScore = score; bestId = c.id; }
     }
     return bestId;

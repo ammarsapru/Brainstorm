@@ -7,6 +7,7 @@ import { supabase, uploadFileToS3 } from '../lib/supabase';
 import { APIKeyModal } from './APIKeyModal';
 import { LoadingOverlay } from './LoadingOverlay';
 import { useApiKeys } from '../hooks/useApiKeys';
+import { showToast } from '../utils/toast';
 
 interface SessionListProps {
   sessions: Session[];
@@ -110,7 +111,7 @@ export const SessionList: React.FC<SessionListProps> = ({ sessions, onSelect, on
       if (url) {
         onUpdateSessionImage(selectedSessionRef.current, url);
       } else {
-        alert("Failed to upload image. Please try again.");
+        showToast('Failed to upload image. Please try again.', 'error');
       }
     }
     e.target.value = '';
@@ -138,7 +139,7 @@ export const SessionList: React.FC<SessionListProps> = ({ sessions, onSelect, on
       onUpdateSessionIcon(session.id, icon);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Could not generate icon.';
-      alert(`Icon generation failed: ${msg}\n\nAdd a Google Gemini API key in Settings (Imagen requires Gemini).`);
+      showToast(`Icon generation failed: ${msg} — Imagen requires a Gemini key.`, 'error', 8000);
     } finally {
       setGeneratingIconFor(null);
     }
@@ -166,11 +167,11 @@ export const SessionList: React.FC<SessionListProps> = ({ sessions, onSelect, on
       if (image) {
         onUpdateSessionImage(session.id, image);
       } else {
-        alert('Failed to generate image. Please try again.');
+        showToast('Failed to generate image. Please try again.', 'error');
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Could not generate wallpaper.';
-      alert(`Wallpaper generation failed: ${msg}\n\nAdd a Google Gemini API key in Settings (Imagen requires Gemini).`);
+      showToast(`Wallpaper generation failed: ${msg} — Imagen requires a Gemini key.`, 'error', 8000);
     } finally {
       setGeneratingImageFor(null);
     }

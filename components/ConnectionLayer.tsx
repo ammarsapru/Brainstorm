@@ -94,6 +94,12 @@ export const ConnectionLayer: React.FC<ConnectionLayerProps> = ({
             markerEnd = `url(#marker-arrow-end-${conn.id})`;
           }
 
+          // Midpoint for label placement (approximate — uses path start/end center)
+          const startCard = cards.find(c => c.id === conn.fromId);
+          const endCard = cards.find(c => c.id === conn.toId);
+          const midX = startCard && endCard ? (startCard.x + endCard.x) / 2 : 0;
+          const midY = startCard && endCard ? (startCard.y + endCard.y) / 2 : 0;
+
           return (
             <g key={conn.id}
               onPointerDown={(e) => e.stopPropagation()}
@@ -125,6 +131,18 @@ export const ConnectionLayer: React.FC<ConnectionLayerProps> = ({
                 markerEnd={markerEnd}
                 className="transition-colors duration-200"
               />
+              {conn.label ? (
+                <g transform={`translate(${midX}, ${midY})`}>
+                  <rect x="-22" y="-10" width="44" height="20" rx="4" fill="#1e293b" fillOpacity="0.85" />
+                  <text
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fontSize="11"
+                    fill={color}
+                    fontFamily="sans-serif"
+                  >{conn.label}</text>
+                </g>
+              ) : null}
             </g>
           );
       })}
