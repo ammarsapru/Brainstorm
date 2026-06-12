@@ -8,6 +8,7 @@ import { Session, UserProfile } from './types';
 import { INITIAL_CARDS } from './constants';
 import { supabase } from './lib/supabase';
 import { AuthModal } from './components/AuthModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import debugLog from './utils/debugLog';
 import { showToast } from './utils/toast';
 import {
@@ -93,12 +94,11 @@ function App() {
   const enrichSummariesWithChatFlags = useCallback(async (summaries: Session[]) => {
     if (summaries.length === 0) return summaries;
     const chatFlags = await fetchSessionsWithChatFlags(summaries.map(s => s.id));
-    summaries.forEach(s => {
-      if (chatFlags.has(s.id)) {
-            s.chatHistory = [{ id: 'flag', role: 'user', text: '', timestamp: 0 }];
-      }
-    });
-    return summaries;
+    return summaries.map(s =>
+      chatFlags.has(s.id)
+        ? { ...s, chatHistory: [{ id: 'flag', role: 'user' as const, text: '', timestamp: 0 }] }
+        : s
+    );
   }, []);
 
   const loadDashboardSessions = useCallback(
@@ -382,9 +382,7 @@ function App() {
 
   const handleLogin = async () => {
     if (!supabase) {
-      alert(
-        'Supabase is not configured. Please check your .env.local file for VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.'
-      );
+      showToast('Supabase is not configured. Running in demo mode — sessions will not be saved.', 'error', 8000);
       setUser({
         id: 'mock-user-1',
         email: 'demo@brainstorm.app',
@@ -431,7 +429,7 @@ function App() {
     if (!user && !supabase) {
       // demo mode
     } else if (!user) {
-      alert('You must be logged in to create a session.');
+      showToast('You must be logged in to create a session.', 'error');
       return;
     }
 
@@ -457,17 +455,17 @@ function App() {
 
           if (upsertError) {
             debugLog.error('App', 'Failed to create profile', upsertError);
-            alert('Failed to initialize user profile. Please try again.');
+            showToast('Failed to initialize user profile. Please try again.', 'error');
             return;
           }
         } else if (error) {
           debugLog.error('App', 'Database error while checking profile', error);
-          alert('An error occurred while verifying your profile. Please try again.');
+          showToast('An error occurred while verifying your profile. Please try again.', 'error');
           return;
         }
       } catch (err) {
         debugLog.error('App', 'Error checking/creating profile', err);
-        alert('An error occurred. Please try again.');
+        showToast('An error occurred. Please try again.', 'error');
         return;
       }
     }
@@ -523,7 +521,7 @@ function App() {
       });
       if (error) {
         debugLog.error('App', 'Error creating session', error);
-        alert('Failed to create session on server.');
+        showToast('Failed to create session. Check your connection.', 'error');
         return;
       }
     }
@@ -548,7 +546,7 @@ function App() {
       const { error } = await supabase.from('sessions').delete().eq('id', id);
       if (error) {
         debugLog.error('App', 'Error deleting session', error);
-        alert('Failed to delete session from server.');
+        showToast('Failed to delete session from server.', 'error');
       }
     }
   };
@@ -642,24 +640,39 @@ function App() {
   if (view === 'workspace' && workspaceSession) {
     return (
       <>
-        <Suspense fallback={<LoadingOverlay variant="workspace" message="Loading workspace UI…" />}>
-          <Workspace
-            key={workspaceSession.id}
-            session={workspaceSession}
-            onSave={handleSaveSession}
-            onBack={() => {
-              setActiveSessionId(null);
-              setWorkspaceSession(null);
-              setView('dashboard');
-            }}
-            onGoHome={handleGoHome}
-            user={user}
-            onLogin={handleLogin}
-            onLogout={handleLogout}
-            onSwitchAccount={handleSwitchAccount}
-            onGoShards={() => setView('shards')}
-          />
-        </Suspense>
+        <ErrorBoundary
+          label="workspace"
+          fallback={
+            <div className="flex flex-col items-center justify-center h-screen bg-gray-950 text-white gap-4">
+              <p className="text-lg font-semibold text-red-400">The workspace encountered an error.</p>
+              <button
+                onClick={() => { setWorkspaceSession(null); setView('dashboard'); }}
+                className="px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 text-sm"
+              >
+                Back to Dashboard
+              </button>
+            </div>
+          }
+        >
+          <Suspense fallback={<LoadingOverlay variant="workspace" message="Loading workspace UI…" />}>
+            <Workspace
+              key={workspaceSession.id}
+              session={workspaceSession}
+              onSave={handleSaveSession}
+              onBack={() => {
+                setActiveSessionId(null);
+                setWorkspaceSession(null);
+                setView('dashboard');
+              }}
+              onGoHome={handleGoHome}
+              user={user}
+              onLogin={handleLogin}
+              onLogout={handleLogout}
+              onSwitchAccount={handleSwitchAccount}
+              onGoShards={() => setView('shards')}
+            />
+          </Suspense>
+        </ErrorBoundary>
       </>
     );
   }

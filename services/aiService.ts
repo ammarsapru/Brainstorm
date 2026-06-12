@@ -1,9 +1,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { IdeaCard, Connection, FileSystemItem, ChatMessage } from "../types";
-import { APIKeys } from '../components/APIKeyModal';
+import { IdeaCard, Connection, FileSystemItem, ChatMessage, APIKeys } from "../types";
 import { uploadFileToS3, callAIProxy } from '../lib/supabase';
 import { embeddingService } from './embeddingService';
+import { getProviderForModel } from '../utils/llmModels';
 import debugLog from '../utils/debugLog';
+import { showToast } from '../utils/toast';
 
 const requireNonEmptyKey = (key: string | undefined | null, providerLabel: string): string => {
   const trimmed = (key || '').trim();
@@ -55,13 +56,13 @@ export const generateRelatedIdeas = async (
       return parseIdeas(response.text || "[]");
     }
 
-    if (modelId === 'gpt-4o') {
+    if (getProviderForModel(modelId) === 'openai') {
       const key = requireNonEmptyKey(apiKeys.openai, 'OpenAI');
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
         body: JSON.stringify({
-          model: 'gpt-4o',
+          model: modelId,
           messages: [{ role: 'user', content: BRAINSTORM_PROMPT(contextText, existingIdeas) }],
           response_format: { type: 'json_object' },
           max_tokens: 200,
@@ -73,7 +74,7 @@ export const generateRelatedIdeas = async (
       return Array.isArray(parsed) ? parsed : (Array.isArray(parsed.ideas) ? parsed.ideas : []);
     }
 
-    if (modelId === 'claude-3-5-sonnet') {
+    if (getProviderForModel(modelId) === 'anthropic') {
       const key = requireNonEmptyKey(apiKeys.anthropic, 'Anthropic');
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -84,7 +85,7 @@ export const generateRelatedIdeas = async (
           'anthropic-dangerous-direct-browser-access': 'true',
         },
         body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
+          model: modelId,
           max_tokens: 200,
           messages: [{ role: 'user', content: BRAINSTORM_PROMPT(contextText, existingIdeas) }],
         }),
@@ -103,6 +104,8 @@ export const generateRelatedIdeas = async (
 export type ChatRequestOptions = {
   /** Injected when user switches LLM mid-thread — plain summary, no JSON actions */
   handoffContext?: string;
+  /** AbortSignal to cancel the in-flight request when user navigates away or sends a new message */
+  signal?: AbortSignal;
 };
 
 export const summarizeChatHandoff = async (
@@ -216,16 +219,18 @@ ${boardContext}`;
           systemPrompt: sysPrompt,
           history: history.map(m => ({ role: m.role, text: m.text })),
           newMessage: currentMessage,
-        });
+        }, options.signal);
         resultText = (data.text as string) ?? '';
         usedProxy = true;
-      } catch {
+      } catch (err: any) {
+        if (err?.name === 'AbortError') throw err;
         // Proxy unavailable or no server-side key — fall through to direct calls
       }
 
       if (!usedProxy) {
-      debugLog.warn('aiService', 'Proxy unavailable — falling back to direct browser API call. Key will be visible in network tab.');
-      if (modelId === 'gpt-4o') {
+      debugLog.warn('aiService', 'Proxy unavailable — falling back to direct browser API call.');
+      showToast('Running in direct mode — your API key is being used locally.', 'info', 4000);
+      if (getProviderForModel(modelId) === 'openai') {
         if (!apiKeys.openai) return "Please add your OpenAI API Key in Settings (⚙️).";
 
         const messages = [
@@ -244,17 +249,18 @@ ${boardContext}`;
             'Authorization': `Bearer ${apiKeys.openai}`
           },
           body: JSON.stringify({
-            model: 'gpt-4o',
+            model: modelId,
             messages,
             temperature: 0.8,
             max_tokens: 4096,
-          })
+          }),
+          signal: options.signal,
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error.message);
         resultText = data.choices?.[0]?.message?.content || "No response.";
       }
-      else if (modelId === 'claude-3-5-sonnet') {
+      else if (getProviderForModel(modelId) === 'anthropic') {
         if (!apiKeys.anthropic) return "Please add your Anthropic API Key in Settings (⚙️).";
 
         const messages = [
@@ -271,15 +277,16 @@ ${boardContext}`;
             'Content-Type': 'application/json',
             'x-api-key': apiKeys.anthropic,
             'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true' // Crucial to bypass CORS on Anthropic
+            'anthropic-dangerous-direct-browser-access': 'true',
           },
           body: JSON.stringify({
-            model: 'claude-3-5-sonnet-20241022',
+            model: modelId,
             system: sysPrompt,
             messages,
             max_tokens: 4096,
             temperature: 0.8,
-          })
+          }),
+          signal: options.signal,
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error.message);

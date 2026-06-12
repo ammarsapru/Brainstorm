@@ -1,4 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { showToast } from '../utils/toast';
 
 const runtimeEnv = window.__APP_ENV__ || {};
 export const supabaseUrl = runtimeEnv.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL || '';
@@ -18,13 +19,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.');
 }
 
-export const supabase = (supabaseUrl && supabaseAnonKey)
+export const supabase: SupabaseClient | null = (supabaseUrl && supabaseAnonKey)
   ? createClient(supabaseUrl, supabaseAnonKey)
-  : null as any;
+  : null;
 
 export const isSupabaseConfigured = () => !!supabase;
 
-export const callAIProxy = async (body: Record<string, unknown>): Promise<Record<string, unknown>> => {
+export const callAIProxy = async (body: Record<string, unknown>, signal?: AbortSignal): Promise<Record<string, unknown>> => {
   if (!supabase || !supabaseUrl) throw new Error('Supabase not configured');
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
@@ -35,6 +36,7 @@ export const callAIProxy = async (body: Record<string, unknown>): Promise<Record
       Authorization: `Bearer ${session.access_token}`,
     },
     body: JSON.stringify(body),
+    signal,
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? `Proxy error ${res.status}`);
@@ -71,13 +73,13 @@ export const uploadFileToS3 = async (file: File | Blob): Promise<string | null> 
   if (!supabase) return null;
 
   if (file.size > MAX_UPLOAD_BYTES) {
-    console.error(`Upload rejected: file size ${file.size} exceeds ${MAX_UPLOAD_BYTES} bytes`);
+    showToast('File too large. Maximum upload size is 50 MB.', 'error');
     return null;
   }
 
   const mimeType = file.type || '';
   if (mimeType && !ALLOWED_MIME_PREFIXES.some(prefix => mimeType.startsWith(prefix))) {
-    console.error(`Upload rejected: MIME type "${mimeType}" is not allowed`);
+    showToast(`File type "${mimeType}" is not supported. Use images, PDFs, or text files.`, 'error');
     return null;
   }
 
@@ -85,23 +87,23 @@ export const uploadFileToS3 = async (file: File | Blob): Promise<string | null> 
   if (mimeType.startsWith('image/') || mimeType === 'application/pdf') {
     const valid = await sniffMime(file);
     if (!valid) {
-      console.error(`Upload rejected: magic bytes do not match declared type "${mimeType}"`);
+      showToast('File contents do not match its type. Upload rejected.', 'error');
       return null;
     }
   }
 
-  // Since it can be a file or blob from clipboard, handle missing names
-  const originalName = (file as File).name || 'pasted-image.png';
-  // fallback to 'file' so the storage path never ends with a bare '-'
-  const safeName = originalName.replace(/[^a-zA-Z0-9.\-_]/g, '') || 'file';
-  const fileName = `public/${Date.now()}-${safeName}`;
+  // Use a UUID + extension so non-ASCII filenames never get mangled.
+  // Display name is preserved separately in the FileSystem item name.
+  const originalName = (file as File).name || 'upload';
+  const ext = originalName.includes('.') ? '.' + originalName.split('.').pop()!.toLowerCase() : '';
+  const fileName = `public/${crypto.randomUUID()}${ext}`;
 
   const { data, error } = await supabase.storage
     .from('workspace-files')
     .upload(fileName, file);
 
   if (error) {
-    console.error("Supabase upload error:", error);
+    showToast('Upload failed. Check your connection and try again.', 'error');
     return null;
   }
 

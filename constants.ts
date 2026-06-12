@@ -1,4 +1,4 @@
-import { ArrowType, ConnectionStyle, CardStyle, RelationType } from "./types";
+import { ArrowType, ConnectionStyle, CardStyle, RelationType, IdeaCard } from "./types";
 
 export const CARD_WIDTH = 220;
 export const CARD_HEIGHT = 140;
@@ -32,9 +32,9 @@ export const INITIAL_COLLECTIONS = [
   { id: DEFAULT_COLLECTION_ID, name: 'General Ideas' }
 ];
 
-export const INITIAL_CARDS = [
+// ID is replaced with crypto.randomUUID() at session creation — this is just a template
+export const INITIAL_CARDS: Omit<IdeaCard, 'id'>[] = [
   {
-    id: '11111111-1111-1111-1111-111111111111', // Valid UUID
     x: 0,
     y: 0,
     text: 'Central Idea',
@@ -42,6 +42,7 @@ export const INITIAL_CARDS = [
     height: CARD_HEIGHT,
     color: '#ffffff',
     style: { ...DEFAULT_CARD_STYLE, isBold: true, fontSize: 18 },
-    collectionId: DEFAULT_COLLECTION_ID
+    collectionId: DEFAULT_COLLECTION_ID,
+    cardType: 'note',
   }
 ];

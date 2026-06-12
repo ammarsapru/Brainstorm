@@ -59,19 +59,23 @@ export interface Collection {
   name: string;
 }
 
+export type CardType = 'note' | 'table' | 'label';
+
 export interface IdeaCard {
   id: string;
   x: number;
   y: number;
   text: string; // Plain text for display on canvas
-  content?: any; // Rich text JSON for DocumentEditor (JSONB in Supabase)
+  content?: string; // Stringified DocBlock[] JSON for DocumentEditor
   width: number;
   height: number;
   color: string;
   style: CardStyle;
-  image?: string; // Base64 data URL
+  image?: string;
   fileName?: string;
-  collectionId?: string; // The ID of the collection this card belongs to
+  collectionId?: string;
+  cardType: CardType; // Discriminant for future card type rendering
+  typeData?: Record<string, unknown>; // Type-specific payload (table rows, label config, etc.)
 }
 
 export interface Connection {
@@ -129,6 +133,12 @@ export interface UserProfile {
   email?: string;
   full_name?: string;
   avatar_url?: string;
+}
+
+export interface APIKeys {
+  openai?: string;
+  anthropic?: string;
+  gemini: string;
 }
 
 export interface Session {

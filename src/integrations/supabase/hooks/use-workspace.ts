@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../../../lib/supabase';
 import { SyncEngine } from '../sync-engine';
-import { Session, IdeaCard, Connection, FileSystemItem, Collection } from '@/types';
+import { Session, IdeaCard, Connection, FileSystemItem, Collection, Stroke } from '@/types';
 import { connectionFromDbRow } from '../../../utils/connectionDb';
 import { buildFileSystemTree } from '../utils/tree-transformer';
 import { INITIAL_CARDS, INITIAL_COLLECTIONS } from '@/constants';
 import { loadChatHistory } from '../../../../services/chatService';
+import { showToast } from '../../../../utils/toast';
 
 interface UseWorkspaceResult {
     session: Session | null;
@@ -19,6 +20,9 @@ interface UseWorkspaceResult {
     refreshWorkspace: () => Promise<Session | null>;
     deleteCard: (id: string) => void;
     deleteConnection: (id: string) => void;
+    syncUpdateCard: (card: IdeaCard) => void;
+    syncUpdateConnection: (conn: Connection) => void;
+    syncStroke: (stroke: Stroke) => void;
     isHydrated: boolean;
 }
 
@@ -74,12 +78,14 @@ export function useWorkspace(
                 { data: connsData, error: connsError },
                 { data: filesData, error: filesError },
                 { data: collectionsData, error: collectionsError },
+                { data: strokesData, error: strokesError },
                 chatHistory,
             ] = await Promise.all([
-                supabase.from('cards').select('*').eq('session_id', sessionId),
-                supabase.from('connections').select('*').eq('session_id', sessionId),
-                supabase.from('file_system_nodes').select('*').eq('session_id', sessionId),
-                supabase.from('collections').select('*').eq('session_id', sessionId),
+                supabase.from('cards').select('*').eq('session_id', sessionId).limit(2000),
+                supabase.from('connections').select('*').eq('session_id', sessionId).limit(2000),
+                supabase.from('file_system_nodes').select('*').eq('session_id', sessionId).limit(2000),
+                supabase.from('collections').select('*').eq('session_id', sessionId).limit(200),
+                supabase.from('strokes').select('*').eq('session_id', sessionId).limit(10000),
                 loadChatHistory(sessionId),
             ]);
 
@@ -87,13 +93,14 @@ export function useWorkspace(
             if (connsError) throw connsError;
             if (filesError) throw filesError;
             if (collectionsError) throw collectionsError;
+            if (strokesError) throw strokesError;
 
             const cards: IdeaCard[] = (cardsData || []).map((c: Record<string, unknown>) => ({
                 id: c.id as string,
                 x: c.x as number,
                 y: c.y as number,
                 text: c.text as string,
-                content: c.content,
+                content: c.content as string | undefined,
                 width: c.width as number,
                 height: c.height as number,
                 color: c.color as string,
@@ -101,6 +108,8 @@ export function useWorkspace(
                 image: c.image as string | undefined,
                 fileName: c.file_name as string | undefined,
                 collectionId: c.collection_id as string | undefined,
+                cardType: (c.card_type as IdeaCard['cardType']) ?? 'note',
+                typeData: (c.type_data as Record<string, unknown>) ?? undefined,
             }));
 
             const connections: Connection[] = (connsData || []).map(c =>
@@ -115,6 +124,14 @@ export function useWorkspace(
                       }))
                     : INITIAL_COLLECTIONS;
 
+            const strokes: Stroke[] = (strokesData || []).map((row: Record<string, unknown>) => ({
+                id: row.id as string,
+                tool: (row.tool as Stroke['tool']) ?? 'pen',
+                color: (row.color as string) ?? '#ffffff',
+                radius: (row.radius as number) ?? 3,
+                points: (row.points as Stroke['points']) ?? [],
+            }));
+
             const newSession: Session = {
                 id: sessionData.id,
                 user_id: sessionData.user_id,
@@ -127,12 +144,7 @@ export function useWorkspace(
                 fileSystem: buildFileSystemTree(filesData || []),
                 collections,
                 chatHistory,
-                strokes:
-                    typeof sessionData.strokes === 'string'
-                        ? JSON.parse(sessionData.strokes)
-                        : Array.isArray(sessionData.strokes)
-                          ? sessionData.strokes
-                          : [],
+                strokes,
                 lastModified: new Date(sessionData.last_modified).getTime(),
                 isFullyLoaded: true,
             };
@@ -195,7 +207,7 @@ export function useWorkspace(
                     const remoteTime = new Date((payload.new as { last_modified: string }).last_modified).getTime();
                     const localTime = session?.lastModified || 0;
                     if (remoteTime > localTime + 2000) {
-                        console.log('Remote update detected, refresh advised');
+                        showToast('This session was updated from another device. Refresh to see the latest changes.', 'info', 6000);
                     }
                 }
             )
@@ -221,6 +233,9 @@ export function useWorkspace(
         refreshWorkspace: loadSessionFromDb,
         deleteCard: (id: string) => syncEngine.queueCardDeletion(id),
         deleteConnection: (id: string) => syncEngine.queueConnectionDeletion(id),
+        syncUpdateCard: (card: IdeaCard) => syncEngine.queueCardUpdate(card),
+        syncUpdateConnection: (conn: Connection) => syncEngine.queueConnectionUpdate(conn),
+        syncStroke: (stroke: Stroke) => syncEngine.queueStrokeUpdate(stroke),
         isHydrated,
     };
 }

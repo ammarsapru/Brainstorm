@@ -37,18 +37,15 @@ const withTimeout = async <T>(
   }
 };
 
-const parseStrokes = (raw: unknown): Stroke[] => {
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw as Stroke[];
-  if (typeof raw === 'string') {
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? (parsed as Stroke[]) : [];
-    } catch {
-      return [];
-    }
-  }
-  return [];
+const parseStrokeRows = (rows: Record<string, unknown>[] | null): Stroke[] => {
+  if (!rows?.length) return [];
+  return rows.map(row => ({
+    id: row.id as string,
+    tool: (row.tool as Stroke['tool']) ?? 'pen',
+    color: (row.color as string) ?? '#ffffff',
+    radius: (row.radius as number) ?? 3,
+    points: (row.points as Stroke['points']) ?? [],
+  }));
 };
 
 /**
@@ -143,19 +140,19 @@ export const fetchFullSession = async (
       'fetchSessionMeta'
     ),
     withTimeout(
-      supabase.from('cards').select('*').eq('session_id', sessionId),
+      supabase.from('cards').select('*').eq('session_id', sessionId).limit(2000),
       'fetchSessionCards'
     ),
     withTimeout(
-      supabase.from('connections').select('*').eq('session_id', sessionId),
+      supabase.from('connections').select('*').eq('session_id', sessionId).limit(2000),
       'fetchSessionConnections'
     ),
     withTimeout(
-      supabase.from('file_system_nodes').select('*').eq('session_id', sessionId),
+      supabase.from('file_system_nodes').select('*').eq('session_id', sessionId).limit(2000),
       'fetchSessionFiles'
     ),
     withTimeout(
-      supabase.from('collections').select('*').eq('session_id', sessionId),
+      supabase.from('collections').select('*').eq('session_id', sessionId).limit(200),
       'fetchSessionCollections'
     ),
     deferChat
@@ -172,12 +169,12 @@ export const fetchFullSession = async (
 
   let strokes: Stroke[] = [];
   if (!deferStrokes) {
-    const { data: strokeRow, error: strokeError } = await withTimeout(
-      supabase.from('sessions').select('strokes').eq('id', sessionId).maybeSingle(),
+    const { data: strokeRows, error: strokeError } = await withTimeout(
+      supabase.from('strokes').select('*').eq('session_id', sessionId).limit(10000),
       'fetchSessionStrokes'
     );
     if (strokeError) throw strokeError;
-    strokes = parseStrokes(strokeRow?.strokes);
+    strokes = parseStrokeRows(strokeRows as Record<string, unknown>[]);
   }
 
   const session = mapSessionData(
@@ -206,9 +203,9 @@ export const fetchSessionHeavyData = async (
   if (!supabase) return { strokes: [], chatHistory: [] };
 
   const t0 = performance.now();
-  const [{ data: strokeRow }, chatHistory] = await Promise.all([
+  const [{ data: strokeRows }, chatHistory] = await Promise.all([
     withTimeout(
-      supabase.from('sessions').select('strokes').eq('id', sessionId).maybeSingle(),
+      supabase.from('strokes').select('*').eq('session_id', sessionId).limit(10000),
       'fetchSessionStrokes'
     ),
     withTimeout(loadChatHistory(sessionId), 'fetchSessionChat'),
@@ -219,7 +216,7 @@ export const fetchSessionHeavyData = async (
   });
 
   return {
-    strokes: parseStrokes(strokeRow?.strokes),
+    strokes: parseStrokeRows(strokeRows as Record<string, unknown>[]),
     chatHistory,
   };
 };

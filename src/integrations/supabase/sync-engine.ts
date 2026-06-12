@@ -1,6 +1,6 @@
 
 import { supabase } from '../../../lib/supabase';
-import { IdeaCard, Session, Connection, FileSystemItem, Collection } from '@/types';
+import { IdeaCard, Session, Connection, FileSystemItem, Collection, Stroke } from '@/types';
 import { flattenFileSystem, FlatFileSystemNode } from './utils/tree-transformer';
 import { connectionToDbRow } from '../../utils/connectionDb';
 
@@ -21,6 +21,7 @@ export class SyncEngine {
     private dirtyCards: Map<string, IdeaCard> = new Map();
     private dirtyConnections: Map<string, Connection> = new Map();
     private dirtyCollections: Map<string, Collection> = new Map();
+    private dirtyStrokes: Map<string, Stroke> = new Map();
     private pendingSession: Session | null = null;
     private pendingFiles: FileSystemItem[] | null = null;
     private deletedCardIds: Set<string> = new Set();
@@ -59,6 +60,7 @@ export class SyncEngine {
         this.dirtyCards.clear();
         this.dirtyConnections.clear();
         this.dirtyCollections.clear();
+        this.dirtyStrokes.clear();
         this.deletedCardIds.clear();
         this.deletedConnectionIds.clear();
         this.pendingSession = null;
@@ -129,6 +131,11 @@ export class SyncEngine {
         this.markDirty();
     }
 
+    queueStrokeUpdate(stroke: Stroke) {
+        this.dirtyStrokes.set(stroke.id, stroke);
+        this.markDirty();
+    }
+
     queueCollectionUpdate(collection: Collection) {
         this.dirtyCollections.set(collection.id, collection);
         this.markDirty();
@@ -180,6 +187,9 @@ export class SyncEngine {
         const dirtyCollectionsSnapshot = new Map(this.dirtyCollections);
         this.dirtyCollections.clear();
 
+        const dirtyStrokesSnapshot = new Map(this.dirtyStrokes);
+        this.dirtyStrokes.clear();
+
         const deletedCardIdsSnapshot = new Set(this.deletedCardIds);
         this.deletedCardIds.clear();
 
@@ -201,7 +211,6 @@ export class SyncEngine {
                     viewport_x: this.pendingSession.viewport_x,
                     viewport_y: this.pendingSession.viewport_y,
                     viewport_zoom: this.pendingSession.viewport_zoom,
-                    strokes: this.pendingSession.strokes || [],
                     last_modified: new Date().toISOString()
                 });
                 if (error) throw error;
@@ -242,8 +251,9 @@ export class SyncEngine {
                         last.image !== card.image ||
                         last.fileName !== card.fileName ||
                         last.collectionId !== card.collectionId ||
-                        // Content check is critical for Documents
-                        last.content !== card.content;
+                        last.content !== card.content ||
+                        last.cardType !== card.cardType ||
+                        JSON.stringify(last.typeData) !== JSON.stringify(card.typeData);
 
                     if (isChanged) {
                         cardsToUpsert.push(card);
@@ -264,7 +274,9 @@ export class SyncEngine {
                         style: c.style,
                         image: c.image,
                         file_name: c.fileName,
-                        collection_id: c.collectionId
+                        collection_id: c.collectionId,
+                        card_type: c.cardType ?? 'note',
+                        type_data: c.typeData ?? {},
                     }));
 
                     const { error } = await supabase.from('cards').upsert(cardsPayload);
@@ -300,7 +312,21 @@ export class SyncEngine {
                 }
             }
 
-            // 5. File System (Smart Diffing)
+            // 5. Batch Upsert Strokes (append-only: each finalized stroke is a new row)
+            if (dirtyStrokesSnapshot.size > 0) {
+                const strokePayload = Array.from(dirtyStrokesSnapshot.values()).map(s => ({
+                    id: s.id,
+                    session_id: sessionId,
+                    tool: s.tool,
+                    color: s.color,
+                    radius: s.radius,
+                    points: s.points,
+                }));
+                const { error } = await supabase.from('strokes').upsert(strokePayload);
+                if (error) throw error;
+            }
+
+            // 6. File System (Smart Diffing)
             if (pendingFilesSnapshot) {
                 const flatNodes = flattenFileSystem(pendingFilesSnapshot, sessionId);
                 const nodesToUpsert: FlatFileSystemNode[] = [];
@@ -354,6 +380,7 @@ export class SyncEngine {
 
             dirtyCardsSnapshot.forEach(c => this.dirtyCards.set(c.id, c));
             dirtyConnectionsSnapshot.forEach(c => this.dirtyConnections.set(c.id, c));
+            dirtyStrokesSnapshot.forEach(s => this.dirtyStrokes.set(s.id, s));
             deletedCardIdsSnapshot.forEach(id => this.deletedCardIds.add(id));
             deletedConnectionIdsSnapshot.forEach(id => this.deletedConnectionIds.add(id));
             if (pendingFilesSnapshot) this.pendingFiles = pendingFilesSnapshot;
@@ -364,6 +391,7 @@ export class SyncEngine {
                 this.dirtyCards.size > 0 ||
                 this.dirtyConnections.size > 0 ||
                 this.dirtyCollections.size > 0 ||
+                this.dirtyStrokes.size > 0 ||
                 this.deletedCardIds.size > 0 ||
                 this.deletedConnectionIds.size > 0 ||
                 this.pendingFiles
