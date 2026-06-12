@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, X, Save, Key, AlertCircle, Shield, CheckCircle, Loader } from 'lucide-react';
+import { APIKeys } from '../types';
 
-export interface APIKeys {
-  openai?: string;
-  anthropic?: string;
-  gemini: string;
-}
+export type { APIKeys };
 
 interface APIKeyModalProps {
   isOpen: boolean;

@@ -1,4 +1,4 @@
-import { APIKeys } from '../components/APIKeyModal';
+import { APIKeys } from '../types';
 
 const LEGACY_PREFIX = 'brainstorm_api_keys:';
 const ENCRYPTED_PREFIX = 'brainstorm_api_keys_enc:';

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { APIKeys } from '../components/APIKeyModal';
+import { APIKeys } from '../types';
 import { loadApiKeys, saveApiKeys, getStorageScope } from '../utils/apiKeyStorage';
 import { getProviderForModel, getApiKeyFieldForProvider, LLMProvider } from '../utils/llmModels';
 import { callAIProxy } from '../lib/supabase';
