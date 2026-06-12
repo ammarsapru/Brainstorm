@@ -280,6 +280,13 @@ function App() {
     };
 
     setLoader('auth', 'Checking your authentication…');
+
+    // Detect in-progress OAuth PKCE exchange — Supabase hasn't stored the session yet
+    // when getSession() resolves. Don't reset state; onAuthStateChange handles SIGNED_IN.
+    const isOAuthCallback =
+      window.location.hash.includes('access_token=') ||
+      window.location.search.includes('code=');
+
     withTimeout(supabase.auth.getSession(), 8000, 'authSession')
       .then(({ data: { session } }: { data: { session: AuthSession | null } }) => {
         if (session?.user) {
@@ -290,7 +297,7 @@ function App() {
             initialFetchDoneRef.current = true;
             void fetchSessions(u.id, { restoreWorkspace: true });
           }
-        } else {
+        } else if (!isOAuthCallback) {
           setSessions([]);
           setWorkspaceSession(null);
           setActiveSessionId(null);
@@ -310,7 +317,10 @@ function App() {
       })
       .finally(() => {
         setAuthReady(true);
-        clearLoader();
+        // During OAuth callback, keep the loader alive until onAuthStateChange fires SIGNED_IN
+        if (!isOAuthCallback || initialFetchDoneRef.current) {
+          clearLoader();
+        }
       });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: AuthSession | null) => {
@@ -323,9 +333,11 @@ function App() {
 
         if (event === 'SIGNED_IN' && !initialFetchDoneRef.current) {
           initialFetchDoneRef.current = true;
+          clearLoader();
           void fetchSessions(u.id, { restoreWorkspace: false });
         } else if (event === 'INITIAL_SESSION' && !initialFetchDoneRef.current) {
           initialFetchDoneRef.current = true;
+          clearLoader();
           void fetchSessions(u.id, { restoreWorkspace: true });
         }
 
@@ -356,7 +368,8 @@ function App() {
           })();
         } else {
           const hasLoginIntent = localStorage.getItem('login_redirect_intent');
-          if (hasLoginIntent && view === 'landing') {
+          // Use viewRef.current (not closure value) — the subscription is stable across view changes
+          if (hasLoginIntent && viewRef.current !== 'workspace') {
             localStorage.removeItem('login_redirect_intent');
             setView('dashboard');
           }
@@ -378,7 +391,7 @@ function App() {
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchSessions, view]);
+  }, [fetchSessions]);
 
   const handleLogin = async () => {
     if (!supabase) {
