@@ -20,7 +20,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase: SupabaseClient | null = (supabaseUrl && supabaseAnonKey)
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { flowType: 'pkce' },
+    })
   : null;
 
 export const isSupabaseConfigured = () => !!supabase;

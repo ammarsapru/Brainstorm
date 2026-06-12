@@ -317,9 +317,17 @@ function App() {
       })
       .finally(() => {
         setAuthReady(true);
-        // During OAuth callback, keep the loader alive until onAuthStateChange fires SIGNED_IN
         if (!isOAuthCallback || initialFetchDoneRef.current) {
           clearLoader();
+        } else {
+          // Safety net: if SIGNED_IN never fires (e.g. storage full, token expired),
+          // clear the loader after 10s rather than hanging forever
+          setTimeout(() => {
+            if (!initialFetchDoneRef.current) {
+              clearLoader();
+              setView('landing');
+            }
+          }, 10000);
         }
       });
 
@@ -334,10 +342,17 @@ function App() {
         if (event === 'SIGNED_IN' && !initialFetchDoneRef.current) {
           initialFetchDoneRef.current = true;
           clearLoader();
+          // Strip OAuth code/token from URL bar so it doesn't sit in browser history
+          if (window.location.search || window.location.hash) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
           void fetchSessions(u.id, { restoreWorkspace: false });
         } else if (event === 'INITIAL_SESSION' && !initialFetchDoneRef.current) {
           initialFetchDoneRef.current = true;
           clearLoader();
+          if (window.location.search || window.location.hash) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
           void fetchSessions(u.id, { restoreWorkspace: true });
         }
 
