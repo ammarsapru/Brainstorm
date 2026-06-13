@@ -281,55 +281,91 @@ function App() {
 
     setLoader('auth', 'Checking your authentication…');
 
-    // Detect in-progress OAuth PKCE exchange — Supabase hasn't stored the session yet
-    // when getSession() resolves. Don't reset state; onAuthStateChange handles SIGNED_IN.
-    const isOAuthCallback =
-      window.location.hash.includes('access_token=') ||
-      window.location.search.includes('code=');
+    const searchParams = new URLSearchParams(window.location.search);
+    const isPKCECallback = searchParams.has('code');
+    const isOAuthCallback = isPKCECallback || window.location.hash.includes('access_token=');
 
-    withTimeout(supabase.auth.getSession(), 8000, 'authSession')
-      .then(({ data: { session } }: { data: { session: AuthSession | null } }) => {
-        if (session?.user) {
-          const u = applyUser(session);
-          setUser(u);
-          setIsAuthModalOpen(false);
-          if (!initialFetchDoneRef.current) {
-            initialFetchDoneRef.current = true;
-            void fetchSessions(u.id, { restoreWorkspace: true });
+    const cleanUrl = () => {
+      if (window.location.search || window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    };
+
+    if (isPKCECallback) {
+      // Explicit PKCE exchange — more reliable than relying on getSession() auto-detect
+      setLoader('auth', 'Completing sign-in…');
+      supabase.auth.exchangeCodeForSession(window.location.search)
+        .then(({ data: { session }, error }: { data: { session: AuthSession | null }; error: unknown }) => {
+          if (error) throw error;
+          if (session?.user) {
+            const u = applyUser(session);
+            setUser(u);
+            setIsAuthModalOpen(false);
+            cleanUrl();
+            if (!initialFetchDoneRef.current) {
+              initialFetchDoneRef.current = true;
+              void fetchSessions(u.id, { restoreWorkspace: false });
+            }
+          } else {
+            cleanUrl();
+            setView('landing');
           }
-        } else if (!isOAuthCallback) {
+        })
+        .catch((err: unknown) => {
+          debugLog.error('App', 'PKCE code exchange failed', err);
+          showToast('Sign-in failed. Please try again.', 'error');
+          cleanUrl();
+          setView('landing');
+          setIsDashboardLoaded(false);
+        })
+        .finally(() => {
+          setAuthReady(true);
+          clearLoader();
+        });
+    } else {
+      withTimeout(supabase.auth.getSession(), 8000, 'authSession')
+        .then(({ data: { session } }: { data: { session: AuthSession | null } }) => {
+          if (session?.user) {
+            const u = applyUser(session);
+            setUser(u);
+            setIsAuthModalOpen(false);
+            if (!initialFetchDoneRef.current) {
+              initialFetchDoneRef.current = true;
+              void fetchSessions(u.id, { restoreWorkspace: true });
+            }
+          } else if (!isOAuthCallback) {
+            setSessions([]);
+            setWorkspaceSession(null);
+            setActiveSessionId(null);
+            setView('landing');
+            setIsDashboardLoaded(false);
+            localStorage.removeItem('last_active_session_id');
+            localStorage.removeItem('current_view');
+          }
+        })
+        .catch((err: unknown) => {
+          debugLog.error('App', 'Auth session check failed', err);
           setSessions([]);
           setWorkspaceSession(null);
           setActiveSessionId(null);
           setView('landing');
           setIsDashboardLoaded(false);
-          localStorage.removeItem('last_active_session_id');
-          localStorage.removeItem('current_view');
-        }
-      })
-      .catch(err => {
-        debugLog.error('App', 'Auth session check failed', err);
-        setSessions([]);
-        setWorkspaceSession(null);
-        setActiveSessionId(null);
-        setView('landing');
-        setIsDashboardLoaded(false);
-      })
-      .finally(() => {
-        setAuthReady(true);
-        if (!isOAuthCallback || initialFetchDoneRef.current) {
-          clearLoader();
-        } else {
-          // Safety net: if SIGNED_IN never fires (e.g. storage full, token expired),
-          // clear the loader after 10s rather than hanging forever
-          setTimeout(() => {
-            if (!initialFetchDoneRef.current) {
-              clearLoader();
-              setView('landing');
-            }
-          }, 10000);
-        }
-      });
+        })
+        .finally(() => {
+          setAuthReady(true);
+          if (!isOAuthCallback || initialFetchDoneRef.current) {
+            clearLoader();
+          } else {
+            // Fallback: implicit flow token in hash — wait up to 10s for SIGNED_IN
+            setTimeout(() => {
+              if (!initialFetchDoneRef.current) {
+                clearLoader();
+                setView('landing');
+              }
+            }, 10000);
+          }
+        });
+    }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: AuthSession | null) => {
       if (event === 'TOKEN_REFRESHED') return;
@@ -339,21 +375,13 @@ function App() {
         setUser(u);
         setIsAuthModalOpen(false);
 
-        if (event === 'SIGNED_IN' && !initialFetchDoneRef.current) {
-          initialFetchDoneRef.current = true;
-          clearLoader();
-          // Strip OAuth code/token from URL bar so it doesn't sit in browser history
-          if (window.location.search || window.location.hash) {
-            window.history.replaceState(null, '', window.location.pathname);
-          }
-          void fetchSessions(u.id, { restoreWorkspace: false });
-        } else if (event === 'INITIAL_SESSION' && !initialFetchDoneRef.current) {
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && !initialFetchDoneRef.current) {
           initialFetchDoneRef.current = true;
           clearLoader();
           if (window.location.search || window.location.hash) {
             window.history.replaceState(null, '', window.location.pathname);
           }
-          void fetchSessions(u.id, { restoreWorkspace: true });
+          void fetchSessions(u.id, { restoreWorkspace: event === 'INITIAL_SESSION' });
         }
 
         const pendingId = localStorage.getItem('pending_session_id');
