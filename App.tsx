@@ -281,92 +281,57 @@ function App() {
 
     setLoader('auth', 'Checking your authentication…');
 
-    const searchParams = new URLSearchParams(window.location.search);
-    const isPKCECallback = searchParams.has('code');
-    const isOAuthCallback = isPKCECallback || window.location.hash.includes('access_token=');
+    // Implicit flow: access token arrives in URL hash (#access_token=...).
+    // No storage needed before the redirect — Supabase parses the token directly
+    // from the URL, so broken localStorage/LevelDB cannot block sign-in.
+    const isOAuthCallback = window.location.hash.includes('access_token=');
 
-    const cleanUrl = () => {
-      if (window.location.search || window.location.hash) {
-        window.history.replaceState(null, '', window.location.pathname);
-      }
-    };
-
-    if (isPKCECallback) {
-      // Explicit PKCE exchange — pass just the code value, not the full search string
-      const code = searchParams.get('code')!;
-      setLoader('auth', 'Completing sign-in…');
-      supabase.auth.exchangeCodeForSession(code)
-        .then(({ data: { session }, error }: { data: { session: AuthSession | null }; error: unknown }) => {
-          if (error) throw error;
-          if (session?.user) {
-            const u = applyUser(session);
-            setUser(u);
-            setIsAuthModalOpen(false);
-            cleanUrl();
-            if (!initialFetchDoneRef.current) {
-              initialFetchDoneRef.current = true;
-              void fetchSessions(u.id, { restoreWorkspace: false });
-            }
-          } else {
-            cleanUrl();
-            setView('landing');
+    withTimeout(supabase.auth.getSession(), 8000, 'authSession')
+      .then(({ data: { session } }: { data: { session: AuthSession | null } }) => {
+        if (session?.user) {
+          const u = applyUser(session);
+          setUser(u);
+          setIsAuthModalOpen(false);
+          // Strip #access_token from URL bar immediately
+          if (window.location.search || window.location.hash) {
+            window.history.replaceState(null, '', window.location.pathname);
           }
-        })
-        .catch((err: unknown) => {
-          debugLog.error('App', 'PKCE code exchange failed', err);
-          showToast('Sign-in failed. Please try again.', 'error');
-          cleanUrl();
-          setView('landing');
-          setIsDashboardLoaded(false);
-        })
-        .finally(() => {
-          setAuthReady(true);
-          clearLoader();
-        });
-    } else {
-      withTimeout(supabase.auth.getSession(), 8000, 'authSession')
-        .then(({ data: { session } }: { data: { session: AuthSession | null } }) => {
-          if (session?.user) {
-            const u = applyUser(session);
-            setUser(u);
-            setIsAuthModalOpen(false);
-            if (!initialFetchDoneRef.current) {
-              initialFetchDoneRef.current = true;
-              void fetchSessions(u.id, { restoreWorkspace: true });
-            }
-          } else if (!isOAuthCallback) {
-            setSessions([]);
-            setWorkspaceSession(null);
-            setActiveSessionId(null);
-            setView('landing');
-            setIsDashboardLoaded(false);
-            localStorage.removeItem('last_active_session_id');
-            localStorage.removeItem('current_view');
+          if (!initialFetchDoneRef.current) {
+            initialFetchDoneRef.current = true;
+            void fetchSessions(u.id, { restoreWorkspace: !isOAuthCallback });
           }
-        })
-        .catch((err: unknown) => {
-          debugLog.error('App', 'Auth session check failed', err);
+        } else if (!isOAuthCallback) {
           setSessions([]);
           setWorkspaceSession(null);
           setActiveSessionId(null);
           setView('landing');
           setIsDashboardLoaded(false);
-        })
-        .finally(() => {
-          setAuthReady(true);
-          if (!isOAuthCallback || initialFetchDoneRef.current) {
-            clearLoader();
-          } else {
-            // Fallback: implicit flow token in hash — wait up to 10s for SIGNED_IN
-            setTimeout(() => {
-              if (!initialFetchDoneRef.current) {
-                clearLoader();
-                setView('landing');
-              }
-            }, 10000);
-          }
-        });
-    }
+          localStorage.removeItem('last_active_session_id');
+          localStorage.removeItem('current_view');
+        }
+      })
+      .catch((err: unknown) => {
+        debugLog.error('App', 'Auth session check failed', err);
+        setSessions([]);
+        setWorkspaceSession(null);
+        setActiveSessionId(null);
+        setView('landing');
+        setIsDashboardLoaded(false);
+      })
+      .finally(() => {
+        setAuthReady(true);
+        if (!isOAuthCallback || initialFetchDoneRef.current) {
+          clearLoader();
+        } else {
+          // Fallback: if SIGNED_IN never fires, clear loader after 10s
+          setTimeout(() => {
+            if (!initialFetchDoneRef.current) {
+              clearLoader();
+              setView('landing');
+            }
+          }, 10000);
+        }
+      });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: AuthSession | null) => {
       if (event === 'TOKEN_REFRESHED') return;
