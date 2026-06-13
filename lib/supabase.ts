@@ -19,9 +19,53 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.');
 }
 
+// Cookie-backed storage adapter — cookie writes go to a separate SQLite file
+// in Chrome's profile, unaffected by LevelDB (localStorage) FILE_ERROR_NO_SPACE.
+// PKCE code_verifier is written to BOTH localStorage and a short-lived cookie so
+// the exchange survives when LevelDB is full on the deployment origin.
+const COOKIE_PREFIX = 'sb_pkce_';
+const COOKIE_TTL = 300; // 5 minutes — enough for one OAuth round-trip
+
+const cookieName = (key: string) =>
+  COOKIE_PREFIX + btoa(key).replace(/[+/=]/g, c => ({ '+': '-', '/': '_', '=': '' }[c] ?? c));
+
+const cookieRead = (key: string): string | null => {
+  const name = cookieName(key);
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+};
+
+const cookieWrite = (key: string, value: string) => {
+  const secure = location.protocol === 'https:' ? ';Secure' : '';
+  document.cookie = `${cookieName(key)}=${encodeURIComponent(value)};path=/;SameSite=Lax;max-age=${COOKIE_TTL}${secure}`;
+};
+
+const cookieClear = (key: string) => {
+  document.cookie = `${cookieName(key)}=;path=/;max-age=0`;
+};
+
+const resilientStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      const v = localStorage.getItem(key);
+      if (v !== null) return v;
+    } catch {}
+    return cookieRead(key);
+  },
+  setItem: (key: string, value: string): void => {
+    try { localStorage.setItem(key, value); } catch {}
+    // Always mirror PKCE verifier to cookie — localStorage may fail silently
+    if (key.includes('code-verifier')) cookieWrite(key, value);
+  },
+  removeItem: (key: string): void => {
+    try { localStorage.removeItem(key); } catch {}
+    cookieClear(key);
+  },
+};
+
 export const supabase: SupabaseClient | null = (supabaseUrl && supabaseAnonKey)
   ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: { flowType: 'pkce' },
+      auth: { flowType: 'pkce', storage: resilientStorage },
     })
   : null;
 
