@@ -143,7 +143,7 @@ export function useAICanvas({
     const truncate = (str: string, max = 60) =>
       str.length > max ? str.substring(0, max).replace(/\n/g, ' ') + '…' : str.replace(/\n/g, ' ');
     const cardLines = cardsRef.current
-      .map(c => `- [${c.id}] "${truncate(c.text || c.fileName || 'Untitled')}" color:${c.color}`)
+      .map(c => `- [${c.id}] "${truncate(c.text || c.fileName || 'Untitled')}" color:${c.color} pos:(${Math.round(c.x)},${Math.round(c.y)})`)
       .join('\n');
     const connLines = connectionsRef.current.length > 0
       ? `\nConnections (${connectionsRef.current.length}):\n` +
@@ -206,8 +206,8 @@ export function useAICanvas({
                 const row = Math.floor(idx / cols);
                 return {
                   id: realId,
-                  x: baseX + col * (CARD_WIDTH + 60),
-                  y: baseY + row * (CARD_HEIGHT + 60),
+                  x: baseX + col * (CARD_WIDTH + 120),
+                  y: baseY + row * (CARD_HEIGHT + 100),
                   text: cardData.text || 'New Idea',
                   content: cardData.content,
                   color: cardData.color || '#ffffff',

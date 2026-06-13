@@ -169,15 +169,19 @@ Actions schema:
 {"actions":[
   {"type":"search_cards","query":"keyword"},
   {"type":"read_card","id":"card-id"},
-  {"type":"create_cards","cards":[{"id":"c1","text":"Title","content":"2-3 sentences of real substance","color":"#ffffff"}]},
-  {"type":"update_cards","updates":[{"id":"card-id","text":"New Title","content":"Updated content","color":"#ffeba8"}]},
+  {"type":"create_cards","cards":[{"id":"c1","text":"Title","content":"2-3 sentences of real substance","color":"#ffeba8"}]},
+  {"type":"update_cards","updates":[{"id":"card-id","text":"New Title","content":"Updated content","color":"#ffcaca","x":400,"y":300}]},
   {"type":"delete_cards","ids":["card-id"]},
   {"type":"connect_cards","connections":[{"fromId":"c1","toId":"c2"}]}
 ]}
 
 Colors: #ffffff White · #ffeba8 Yellow · #ffcaca Red · #e9f5db Green · #e0f2fe Blue · #f3e8ff Purple
 
-When creating cards you plan to connect: give each card a short temporary id (e.g. "c1", "c2") in create_cards, then reference those same ids in connect_cards in the same actions array.
+Card positioning rules:
+- When creating multiple thematically distinct cards, assign a DIFFERENT color from the palette to each card — never use #ffffff for all of them.
+- When creating cards you plan to connect: give each a short temporary id (e.g. "c1", "c2") in create_cards, then reference those same ids in connect_cards in the same actions array.
+- To reposition cards: include x and y in update_cards (only include fields you want to change). You can see each card's current position in the canvas context as pos:(x,y).
+- When asked to spread out, organise, or rearrange cards: use update_cards with new x,y values to reposition them across the canvas.
 When you output a JSON block: keep your text to 1-3 sentences — confirm what you did, nothing more.
 Do NOT list card IDs, pre-announce the plan, or narrate every change. The user sees it happen in real time.
 Use search_cards before answering questions about specific card content — it gives you the full text.`;
