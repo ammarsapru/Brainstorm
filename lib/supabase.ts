@@ -1,9 +1,21 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { showToast } from '../utils/toast';
 
+// Strip any path suffix (e.g. /rest/v1/) — only the origin is valid for createClient
+function normalizeSupabaseUrl(raw: string): string {
+  if (!raw) return '';
+  try { const u = new URL(raw); return `${u.protocol}//${u.host}`; } catch { return raw; }
+}
+
+const FALLBACK_URL = 'https://tmafjvkhffxvksgkcxwl.supabase.co';
+const FALLBACK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtYWZqdmtoZmZ4dmtzZ2tjeHdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwMTI3MDQsImV4cCI6MjA4NDU4ODcwNH0.g6VS65nQTAUM_5DdfSi1GxxqXh4T4zCPX16U7fl_kdQ';
+
 const runtimeEnv = window.__APP_ENV__ || {};
-export const supabaseUrl = runtimeEnv.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = runtimeEnv.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+export const supabaseUrl = normalizeSupabaseUrl(
+  runtimeEnv.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL || FALLBACK_URL
+);
+const supabaseAnonKey =
+  runtimeEnv.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || FALLBACK_KEY;
 
 // Always log config status so it can be verified in DevTools on any environment
 console.log('[Brainstorm] Supabase config:', {
