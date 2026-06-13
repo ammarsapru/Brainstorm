@@ -63,15 +63,18 @@ export const authService = {
         checkSupabaseConfig();
         const electron = isElectronRuntime();
         const redirectUrl = getGoogleOAuthRedirectUrl();
-        
+
+        // Always skip Supabase's internal redirect so we control navigation explicitly.
+        // This lets us detect a null URL and surface an error instead of silently hanging.
         const { data, error } = await supabase!.auth.signInWithOAuth({
             provider: 'google',
             options: {
                 redirectTo: redirectUrl,
-                skipBrowserRedirect: electron
+                skipBrowserRedirect: true,
             }
         });
         if (error) throw error;
+        if (!data.url) throw new Error('Could not generate sign-in URL. Check your Supabase configuration.');
         return {
             url: data.url,
             redirectUrl,

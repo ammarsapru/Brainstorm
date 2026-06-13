@@ -292,9 +292,10 @@ function App() {
     };
 
     if (isPKCECallback) {
-      // Explicit PKCE exchange — more reliable than relying on getSession() auto-detect
+      // Explicit PKCE exchange — pass just the code value, not the full search string
+      const code = searchParams.get('code')!;
       setLoader('auth', 'Completing sign-in…');
-      supabase.auth.exchangeCodeForSession(window.location.search)
+      supabase.auth.exchangeCodeForSession(code)
         .then(({ data: { session }, error }: { data: { session: AuthSession | null }; error: unknown }) => {
           if (error) throw error;
           if (session?.user) {

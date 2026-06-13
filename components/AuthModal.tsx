@@ -22,39 +22,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginIn
     const handleGoogleLogin = async () => {
         try {
             setLoading(true);
-            // Set intent flag so App.tsx knows to redirect after reload
             localStorage.setItem('login_redirect_intent', 'true');
             const res = await authService.signInWithGoogle();
 
-            // Electron opens the Google authorization URL in the system browser.
-            // Web/Docker/npm keep the normal current-tab redirect behavior.
-            if (res.shouldOpenExternal && res.url) {
+            if (res.shouldOpenExternal) {
+                // Electron: open in system browser
                 try {
-                    // Prefer a preload-exposed API (recommended in Electron apps)
-                    if ((window as any).electronAPI && typeof (window as any).electronAPI.openExternal === 'function') {
+                    if ((window as any).electronAPI?.openExternal) {
                         (window as any).electronAPI.openExternal(res.url);
-                    }
-                    // Fallback to a direct electron.shell call if node integration is available
-                    else if ((window as any).require) {
+                    } else if ((window as any).require) {
                         try {
                             const { shell } = (window as any).require('electron');
-                            if (shell && typeof shell.openExternal === 'function') shell.openExternal(res.url);
-                            else window.open(res.url, '_blank', 'noopener,noreferrer');
-                        } catch (e) {
+                            shell?.openExternal ? shell.openExternal(res.url) : window.open(res.url, '_blank', 'noopener,noreferrer');
+                        } catch {
                             window.open(res.url, '_blank', 'noopener,noreferrer');
                         }
-                    } else if (isElectronRuntimeEnvironment()) {
-                        // Browser fallback
+                    } else {
                         window.open(res.url, '_blank', 'noopener,noreferrer');
                     }
-                } catch (e) {
+                } catch {
                     window.open(res.url, '_blank', 'noopener,noreferrer');
                 }
+            } else {
+                // Web: navigate in current tab (PKCE flow — code_verifier already stored by signInWithOAuth)
+                window.location.assign(res.url);
             }
         } catch (e: any) {
             setError(e.message);
             setLoading(false);
-            localStorage.removeItem('login_redirect_intent'); // Clear on error
+            localStorage.removeItem('login_redirect_intent');
         }
     };
 
