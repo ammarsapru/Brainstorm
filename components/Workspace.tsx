@@ -43,9 +43,10 @@ interface WorkspaceProps {
   onLogout: () => void;
   onSwitchAccount: () => void;
   onGoShards?: () => void;
+  isFirstEverSession?: boolean;
 }
 
-export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, onGoHome, user, onLogin, onLogout, onSwitchAccount, onGoShards }) => {
+export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, onGoHome, user, onLogin, onLogout, onSwitchAccount, onGoShards, isFirstEverSession = false }) => {
   // --- Session-level state (not owned by any hook) ---
   const [sessionName, setSessionName] = useState(session.name);
   const [collections, setCollections] = useState<Collection[]>(session.collections || INITIAL_COLLECTIONS);
@@ -55,7 +56,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
 
   const onboardingKey = `brainstorm_onboarding_v1_${user?.id ?? 'guest'}`;
   const [isNewUser] = useState(() => !localStorage.getItem(onboardingKey));
-  const [showOnboarding, setShowOnboarding] = useState(() => isNewUser);
+  const [showOnboarding, setShowOnboarding] = useState(() => isNewUser && isFirstEverSession);
   const handleOnboardingDone = () => {
     localStorage.setItem(onboardingKey, 'done');
     setShowOnboarding(false);

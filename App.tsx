@@ -73,6 +73,8 @@ function App() {
   const activeSessionIdRef = useRef(activeSessionId);
   const workspaceSessionRef = useRef(workspaceSession);
   const heavyLoadedForRef = useRef<string | null>(null);
+  // True only when the user just created their very first session (no prior sessions)
+  const isFirstEverSessionRef = useRef(false);
 
   const setLoader = useCallback((phase: LoadingVariant, message: string) => {
     setLoadingState({ phase, message });
@@ -152,6 +154,7 @@ function App() {
               );
 
               if (full) {
+                isFirstEverSessionRef.current = false;
                 heavyLoadedForRef.current = null;
                 setWorkspaceSession(full);
                 setActiveSessionId(lastActiveId);
@@ -196,6 +199,7 @@ function App() {
   );
 
   const handleSelectSession = useCallback(async (session: Session) => {
+    isFirstEverSessionRef.current = false;
     setWorkspaceSession(null);
     setActiveSessionId(session.id);
     setView('workspace');
@@ -351,8 +355,10 @@ function App() {
           setWorkspaceSession(null);
           setActiveSessionId(null);
           setIsDashboardLoaded(false);
+          setView('landing');
           localStorage.removeItem('last_active_session_id');
           localStorage.removeItem('current_view');
+          localStorage.removeItem('login_redirect_intent');
         }
         currentUserIdRef.current = u.id;
 
@@ -416,6 +422,7 @@ function App() {
         localStorage.removeItem('last_active_session_id');
         localStorage.removeItem('current_view');
         localStorage.removeItem('pending_session_id');
+        localStorage.removeItem('login_redirect_intent');
       }
     });
 
@@ -439,6 +446,9 @@ function App() {
   };
 
   const handleLogout = async () => {
+    currentUserIdRef.current = null;
+    initialFetchDoneRef.current = false;
+    heavyLoadedForRef.current = null;
     if (supabase) await supabase.auth.signOut();
     setUser(undefined);
     setSessions([]);
@@ -447,12 +457,11 @@ function App() {
     setView('landing');
     clearLoader();
     setIsDashboardLoaded(false);
-    initialFetchDoneRef.current = false;
-    heavyLoadedForRef.current = null;
     localStorage.removeItem('mindcanvas_sessions');
     localStorage.removeItem('last_active_session_id');
     localStorage.removeItem('current_view');
     localStorage.removeItem('pending_session_id');
+    localStorage.removeItem('login_redirect_intent');
   };
 
   useEffect(() => {
@@ -569,6 +578,7 @@ function App() {
     }
 
     const readySession: Session = { ...newSession, isFullyLoaded: true };
+    isFirstEverSessionRef.current = sessions.length === 0;
     heavyLoadedForRef.current = readySession.id;
     setSessions(prev => [readySession, ...prev]);
     setWorkspaceSession(readySession);
@@ -640,6 +650,9 @@ function App() {
   };
 
   const handleSwitchAccount = async () => {
+    currentUserIdRef.current = null;
+    initialFetchDoneRef.current = false;
+    heavyLoadedForRef.current = null;
     if (supabase) await supabase.auth.signOut();
     setUser(undefined);
     setSessions([]);
@@ -648,12 +661,11 @@ function App() {
     setView('landing');
     clearLoader();
     setIsDashboardLoaded(false);
-    initialFetchDoneRef.current = false;
-    heavyLoadedForRef.current = null;
     localStorage.removeItem('mindcanvas_sessions');
     localStorage.removeItem('last_active_session_id');
     localStorage.removeItem('current_view');
     localStorage.removeItem('pending_session_id');
+    localStorage.removeItem('login_redirect_intent');
     setIsAuthModalOpen(true);
   };
 
@@ -702,6 +714,7 @@ function App() {
               session={workspaceSession}
               onSave={handleSaveSession}
               onBack={() => {
+                isFirstEverSessionRef.current = false;
                 setActiveSessionId(null);
                 setWorkspaceSession(null);
                 setView('dashboard');
@@ -712,6 +725,7 @@ function App() {
               onLogout={handleLogout}
               onSwitchAccount={handleSwitchAccount}
               onGoShards={() => setView('shards')}
+              isFirstEverSession={isFirstEverSessionRef.current}
             />
           </Suspense>
         </ErrorBoundary>

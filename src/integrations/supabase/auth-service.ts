@@ -71,6 +71,9 @@ export const authService = {
             options: {
                 redirectTo: redirectUrl,
                 skipBrowserRedirect: true,
+                queryParams: {
+                    prompt: 'select_account',
+                },
             }
         });
         if (error) throw error;
