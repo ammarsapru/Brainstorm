@@ -5,18 +5,15 @@ const runtimeEnv = window.__APP_ENV__ || {};
 export const supabaseUrl = runtimeEnv.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = runtimeEnv.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-// Debug logging for development
-if (import.meta.env.DEV) {
-  console.log('🔧 Supabase Configuration:', {
-    url: supabaseUrl ? '✅ Set' : '❌ Missing',
-    keyLength: supabaseAnonKey?.length || 0,
-    hasKey: !!supabaseAnonKey
-  });
-}
+// Always log config status so it can be verified in DevTools on any environment
+console.log('[Brainstorm] Supabase config:', {
+  url: supabaseUrl ? `✅ ${supabaseUrl}` : '❌ MISSING',
+  keyLength: supabaseAnonKey?.length || 0,
+  keyPrefix: supabaseAnonKey ? supabaseAnonKey.slice(0, 10) + '...' : '❌ MISSING',
+});
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('⚠️ Supabase is not configured. Authentication features will not work.');
-  console.warn('Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.');
 }
 
 export const supabase: SupabaseClient | null = (supabaseUrl && supabaseAnonKey)
