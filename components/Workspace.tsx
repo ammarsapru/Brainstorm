@@ -42,11 +42,10 @@ interface WorkspaceProps {
   onLogin: () => void;
   onLogout: () => void;
   onSwitchAccount: () => void;
-  onGoShards?: () => void;
   isFirstEverSession?: boolean;
 }
 
-export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, onGoHome, user, onLogin, onLogout, onSwitchAccount, onGoShards, isFirstEverSession = false }) => {
+export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, onGoHome, user, onLogin, onLogout, onSwitchAccount, isFirstEverSession = false }) => {
   // --- Session-level state (not owned by any hook) ---
   const [sessionName, setSessionName] = useState(session.name);
   const [collections, setCollections] = useState<Collection[]>(session.collections || INITIAL_COLLECTIONS);
@@ -806,7 +805,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
           onLogin={onLogin}
           onLogout={onLogout}
           onSwitchAccount={onSwitchAccount}
-          onGoShards={onGoShards}
           onExportMasterPDF={handleExportMasterPDF}
           onExportJSON={handleExportJSON}
           isSaving={isSaving || hasUnsavedChanges}

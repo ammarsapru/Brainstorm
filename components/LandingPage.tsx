@@ -9,7 +9,6 @@ import {
 
 interface LandingPageProps {
   onGetStarted: () => void;
-  onGoShards?: () => void;
 }
 
 const DOWNLOAD_URL = import.meta.env.VITE_DESKTOP_DOWNLOAD_URL || '/Brainstorm-Setup.exe';
@@ -562,7 +561,7 @@ const ChatPreview = () => {
 };
 
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onGoShards }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
   useScrollReveal();
 
   const [showDownloadToast, setShowDownloadToast] = useState(false);
@@ -625,12 +624,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onGoShar
             <a href="#chat" onClick={scrollToSection('chat')} className="hover:text-black transition-colors">Chat</a>
           </div>
           <div className="flex items-center gap-4">
-            {onGoShards && (
-              <button onClick={onGoShards} className="text-gray-500 hover:text-black transition-colors hidden sm:flex items-center gap-1" title="Extensions">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.952.151-1.251.583a1.738 1.738 0 0 0 .172 2.15l1.01 1.01c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.047 1.047c-.47.47-1.087.706-1.704.706s-1.233-.235-1.704-.706l-1.25-1.25a.98.98 0 0 0-1.428-.016c-.43.342-.644.88-.567 1.41.053.364-.065.731-.32 1l-1.464 1.464c-.47.47-1.087.706-1.704.706s-1.233-.235-1.704-.706M9.544 3.013c.47-.47 1.087-.706 1.704-.706s1.233.235 1.704.706l1.373 1.373c.277.277.66.388 1.034.29a1.74 1.74 0 0 1 1.83 1.259c.123.366.425.642.8.72a.98.98 0 0 0 1.008-.344l1.31-1.31M15.439 12.15l-8.625 8.625c-.47.47-1.087.706-1.704.706s-1.233-.235-1.704-.706l-1.047-1.047c-.47-.47-.706-1.087-.706-1.704s.235-1.233.706-1.704l8.625-8.625"/></svg>
-                <span className="text-sm font-medium">Shards</span>
-              </button>
-            )}
             <button
               onClick={onGetStarted}
               className="px-5 py-2 bg-black text-white rounded-full font-semibold text-sm hover:bg-gray-800 transition-all hover:scale-105 active:scale-95 shadow-lg"

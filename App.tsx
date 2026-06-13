@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react
 import { SessionList } from './components/SessionList';
 import { Header } from './components/Header';
 import { LandingPage } from './components/LandingPage';
-import { ShardsPage } from './components/ShardsPage';
 import { LoadingOverlay, LoadingVariant } from './components/LoadingOverlay';
 import { Session, UserProfile } from './types';
 import { INITIAL_CARDS } from './constants';
@@ -23,7 +22,7 @@ const Workspace = React.lazy(() =>
   import('./components/Workspace').then(m => ({ default: m.Workspace }))
 );
 
-type AppView = 'landing' | 'dashboard' | 'workspace' | 'shards';
+type AppView = 'landing' | 'dashboard' | 'workspace';
 
 type LoaderState = {
   phase: LoadingVariant;
@@ -684,7 +683,6 @@ function App() {
               handleLogin();
             }
           }}
-          onGoShards={() => setView('shards')}
         />
         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       </>
@@ -724,22 +722,11 @@ function App() {
               onLogin={handleLogin}
               onLogout={handleLogout}
               onSwitchAccount={handleSwitchAccount}
-              onGoShards={() => setView('shards')}
               isFirstEverSession={isFirstEverSessionRef.current}
             />
           </Suspense>
         </ErrorBoundary>
       </>
-    );
-  }
-
-  if (view === 'shards') {
-    return (
-      <ShardsPage
-        onBack={() => {
-          setView(activeSessionId ? 'workspace' : 'dashboard');
-        }}
-      />
     );
   }
 
@@ -752,7 +739,6 @@ function App() {
         onLogin={handleLogin}
         onLogout={handleLogout}
         onSwitchAccount={handleSwitchAccount}
-        onGoShards={() => setView('shards')}
       />
       <SessionList
         sessions={sessions}
