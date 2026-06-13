@@ -184,7 +184,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   // 8. AI canvas actions (needs all card/connection/chat primitives)
   const { isProcessingAI, handleGenerateAI, handleSendMessage } = useAICanvas({
     ensureKeyForModel, selectedModelId, apiKeys,
-    cardsRef, connectionsRef, setConnections,
+    cardsRef, connectionsRef, setConnections, handleUpdateConnection,
     handleAddCard, handleUpdateCard, handleDeleteCard, addCardsBatch,
     chatHistory, setChatHistory, setIsChatProcessing,
     handoffContextRef, sessionId: session.id,
