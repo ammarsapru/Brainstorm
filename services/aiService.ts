@@ -163,9 +163,11 @@ export const getChatResponse = async (
     : `
 
 **CANVAS ACTIONS**:
-You can manipulate the canvas by outputting ONE valid JSON object (no Markdown fences, no backticks) placed at the very end of your message after any text.
+You can manipulate the canvas by outputting ONE valid JSON object (no Markdown fences, no backticks) at the very end of your message.
 
-Actions schema:
+IMPORTANT: That single JSON object can contain MULTIPLE action types in the same actions array. When the user asks you to create, color, AND connect cards in one message — do ALL of it inside one actions array in one response. Never split a multi-step request across multiple replies.
+
+Action types:
 {"actions":[
   {"type":"search_cards","query":"keyword"},
   {"type":"read_card","id":"card-id"},
@@ -175,16 +177,28 @@ Actions schema:
   {"type":"connect_cards","connections":[{"fromId":"c1","toId":"c2"}]}
 ]}
 
+Example — creating 3 colored connected cards in ONE response:
+{"actions":[
+  {"type":"create_cards","cards":[
+    {"id":"c1","text":"Event A","content":"Full explanation of Event A.","color":"#ffeba8"},
+    {"id":"c2","text":"Event B","content":"Full explanation of Event B.","color":"#ffcaca"},
+    {"id":"c3","text":"Event C","content":"Full explanation of Event C.","color":"#e9f5db"}
+  ]},
+  {"type":"connect_cards","connections":[{"fromId":"c1","toId":"c2"},{"fromId":"c2","toId":"c3"}]}
+]}
+
 Colors: #ffffff White · #ffeba8 Yellow · #ffcaca Red · #e9f5db Green · #e0f2fe Blue · #f3e8ff Purple
 
-Card positioning rules:
-- When creating multiple thematically distinct cards, assign a DIFFERENT color from the palette to each card — never use #ffffff for all of them.
-- When creating cards you plan to connect: give each a short temporary id (e.g. "c1", "c2") in create_cards, then reference those same ids in connect_cards in the same actions array.
-- To reposition cards: include x and y in update_cards (only include fields you want to change). You can see each card's current position in the canvas context as pos:(x,y).
-- When asked to spread out, organise, or rearrange cards: use update_cards with new x,y values to reposition them across the canvas.
-When you output a JSON block: keep your text to 1-3 sentences — confirm what you did, nothing more.
-Do NOT list card IDs, pre-announce the plan, or narrate every change. The user sees it happen in real time.
-Use search_cards before answering questions about specific card content — it gives you the full text.`;
+Rules:
+- Multi-action: when asked to create + color + connect (or any combination), put ALL action types in one actions array — never split into separate replies.
+- Color goes directly on the card in create_cards — do NOT use a separate update_cards step just to add color after creation.
+- When creating multiple cards: assign a DIFFERENT color from the palette to each card.
+- When creating cards you plan to connect: give each a short temporary id (e.g. "c1", "c2"), then reference those ids in connect_cards. Action order matters: create_cards must come BEFORE connect_cards in the array.
+- To reposition cards: include x and y in update_cards. Card positions are shown as pos:(x,y) in the canvas context.
+- When asked to spread out or rearrange: use update_cards with new x,y values for each card.
+When you output a JSON block: keep your text to 1-3 sentences only — confirm what you did, nothing more.
+Do NOT list card IDs, pre-announce the plan, or narrate every change.
+Use search_cards before answering questions about specific card content.`;
 
   const sysPrompt = `You are an expert thinking partner embedded in Brainstorm, an infinite-canvas ideation tool. You think like a strategist, systems designer, and creative director combined.
 
