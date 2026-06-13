@@ -27,6 +27,8 @@ export default defineConfig(() => {
         includeAssets: ['brainstorm-logo.png', 'brainstorm-logo.svg'],
         manifest: false, // We use our own public/manifest.json
         workbox: {
+          skipWaiting: true,        // Activate new SW immediately on deploy
+          clientsClaim: true,       // New SW takes control of all tabs right away
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
           runtimeCaching: [
             {

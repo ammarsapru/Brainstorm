@@ -19,47 +19,63 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.');
 }
 
-// Cookie-backed storage adapter — cookie writes go to a separate SQLite file
-// in Chrome's profile, unaffected by LevelDB (localStorage) FILE_ERROR_NO_SPACE.
-// PKCE code_verifier is written to BOTH localStorage and a short-lived cookie so
-// the exchange survives when LevelDB is full on the deployment origin.
-const COOKIE_PREFIX = 'sb_pkce_';
-const COOKIE_TTL = 300; // 5 minutes — enough for one OAuth round-trip
+// Resilient storage adapter for Supabase auth.
+//
+// Chrome's LevelDB (backing localStorage/IndexedDB) can hit FILE_ERROR_NO_SPACE
+// on specific origins. sessionStorage is held in the renderer's in-process memory
+// and is NOT backed by LevelDB, so it remains writable when LevelDB is full.
+// Cookies (SQLite) are a further fallback — a separate file from LevelDB.
+//
+// For the PKCE code_verifier: sessionStorage is ideal because it survives same-tab
+// cross-origin redirects (Google → back to app) without touching disk.
 
-const cookieName = (key: string) =>
+const COOKIE_PREFIX = 'sb_pkce_';
+const COOKIE_TTL = 300; // 5 min — enough for one OAuth round-trip
+
+const _cookieName = (key: string) =>
   COOKIE_PREFIX + btoa(key).replace(/[+/=]/g, c => ({ '+': '-', '/': '_', '=': '' }[c] ?? c));
 
-const cookieRead = (key: string): string | null => {
-  const name = cookieName(key);
+const _cookieRead = (key: string): string | null => {
+  const name = _cookieName(key);
   const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
   return match ? decodeURIComponent(match[1]) : null;
 };
 
-const cookieWrite = (key: string, value: string) => {
+const _cookieWrite = (key: string, value: string) => {
   const secure = location.protocol === 'https:' ? ';Secure' : '';
-  document.cookie = `${cookieName(key)}=${encodeURIComponent(value)};path=/;SameSite=Lax;max-age=${COOKIE_TTL}${secure}`;
+  document.cookie = `${_cookieName(key)}=${encodeURIComponent(value)};path=/;SameSite=Lax;max-age=${COOKIE_TTL}${secure}`;
 };
 
-const cookieClear = (key: string) => {
-  document.cookie = `${cookieName(key)}=;path=/;max-age=0`;
+const _cookieClear = (key: string) => {
+  document.cookie = `${_cookieName(key)}=;path=/;max-age=0`;
 };
 
 const resilientStorage = {
   getItem: (key: string): string | null => {
-    try {
-      const v = localStorage.getItem(key);
-      if (v !== null) return v;
-    } catch {}
-    return cookieRead(key);
+    // 1. sessionStorage — in-memory, no LevelDB, survives same-tab redirects
+    try { const v = sessionStorage.getItem(key); if (v !== null) return v; } catch {}
+    // 2. cookie — SQLite file, separate from LevelDB
+    const cv = _cookieRead(key);
+    if (cv !== null) return cv;
+    // 3. localStorage — may be broken, last resort
+    try { return localStorage.getItem(key); } catch {}
+    return null;
   },
   setItem: (key: string, value: string): void => {
+    if (key.includes('code-verifier')) {
+      // PKCE verifier: sessionStorage + cookie; skip localStorage to avoid LevelDB writes
+      try { sessionStorage.setItem(key, value); } catch {}
+      _cookieWrite(key, value);
+      return;
+    }
+    // Session token and other keys: localStorage preferred (persistent), sessionStorage fallback
     try { localStorage.setItem(key, value); } catch {}
-    // Always mirror PKCE verifier to cookie — localStorage may fail silently
-    if (key.includes('code-verifier')) cookieWrite(key, value);
+    try { sessionStorage.setItem(key, value); } catch {}
   },
   removeItem: (key: string): void => {
     try { localStorage.removeItem(key); } catch {}
-    cookieClear(key);
+    try { sessionStorage.removeItem(key); } catch {}
+    _cookieClear(key);
   },
 };
 
