@@ -181,15 +181,45 @@ export function useAICanvas({
         if (parsed.actions && Array.isArray(parsed.actions)) {
           finalDisplayMsg = responseText.replace(jsonMatch[0], '').trim();
 
+          // Maps AI-provided temp ids (e.g. "c1") to real UUIDs generated here.
+          // Populated by create_cards, consumed by connect_cards in the same response.
+          const tempIdToRealId = new Map<string, string>();
+          let batchCards: IdeaCard[] = [];
+
           parsed.actions.forEach((action: any) => {
             if (action.type === 'create_cards' && Array.isArray(action.cards)) {
-              action.cards.forEach((cardData: any) => {
-                handleAddCard(window.innerWidth / 2, window.innerHeight / 2, {
+              const count = action.cards.length;
+              const cols = Math.max(1, Math.ceil(Math.sqrt(count)));
+              const existing = cardsRef.current;
+              // Place below the lowest existing card, centered on their x midpoint
+              const baseX = existing.length > 0
+                ? existing.reduce((s, c) => s + c.x, 0) / existing.length - (cols * (CARD_WIDTH + 60)) / 2
+                : 200;
+              const baseY = existing.length > 0
+                ? Math.max(...existing.map(c => c.y + (c.height || CARD_HEIGHT))) + 100
+                : 200;
+
+              const cards: IdeaCard[] = action.cards.map((cardData: any, idx: number) => {
+                const realId = generateId();
+                if (cardData.id) tempIdToRealId.set(String(cardData.id), realId);
+                const col = idx % cols;
+                const row = Math.floor(idx / cols);
+                return {
+                  id: realId,
+                  x: baseX + col * (CARD_WIDTH + 60),
+                  y: baseY + row * (CARD_HEIGHT + 60),
                   text: cardData.text || 'New Idea',
                   content: cardData.content,
                   color: cardData.color || '#ffffff',
-                });
+                  width: CARD_WIDTH,
+                  height: CARD_HEIGHT,
+                  style: { ...DEFAULT_CARD_STYLE },
+                  collectionId: DEFAULT_COLLECTION_ID,
+                  cardType: 'note' as const,
+                };
               });
+              batchCards = [...batchCards, ...cards];
+              addCardsBatch(cards);
             }
             if (action.type === 'update_cards' && Array.isArray(action.updates)) {
               action.updates.forEach((updateData: any) => {
@@ -204,12 +234,17 @@ export function useAICanvas({
                 .forEach((id: string) => handleDeleteCard(id));
             }
             if (action.type === 'connect_cards' && Array.isArray(action.connections)) {
+              const batchIds = new Set(batchCards.map(c => c.id));
               action.connections.forEach((conn: any) => {
-                if (conn.fromId && conn.toId) {
+                const fromId = tempIdToRealId.get(String(conn.fromId)) ?? conn.fromId;
+                const toId = tempIdToRealId.get(String(conn.toId)) ?? conn.toId;
+                const fromValid = cardsRef.current.some(c => c.id === fromId) || batchIds.has(fromId);
+                const toValid = cardsRef.current.some(c => c.id === toId) || batchIds.has(toId);
+                if (fromId && toId && fromValid && toValid) {
                   setConnections(prev => [...prev, {
                     id: generateId(),
-                    fromId: conn.fromId,
-                    toId: conn.toId,
+                    fromId,
+                    toId,
                     style: DEFAULT_CONNECTION_STYLE,
                     arrowStart: DEFAULT_ARROW_START,
                     arrowEnd: DEFAULT_ARROW_END,
