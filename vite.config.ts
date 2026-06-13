@@ -11,11 +11,11 @@ const base = isGithubPages ? '/Brainstorm/' : './';
 export default defineConfig(() => {
   return {
     server: {
-      port: 5174,
+      port: 3000,
       host: '0.0.0.0',
     },
     preview: {
-      port: 5174,
+      port: 3000,
       host: '0.0.0.0',
     },
     base,

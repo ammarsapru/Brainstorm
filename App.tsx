@@ -68,6 +68,7 @@ function App() {
 
   const fetchInFlightRef = useRef<Promise<void> | null>(null);
   const initialFetchDoneRef = useRef(false);
+  const currentUserIdRef = useRef<string | null>(null);
   const viewRef = useRef(view);
   const activeSessionIdRef = useRef(activeSessionId);
   const workspaceSessionRef = useRef(workspaceSession);
@@ -290,6 +291,7 @@ function App() {
       .then(({ data: { session } }: { data: { session: AuthSession | null } }) => {
         if (session?.user) {
           const u = applyUser(session);
+          currentUserIdRef.current = u.id;
           setUser(u);
           setIsAuthModalOpen(false);
           // Strip #access_token from URL bar immediately
@@ -338,6 +340,22 @@ function App() {
 
       if (session?.user) {
         const u = applyUser(session);
+
+        // If a different user signed in (account switch without explicit sign-out),
+        // force a full state reset so the previous user's data is never shown.
+        const isDifferentUser = currentUserIdRef.current !== null && currentUserIdRef.current !== u.id;
+        if (isDifferentUser) {
+          initialFetchDoneRef.current = false;
+          heavyLoadedForRef.current = null;
+          setSessions([]);
+          setWorkspaceSession(null);
+          setActiveSessionId(null);
+          setIsDashboardLoaded(false);
+          localStorage.removeItem('last_active_session_id');
+          localStorage.removeItem('current_view');
+        }
+        currentUserIdRef.current = u.id;
+
         setUser(u);
         setIsAuthModalOpen(false);
 
@@ -347,7 +365,8 @@ function App() {
           if (window.location.search || window.location.hash) {
             window.history.replaceState(null, '', window.location.pathname);
           }
-          void fetchSessions(u.id, { restoreWorkspace: event === 'INITIAL_SESSION' });
+          // Don't restore workspace for a different-user sign-in
+          void fetchSessions(u.id, { restoreWorkspace: event === 'INITIAL_SESSION' && !isDifferentUser });
         }
 
         const pendingId = localStorage.getItem('pending_session_id');
@@ -384,6 +403,7 @@ function App() {
           }
         }
       } else if (event === 'SIGNED_OUT') {
+        currentUserIdRef.current = null;
         initialFetchDoneRef.current = false;
         heavyLoadedForRef.current = null;
         setUser(undefined);
