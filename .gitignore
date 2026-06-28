@@ -53,3 +53,14 @@ API_KEY_SECURITY.md
 FEATURE_REQUESTS_2026_06_10.md
 SCALING_VISION.md
 DEFERRED.md
+
+# Conversation logs, future plans, dev output, architecture/security docs — never push
+PROJECT_DESCRIPTION.txt
+future_changes
+features/
+dev_log.txt
+dev_output.txt
+dev_*.txt
+
+# Supabase CLI local state
+supabase/.temp/
