@@ -3,6 +3,7 @@ import { Session, IdeaCard, Connection, FileSystemItem, Collection } from '../..
 import { connectionFromDbRow } from './connectionDb';
 import { INITIAL_CARDS, INITIAL_COLLECTIONS } from '../../constants';
 import { buildFileSystemTree } from '../integrations/supabase/utils/tree-transformer';
+import { migrateCard } from '../../utils/cardMigration';
 
 export const mapSessionData = (
     sessionData: any,
@@ -13,20 +14,27 @@ export const mapSessionData = (
 ): Session => {
 
     // Map Cards
-    const cards: IdeaCard[] = cardsData.map((c: any) => ({
+    const cards: IdeaCard[] = cardsData.map((c: any) => migrateCard({
         id: c.id,
         x: c.x,
         y: c.y,
-        text: c.text,
+        text: c.text ?? '',
         content: c.content,
         width: c.width,
         height: c.height,
         color: c.color,
         style: c.style,
         image: c.image,
+        url: c.image,
         fileName: c.file_name,
-        collectionId: c.collectionId || c.collection_id // Handle both cases if DB uses snake_case
-    }));
+        collectionId: c.collectionId || c.collection_id,
+        cardType: c.card_type ?? 'note',
+        typeData: c.type_data ?? {},
+        kind: c.type_data?.kind,
+        fileSubtype: c.type_data?.fileSubtype,
+        imageSubtype: c.type_data?.imageSubtype,
+        shape: c.type_data?.shape,
+    } as IdeaCard));
 
     const connections: Connection[] = connsData.map((c: any) => connectionFromDbRow(c));
 

@@ -1,11 +1,10 @@
-import { jsPDF } from 'jspdf';
+import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage, PDFImage } from 'pdf-lib';
 import { IdeaCard, Connection } from '../types';
 import {
   blocksToRenderable,
   cardHasSubstantiveContent,
   getCardDisplayTitle,
   parseDocContent,
-  partitionCards,
 } from '../utils/pdfContentParser';
 
 // ─── Cluster helpers ─────────────────────────────────────────────────────────
@@ -30,7 +29,6 @@ export const findCardClusters = (cards: IdeaCard[], connections: Connection[]): 
   const visited = new Set<string>();
   const clusters: CardCluster[] = [];
 
-  // Iterative DFS — avoids call-stack overflow on deeply chained canvases (500+ cards)
   const collectComponent = (startId: string): Set<string> => {
     const component = new Set<string>();
     const stack = [startId];
@@ -64,12 +62,6 @@ export const findCardClusters = (cards: IdeaCard[], connections: Connection[]): 
     });
   });
 
-  clusters.sort((a, b) => {
-    const aPos = a.cards[0];
-    const bPos = b.cards[0];
-    return aPos.y !== bPos.y ? aPos.y - bPos.y : aPos.x - bPos.x;
-  });
-
   return clusters;
 };
 
@@ -90,12 +82,11 @@ const orderCardsInCluster = (cluster: CardCluster): IdeaCard[] => {
     incomingDegree.set(conn.toId, (incomingDegree.get(conn.toId) || 0) + 1);
   });
 
-  let startCard = cards.find(c => incomingDegree.get(c.id) === 0);
-  if (!startCard) {
-    startCard = cards.reduce((prev, curr) =>
-      curr.y < prev.y || (curr.y === prev.y && curr.x < prev.x) ? curr : prev
-    );
-  }
+  let startCard = cards.find(c => c.kind === 'label' && incomingDegree.get(c.id) === 0)
+    ?? cards.find(c => incomingDegree.get(c.id) === 0)
+    ?? cards.reduce((prev, curr) =>
+        curr.y < prev.y || (curr.y === prev.y && curr.x < prev.x) ? curr : prev
+      );
 
   const ordered: IdeaCard[] = [];
   const visitedOrder = new Set<string>();
@@ -112,348 +103,469 @@ const orderCardsInCluster = (cluster: CardCluster): IdeaCard[] => {
   return ordered;
 };
 
-// ─── PDF format constants ─────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-const BRAND: [number, number, number] = [30, 80, 200];      // dark blue
-const BRAND_LIGHT: [number, number, number] = [220, 232, 255]; // tint
-const TEXT_PRIMARY: [number, number, number] = [20, 20, 20];
-const TEXT_MUTED: [number, number, number] = [110, 110, 110];
-const TEXT_FAINT: [number, number, number] = [180, 180, 180];
-const RULE: [number, number, number] = [220, 220, 220];
+const MM = 2.8346;          // pts per mm
+const PAGE_W = 595.28;      // A4 width in pts
+const PAGE_H = 841.89;      // A4 height in pts
+const ML = 18 * MM;         // left margin
+const MR = 18 * MM;         // right margin
+const MT = 16 * MM;         // top margin
+const MB = 16 * MM;         // bottom margin
+const CW = PAGE_W - ML - MR; // content width
+
+const C_BRAND      = rgb(30/255, 80/255, 200/255);
+const C_BRAND_L    = rgb(220/255, 232/255, 255/255);
+const C_BLUE_LABEL = rgb(180/255, 210/255, 255/255);
+const C_TEXT       = rgb(20/255, 20/255, 20/255);
+const C_MUTED      = rgb(110/255, 110/255, 110/255);
+const C_FAINT      = rgb(180/255, 180/255, 180/255);
+const C_RULE       = rgb(220/255, 220/255, 220/255);
+const C_WHITE      = rgb(1, 1, 1);
+const C_CODE_BG    = rgb(245/255, 245/255, 245/255);
+const C_CODE_TEXT  = rgb(40/255, 40/255, 100/255);
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const lh = (size: number) => size * 1.45;
+
+// Replace characters outside WinAnsiEncoding (0x20–0xFF, minus 0x81,0x8D,0x8F,0x90,0x9D)
+const sanitize = (t: string) =>
+  t.replace(/[^\x20-\xFF]/g, match => {
+    if (match === '\n') return ' ';
+    return '';
+  });
+
+const wrapText = (text: string, font: PDFFont, size: number, maxW: number): string[] => {
+  if (!text.trim()) return [];
+  const lines: string[] = [];
+  for (const para of text.split('\n')) {
+    const words = para.split(' ');
+    let line = '';
+    for (const word of words) {
+      const test = line ? `${line} ${word}` : word;
+      try {
+        if (font.widthOfTextAtSize(sanitize(test), size) > maxW && line) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = test;
+        }
+      } catch {
+        line = test;
+      }
+    }
+    lines.push(line);
+  }
+  return lines;
+};
+
+// ─── Page state ───────────────────────────────────────────────────────────────
+
+interface PageCtx {
+  doc: PDFDocument;
+  fonts: { n: PDFFont; b: PDFFont; i: PDFFont; c: PDFFont };
+  page: PDFPage;
+  cursor: number; // pts from top
+}
+
+const newPage = (ctx: PageCtx): void => {
+  ctx.page = ctx.doc.addPage([PAGE_W, PAGE_H]);
+  ctx.cursor = MT;
+};
+
+const ensureSpace = (ctx: PageCtx, needed: number): void => {
+  if (ctx.cursor + needed > PAGE_H - MB) newPage(ctx);
+};
+
+// pdf-lib y=0 is bottom; our cursor is from top
+const Y = (ctx: PageCtx, extra = 0) => PAGE_H - ctx.cursor - extra;
+
+const drawText = (
+  ctx: PageCtx,
+  text: string,
+  x: number,
+  font: PDFFont,
+  size: number,
+  color: ReturnType<typeof rgb>,
+  rightAlignTo?: number,
+) => {
+  const s = sanitize(text);
+  if (!s) return;
+  let xPos = x;
+  if (rightAlignTo !== undefined) {
+    try { xPos = rightAlignTo - font.widthOfTextAtSize(s, size); } catch { return; }
+  }
+  try {
+    ctx.page.drawText(s, { x: xPos, y: Y(ctx), font, size, color });
+  } catch { /* skip unencodable chars */ }
+};
+
+const drawRect = (
+  ctx: PageCtx,
+  x: number,
+  yFromTop: number,
+  w: number,
+  h: number,
+  color: ReturnType<typeof rgb>,
+) => {
+  ctx.page.drawRectangle({ x, y: PAGE_H - yFromTop - h, width: w, height: h, color });
+};
+
+const drawRectOutline = (
+  ctx: PageCtx,
+  x: number,
+  yFromTop: number,
+  w: number,
+  h: number,
+  borderColor: ReturnType<typeof rgb>,
+  borderWidth = 0.3,
+) => {
+  ctx.page.drawRectangle({
+    x, y: PAGE_H - yFromTop - h, width: w, height: h,
+    borderColor, borderWidth, color: rgb(1,1,1),
+  });
+};
+
+const hRule = (ctx: PageCtx, color = C_RULE, thickness = 0.3) => {
+  ctx.page.drawLine({
+    start: { x: ML, y: Y(ctx) },
+    end:   { x: PAGE_W - MR, y: Y(ctx) },
+    thickness, color,
+  });
+};
+
+const wrappedText = (
+  ctx: PageCtx,
+  text: string,
+  x: number,
+  font: PDFFont,
+  size: number,
+  color: ReturnType<typeof rgb>,
+  maxW: number,
+) => {
+  const lines = wrapText(text, font, size, maxW);
+  const lineH = lh(size);
+  for (const line of lines) {
+    ensureSpace(ctx, lineH);
+    drawText(ctx, line, x, font, size, color);
+    ctx.cursor += lineH;
+  }
+};
+
+// ─── Image loading ────────────────────────────────────────────────────────────
+
+interface ImgData { bytes: Uint8Array; w: number; h: number; }
+
+const loadImage = (url: string): Promise<ImgData | null> =>
+  new Promise(resolve => {
+    const timer = setTimeout(() => resolve(null), 6000);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      clearTimeout(timer);
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width  = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const c = canvas.getContext('2d');
+        if (!c) { resolve(null); return; }
+        c.drawImage(img, 0, 0);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const b64 = dataUrl.split(',')[1];
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        resolve({ bytes, w: img.naturalWidth, h: img.naturalHeight });
+      } catch { resolve(null); }
+    };
+    img.onerror = () => { clearTimeout(timer); resolve(null); };
+    img.src = url;
+  });
+
+// ─── Download helper ──────────────────────────────────────────────────────────
+
+const downloadPDF = (bytes: Uint8Array, name: string) => {
+  const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+};
 
 // ─── Master PDF ───────────────────────────────────────────────────────────────
 
 export const generateMasterPDF = async (
   sessionName: string,
   cards: IdeaCard[],
-  connections: Connection[]
+  connections: Connection[],
 ): Promise<void> => {
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const W = pdf.internal.pageSize.getWidth();
-  const H = pdf.internal.pageSize.getHeight();
-  const ML = 18;        // left margin
-  const MR = 18;        // right margin
-  const MT = 16;        // top margin for content pages
-  const MB = 16;        // bottom margin
-  const CW = W - ML - MR;
-  let y = 0;
-
-  // ── Primitives ──────────────────────────────────────────────────────────────
-
-  const setFont = (size: number, style: 'normal' | 'bold' | 'italic' = 'normal', family: 'helvetica' | 'courier' = 'helvetica') => {
-    pdf.setFontSize(size);
-    pdf.setFont(family, style);
+  const doc = await PDFDocument.create();
+  const fonts = {
+    n: await doc.embedFont(StandardFonts.Helvetica),
+    b: await doc.embedFont(StandardFonts.HelveticaBold),
+    i: await doc.embedFont(StandardFonts.HelveticaOblique),
+    c: await doc.embedFont(StandardFonts.Courier),
   };
 
-  const setColor = (rgb: [number, number, number]) => pdf.setTextColor(...rgb);
+  const ctx: PageCtx = { doc, fonts, page: doc.addPage([PAGE_W, PAGE_H]), cursor: 0 };
 
-  const lh = (size: number) => size * 0.352778 * 1.45; // pt → mm × line-height
+  // ── Clustering ─────────────────────────────────────────────────────────────
 
-  const ensureSpace = (needed: number) => {
-    if (y + needed > H - MB) {
-      pdf.addPage();
-      y = MT;
-    }
-  };
+  const allClusters = findCardClusters(cards, connections);
+  allClusters.sort((a, b) => {
+    const at = Math.min(...a.cards.map(c => c.createdAt ?? Infinity));
+    const bt = Math.min(...b.cards.map(c => c.createdAt ?? Infinity));
+    if (at !== Infinity && bt !== Infinity && at !== bt) return at - bt;
+    return a.cards[0].y !== b.cards[0].y ? a.cards[0].y - b.cards[0].y : a.cards[0].x - b.cards[0].x;
+  });
 
-  const text = (
-    str: string,
-    x: number,
-    opts: { align?: 'left' | 'center' | 'right' } = {}
-  ) => {
-    pdf.text(str, x, y, { align: opts.align ?? 'left' });
-  };
-
-  const wrappedText = (
-    str: string,
-    indent = 0,
-    fontSize = 10,
-    style: 'normal' | 'bold' | 'italic' = 'normal',
-    color: [number, number, number] = TEXT_PRIMARY,
-    maxWidth = CW
-  ) => {
-    setFont(fontSize, style);
-    setColor(color);
-    const lines = pdf.splitTextToSize(str, maxWidth - indent);
-    const lineH = lh(fontSize);
-    lines.forEach((line: string) => {
-      ensureSpace(lineH);
-      pdf.text(line, ML + indent, y);
-      y += lineH;
-    });
-  };
-
-  const hRule = (color: [number, number, number] = RULE, thickness = 0.3) => {
-    pdf.setDrawColor(...color);
-    pdf.setLineWidth(thickness);
-    pdf.line(ML, y, W - MR, y);
-  };
-
-  // ── Footer (called retroactively after all pages added) ────────────────────
-
-  const addFooters = (name: string, firstContentPage: number) => {
-    const total = (pdf as unknown as { internal: { pages: unknown[] } }).internal.pages.length - 1;
-    const label = name.length > 40 ? name.slice(0, 38) + '…' : name;
-    for (let i = firstContentPage; i <= total; i++) {
-      pdf.setPage(i);
-      const footerY = H - 8;
-      pdf.setDrawColor(...RULE);
-      pdf.setLineWidth(0.25);
-      pdf.line(ML, footerY - 3, W - MR, footerY - 3);
-      setFont(8, 'normal');
-      setColor(TEXT_FAINT);
-      pdf.text(label, ML, footerY);
-      pdf.text(`${i - firstContentPage + 1} / ${total - firstContentPage + 1}`, W - MR, footerY, { align: 'right' });
-    }
-  };
+  const mainClusters  = allClusters.filter(cl => cl.cards.some(cardHasSubstantiveContent));
+  const appendixCards = allClusters
+    .filter(cl => !cl.cards.some(cardHasSubstantiveContent))
+    .flatMap(cl => cl.cards);
 
   // ── Cover page ─────────────────────────────────────────────────────────────
 
-  // Colour band
-  pdf.setFillColor(...BRAND);
-  pdf.rect(0, 0, W, 52, 'F');
+  const headerH = 52 * MM;
+  drawRect(ctx, 0, 0, PAGE_W, headerH, C_BRAND);
 
-  // "BRAINSTORM" label
-  setFont(9, 'bold');
-  setColor([255, 255, 255]);
-  pdf.setGState(pdf.GState({ opacity: 0.6 }));
-  y = 18;
-  text('BRAINSTORM SESSION', ML);
-  pdf.setGState(pdf.GState({ opacity: 1 }));
+  ctx.cursor = 18 * MM;
+  drawText(ctx, 'BRAINSTORM SESSION', ML, fonts.b, 9, C_BLUE_LABEL);
+  ctx.cursor += lh(9);
 
-  // Session name
-  setFont(22, 'bold');
-  setColor([255, 255, 255]);
-  const nameLines = pdf.splitTextToSize(sessionName, CW);
-  nameLines.slice(0, 2).forEach((line: string) => {
-    y += 9;
-    pdf.text(line, ML, y);
+  const nameLines = wrapText(sessionName, fonts.b, 22, CW);
+  nameLines.slice(0, 2).forEach(line => {
+    drawText(ctx, line, ML, fonts.b, 22, C_WHITE);
+    ctx.cursor += lh(22);
   });
 
-  // Metadata row
-  y = 64;
-  const { withContent, noContent } = partitionCards(cards);
-  const meta = [
+  ctx.cursor = 64 * MM;
+  const contentCardCount = cards.filter(cardHasSubstantiveContent).length;
+  const metaStr = [
     `${cards.length} cards`,
     `${connections.length} connections`,
-    `${withContent.length} with content`,
+    `${contentCardCount} with content`,
     new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-  ];
-  setFont(9, 'normal');
-  setColor(TEXT_MUTED);
-  const metaStr = meta.join('   ·   ');
-  pdf.text(metaStr, ML, y);
-
-  y += 4;
-  hRule(BRAND_LIGHT, 0.5);
+  ].join('   -   ');
+  drawText(ctx, metaStr, ML, fonts.n, 9, C_MUTED);
+  ctx.cursor += 4 * MM;
+  hRule(ctx, C_BRAND_L, 0.5);
 
   // ── Table of contents ──────────────────────────────────────────────────────
 
-  const contentClusters = findCardClusters(withContent, connections);
+  newPage(ctx);
 
-  pdf.addPage();
-  y = MT;
+  drawText(ctx, 'Contents', ML, fonts.b, 18, C_TEXT);
+  ctx.cursor += lh(18) + 2;
+  hRule(ctx);
+  ctx.cursor += 4;
 
-  setFont(18, 'bold');
-  setColor(TEXT_PRIMARY);
-  text('Contents', ML);
-  y += lh(18) + 2;
-  hRule();
-  y += 4;
+  mainClusters.forEach((cluster, idx) => {
+    const ordered = orderCardsInCluster(cluster);
+    const rootCard = ordered[0];
+    const title = getCardDisplayTitle(rootCard);
 
-  contentClusters.forEach((cluster, idx) => {
-    const title = getCardDisplayTitle(cluster.cards[0]);
-    const sectionLabel = `${idx + 1}.`;
-    ensureSpace(lh(10) + 1);
+    ensureSpace(ctx, lh(10) + 1);
+    drawText(ctx, `${idx + 1}.`, ML, fonts.b, 10, C_TEXT);
+    drawText(ctx, title, ML + 8 * MM, fonts.b, 10, C_TEXT);
+    ctx.cursor += lh(10);
 
-    setFont(10, 'bold');
-    setColor(TEXT_PRIMARY);
-    pdf.text(sectionLabel, ML, y);
-    pdf.text(title, ML + 8, y);
-    y += lh(10);
-
-    if (cluster.isConnected && cluster.cards.length > 1) {
-      orderCardsInCluster(cluster).slice(1).forEach(card => {
-        const sub = getCardDisplayTitle(card);
-        ensureSpace(lh(9));
-        setFont(9, 'normal');
-        setColor(TEXT_MUTED);
-        pdf.text('↳  ' + sub, ML + 12, y);
-        y += lh(9);
-      });
-    }
-    y += 1;
+    const subCards = ordered.slice(1).filter(cardHasSubstantiveContent);
+    subCards.forEach(card => {
+      const sub = getCardDisplayTitle(card);
+      ensureSpace(ctx, lh(9));
+      drawText(ctx, '  - ' + sub, ML + 12 * MM, fonts.n, 9, C_MUTED);
+      ctx.cursor += lh(9);
+    });
+    ctx.cursor += 1;
   });
 
-  if (noContent.length > 0) {
-    y += 4;
-    ensureSpace(lh(9) + 2);
-    setFont(9, 'bold');
-    setColor(TEXT_MUTED);
-    text(`Appendix: ${noContent.length} label-only card${noContent.length > 1 ? 's' : ''}`, ML);
-    y += lh(9);
+  if (appendixCards.length > 0) {
+    ctx.cursor += 4;
+    ensureSpace(ctx, lh(9) + 2);
+    drawText(ctx, `Appendix: ${appendixCards.length} card${appendixCards.length > 1 ? 's' : ''} without content`, ML, fonts.b, 9, C_MUTED);
+    ctx.cursor += lh(9);
   }
 
   // ── Content sections ───────────────────────────────────────────────────────
 
-  const firstContentPage = (pdf as unknown as { internal: { pages: unknown[] } }).internal.pages.length;
+  const firstContentPageIdx = doc.getPageCount(); // 0-based index of next page
 
-  contentClusters.forEach((cluster, clusterIdx) => {
-    pdf.addPage();
-    y = MT;
+  for (const [clusterIdx, cluster] of mainClusters.entries()) {
+    newPage(ctx);
+
+    const ordered  = orderCardsInCluster(cluster);
+    const rootCard = ordered[0];
 
     // Section header bar
-    const sectionTitle = `${clusterIdx + 1}.  ${getCardDisplayTitle(cluster.cards[0])}`;
-    pdf.setFillColor(...BRAND);
-    pdf.rect(ML, y - 4, CW, 11, 'F');
-    setFont(12, 'bold');
-    setColor([255, 255, 255]);
-    pdf.text(sectionTitle, ML + 3, y + 4);
-    y += 13;
+    const sectionTitle = `${clusterIdx + 1}.  ${getCardDisplayTitle(rootCard)}`;
+    const barH = 11 * MM;
+    drawRect(ctx, ML, ctx.cursor - 4, CW, barH, C_BRAND);
+    drawText(ctx, sectionTitle, ML + 3, fonts.b, 12, C_WHITE);
+    ctx.cursor += 13 * MM;
 
-    const orderedCards = orderCardsInCluster(cluster).filter(cardHasSubstantiveContent);
+    const bodyCards = ordered.filter(cardHasSubstantiveContent);
 
-    orderedCards.forEach((card, cardIdx) => {
-      const cardTitle = getCardDisplayTitle(card);
-      const showSubheading = orderedCards.length > 1 || cardTitle !== getCardDisplayTitle(cluster.cards[0]);
+    for (const [cardIdx, card] of bodyCards.entries()) {
+      const cardTitle  = getCardDisplayTitle(card);
+      const showSubhd  = bodyCards.length > 1 || cardTitle !== getCardDisplayTitle(rootCard);
 
-      if (showSubheading) {
-        ensureSpace(lh(11) + 2);
-        y += 4;
-        // Accent bar before subheading
-        pdf.setFillColor(...BRAND_LIGHT);
-        pdf.rect(ML, y - 3.5, 2.5, lh(11) + 1, 'F');
-        setFont(11, 'bold');
-        setColor(TEXT_PRIMARY);
-        pdf.text(cardTitle, ML + 6, y);
-        y += lh(11) + 1;
+      if (showSubhd) {
+        ensureSpace(ctx, lh(11) + 2);
+        ctx.cursor += 4;
+        const accentH = lh(11) + 1;
+        drawRect(ctx, ML, ctx.cursor - 3.5, 2.5 * MM, accentH, C_BRAND_L);
+        drawText(ctx, cardTitle, ML + 6, fonts.b, 11, C_TEXT);
+        ctx.cursor += lh(11) + 1;
       }
 
-      // Render blocks
-      const blocks = blocksToRenderable(parseDocContent(card.content));
-      let listCounter = 0;
-      let renderedAny = false;
+      const blocks      = blocksToRenderable(parseDocContent(card.content));
+      let listCounter   = 0;
+      let renderedAny   = false;
 
-      blocks.forEach(block => {
-        // Table block
+      for (const block of blocks) {
+        // ── Inline images ────────────────────────────────────────────────────
+        if (block.imageUrls?.length) {
+          for (const imgUrl of block.imageUrls) {
+            const imgData = await loadImage(imgUrl);
+            if (imgData) {
+              try {
+                const pdfImg: PDFImage = await doc.embedJpg(imgData.bytes);
+                const PX_TO_PT  = 72 / 96;
+                const natW = imgData.w * PX_TO_PT;
+                const natH = imgData.h * PX_TO_PT;
+                const scale  = Math.min(1, CW / natW);
+                const drawW  = natW  * scale;
+                const drawH  = Math.min(natH * scale, 120 * MM);
+                ensureSpace(ctx, drawH + 6);
+                ctx.page.drawImage(pdfImg, { x: ML, y: Y(ctx) - drawH, width: drawW, height: drawH });
+                ctx.cursor += drawH + 4;
+                renderedAny = true;
+              } catch { /* skip broken images */ }
+            }
+          }
+        }
+
+        // ── Table block ──────────────────────────────────────────────────────
         if (block.isTable && block.tableData && block.tableData.length > 0) {
           renderedAny = true;
           const colCount = Math.max(...block.tableData.map(r => r.length));
-          const colW = CW / colCount;
-          const cellH = 7;
-          block.tableData.forEach((row, ri) => {
-            ensureSpace(cellH + 1);
+          const colW  = CW / colCount;
+          const cellH = 7 * MM;
+          for (const [ri, row] of block.tableData.entries()) {
+            ensureSpace(ctx, cellH + 1);
             const isHeader = ri === 0;
-            if (isHeader) {
-              pdf.setFillColor(...BRAND_LIGHT);
-              pdf.rect(ML, y - cellH + 2, CW, cellH, 'F');
-            }
-            setFont(9, isHeader ? 'bold' : 'normal');
-            setColor(TEXT_PRIMARY);
-            pdf.setDrawColor(...RULE);
-            pdf.setLineWidth(0.2);
-            row.forEach((cell, ci) => {
+            if (isHeader) drawRect(ctx, ML, ctx.cursor - cellH + 2, CW, cellH, C_BRAND_L);
+            const font = isHeader ? fonts.b : fonts.n;
+            for (const [ci, cell] of row.entries()) {
               const cx = ML + ci * colW;
-              pdf.rect(cx, y - cellH + 2, colW, cellH);
-              const truncated = pdf.splitTextToSize(cell ?? '', colW - 3)[0] ?? '';
-              pdf.text(truncated, cx + 2, y);
-            });
-            y += cellH;
-          });
-          y += 2;
-          return;
+              drawRectOutline(ctx, cx, ctx.cursor - cellH + 2, colW, cellH, C_RULE, 0.2);
+              const cellLines = wrapText(cell ?? '', font, 9, colW - 3);
+              drawText(ctx, cellLines[0] ?? '', cx + 2, font, 9, C_TEXT);
+            }
+            ctx.cursor += cellH;
+          }
+          ctx.cursor += 2;
+          continue;
         }
 
-        if (!block.plainText) return;
+        if (!block.plainText) continue;
         renderedAny = true;
 
-        const fontSize = block.isCode ? 9 : block.fontSize >= 20 ? 13 : block.fontSize >= 17 ? 11 : 10;
+        const fontSize  = block.isCode ? 9 : block.fontSize >= 20 ? 13 : block.fontSize >= 17 ? 11 : 10;
         const isNumbered = block.listType === 'number';
-        const isBullet = block.listType === 'bullet';
-
+        const isBullet   = block.listType === 'bullet';
         if (block.listType === 'none') listCounter = 0;
-        const prefix = isBullet ? '•  ' : isNumbered ? `${++listCounter}.  ` : '';
+        const prefix = isBullet ? '-  ' : isNumbered ? `${++listCounter}.  ` : '';
 
         if (block.isCode) {
-          const codeLines = pdf.splitTextToSize(block.plainText, CW - 8);
+          const codeLines = wrapText(block.plainText, fonts.c, 9, CW - 8);
           const codeH = codeLines.length * lh(9) + 4;
-          ensureSpace(codeH);
-          pdf.setFillColor(245, 245, 245);
-          pdf.rect(ML, y - 2, CW, codeH, 'F');
-          pdf.setDrawColor(...RULE);
-          pdf.setLineWidth(0.2);
-          pdf.rect(ML, y - 2, CW, codeH);
-          setFont(9, 'normal', 'courier');
-          setColor([40, 40, 100]);
-          codeLines.forEach((line: string) => {
-            pdf.text(line, ML + 3, y);
-            y += lh(9);
-          });
-          y += 3;
-          return;
+          ensureSpace(ctx, codeH);
+          drawRect(ctx, ML, ctx.cursor - 2, CW, codeH, C_CODE_BG);
+          drawRectOutline(ctx, ML, ctx.cursor - 2, CW, codeH, C_RULE, 0.2);
+          for (const line of codeLines) {
+            drawText(ctx, line, ML + 3, fonts.c, 9, C_CODE_TEXT);
+            ctx.cursor += lh(9);
+          }
+          ctx.cursor += 3;
+          continue;
         }
 
-        const indent = (isBullet || isNumbered) ? 5 : 0;
-        const wrapped = pdf.splitTextToSize(prefix + block.plainText, CW - indent);
-        const lineH = lh(fontSize);
-        setFont(fontSize, block.bold ? 'bold' : block.italic ? 'italic' : 'normal');
-        setColor(TEXT_PRIMARY);
-        wrapped.forEach((line: string) => {
-          ensureSpace(lineH);
-          pdf.text(line, ML + indent, y);
-          y += lineH;
-        });
-      });
+        const indent  = (isBullet || isNumbered) ? 5 * MM : 0;
+        const font    = block.bold ? fonts.b : block.italic ? fonts.i : fonts.n;
+        const lineH   = lh(fontSize);
+        const wrapped = wrapText(prefix + block.plainText, font, fontSize, CW - indent);
+        for (const line of wrapped) {
+          ensureSpace(ctx, lineH);
+          drawText(ctx, line, ML + indent, font, fontSize, C_TEXT);
+          ctx.cursor += lineH;
+        }
+      }
 
-      // Fallback: plain text-only card
       if (!renderedAny && card.text?.trim()) {
-        const wrapped = pdf.splitTextToSize(card.text.trim(), CW);
-        setFont(10, 'normal');
-        setColor(TEXT_PRIMARY);
-        wrapped.forEach((line: string) => {
-          ensureSpace(lh(10));
-          pdf.text(line, ML, y);
-          y += lh(10);
-        });
+        wrappedText(ctx, card.text.trim(), ML, fonts.n, 10, C_TEXT, CW);
       }
 
-      // Divider between cards within a cluster
-      if (cardIdx < orderedCards.length - 1) {
-        y += 3;
-        hRule(RULE, 0.2);
-        y += 4;
+      if (cardIdx < bodyCards.length - 1) {
+        ctx.cursor += 3;
+        hRule(ctx, C_RULE, 0.2);
+        ctx.cursor += 4;
       }
-    });
-  });
-
-  // Appendix — label-only cards
-  if (noContent.length > 0) {
-    pdf.addPage();
-    y = MT;
-
-    pdf.setFillColor(...BRAND_LIGHT);
-    pdf.rect(ML, y - 4, CW, 11, 'F');
-    setFont(12, 'bold');
-    setColor(BRAND);
-    pdf.text('Appendix — Label-only cards', ML + 3, y + 4);
-    y += 16;
-
-    setFont(9, 'normal');
-    setColor(TEXT_MUTED);
-    pdf.text('These cards have a title but no document content.', ML, y);
-    y += lh(9) + 2;
-
-    noContent.forEach(card => {
-      ensureSpace(lh(10));
-      setFont(10, 'normal');
-      setColor(TEXT_PRIMARY);
-      pdf.text('• ' + getCardDisplayTitle(card), ML + 3, y);
-      y += lh(10);
-    });
+    }
   }
 
-  // ── Footers on all content pages ────────────────────────────────────────────
-  addFooters(sessionName, firstContentPage);
+  // ── Appendix ────────────────────────────────────────────────────────────────
 
-  pdf.save(`${sessionName.replace(/[^\w\- ]+/g, '_')}-brainstorm.pdf`);
+  if (appendixCards.length > 0) {
+    newPage(ctx);
+
+    drawRect(ctx, ML, ctx.cursor - 4, CW, 11 * MM, C_BRAND_L);
+    drawText(ctx, 'Appendix -- Cards without content', ML + 3, fonts.b, 12, C_BRAND);
+    ctx.cursor += 16 * MM;
+
+    drawText(ctx, 'These cards have a title but no document content.', ML, fonts.n, 9, C_MUTED);
+    ctx.cursor += lh(9) + 2;
+
+    for (const card of appendixCards) {
+      ensureSpace(ctx, lh(10));
+      drawText(ctx, '- ' + getCardDisplayTitle(card), ML + 3, fonts.n, 10, C_TEXT);
+      ctx.cursor += lh(10);
+    }
+  }
+
+  // ── Footers on all content pages ─────────────────────────────────────────────
+
+  const allPages    = doc.getPages();
+  const totalContent = allPages.length - firstContentPageIdx;
+  if (totalContent > 0) {
+    const label = sessionName.length > 40 ? sessionName.slice(0, 38) + '...' : sessionName;
+    for (let i = firstContentPageIdx; i < allPages.length; i++) {
+      const pg      = allPages[i];
+      const pageNum = i - firstContentPageIdx + 1;
+      const numStr  = `${pageNum} / ${totalContent}`;
+      const footerY = MB - 3 * MM;
+
+      pg.drawLine({
+        start: { x: ML, y: footerY + 3 },
+        end:   { x: PAGE_W - MR, y: footerY + 3 },
+        thickness: 0.25, color: C_RULE,
+      });
+      try {
+        pg.drawText(sanitize(label), { x: ML, y: footerY, font: fonts.n, size: 8, color: C_FAINT });
+        const numW = fonts.n.widthOfTextAtSize(numStr, 8);
+        pg.drawText(numStr, { x: PAGE_W - MR - numW, y: footerY, font: fonts.n, size: 8, color: C_FAINT });
+      } catch { /* skip */ }
+    }
+  }
+
+  // ── Save & download ───────────────────────────────────────────────────────
+
+  const bytes = await doc.save();
+  downloadPDF(bytes, `${sessionName.replace(/[^\w\- ]+/g, '_')}-brainstorm.pdf`);
 };

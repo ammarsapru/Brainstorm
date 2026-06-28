@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { FileSystemItem } from '../types';
-import { X, Save, Bold, Italic, Underline, GripVertical, Plus, Trash2, Type, List, ListOrdered, Download, Code, FileCode2 } from 'lucide-react';
+import { X, Save, Bold, Italic, Underline, GripVertical, Plus, Trash2, Type, List, ListOrdered, Download, Code, FileCode2, AlignLeft, AlignCenter, AlignRight, AlignJustify, Heading1, Heading2, Heading3, Baseline, Highlighter } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import Editor from 'react-simple-code-editor';
@@ -31,7 +31,11 @@ interface BlockStyle {
   fontSize: number;
   fontFamily: string;
   listType?: 'none' | 'bullet' | 'number';
+  textAlign?: 'left' | 'center' | 'right' | 'justify';
+  heading?: 0 | 1 | 2 | 3; // 0 = body text
 }
+
+const HEADING_SIZES = { 1: 30, 2: 24, 3: 20 } as const;
 
 interface DocBlock {
   id: string;
@@ -44,13 +48,79 @@ interface DocBlock {
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
+// ── Caret helpers for inter-block navigation ────────────────────────────────
+
+function measureCaretRect(): DOMRect | null {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const range = sel.getRangeAt(0).cloneRange();
+  range.collapse(true);
+  // Collapsed-range rects are zero in Chrome; use a temporary span
+  const span = document.createElement('span');
+  span.textContent = '​'; // zero-width space
+  try {
+    range.insertNode(span);
+    const r = span.getBoundingClientRect();
+    const rect = { top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width, height: r.height } as DOMRect;
+    span.remove();
+    return rect;
+  } catch {
+    try { span.remove(); } catch {}
+    return null;
+  }
+}
+
+function isCaretOnFirstLine(el: HTMLElement): boolean {
+  const caret = measureCaretRect();
+  if (!caret) return true;
+  return caret.top <= el.getBoundingClientRect().top + caret.height + 2;
+}
+
+function isCaretOnLastLine(el: HTMLElement): boolean {
+  const caret = measureCaretRect();
+  if (!caret) return true;
+  return caret.bottom >= el.getBoundingClientRect().bottom - caret.height - 2;
+}
+
+function focusBlockElement(blockId: string, pos: 'start' | 'end') {
+  const el = document.getElementById(`block-${blockId}`);
+  if (!el) return;
+  el.focus();
+  try {
+    const sel = window.getSelection();
+    if (!sel) return;
+    const range = document.createRange();
+
+    if (!el.childNodes.length) {
+      // Empty div — position before the element itself (works in all browsers)
+      range.setStart(el, 0);
+      range.collapse(true);
+    } else if (pos === 'start') {
+      const first = el.childNodes[0];
+      if (first.nodeType === Node.TEXT_NODE) {
+        range.setStart(first, 0);
+      } else {
+        range.setStart(el, 0);
+      }
+      range.collapse(true);
+    } else {
+      range.selectNodeContents(el);
+      range.collapse(false);
+    }
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } catch {}
+}
+
 const DEFAULT_BLOCK_STYLE: BlockStyle = {
   bold: false,
   italic: false,
   underline: false,
   fontSize: 16,
   fontFamily: 'serif',
-  listType: 'none'
+  listType: 'none',
+  textAlign: 'left',
+  heading: 0
 };
 
 const FONTS = [
@@ -274,6 +344,8 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
         if (index === blocks.length - 1 || blocks[index + 1].style.listType !== 'bullet') {
           mdContent += '\n';
         }
+      } else if (block.style.heading) {
+        mdContent += `${'#'.repeat(block.style.heading)} ${text}\n\n`;
       } else {
         if (block.style.bold) mdContent += `**${text}**`;
         else if (block.style.italic) mdContent += `*${text}*`;
@@ -466,9 +538,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
     // Backspace: Merge if empty
     if (e.key === 'Backspace') {
       const el = document.getElementById(`block-${id}`);
-      // Check if block is effectively empty (handling <br> remnants)
       const isEmpty = !el || el.textContent === '' || el.innerHTML === '<br>' || el.innerText.trim() === '';
-
       if (isEmpty && currentBlocks.length > 1) {
         e.preventDefault();
         const newBlocks = currentBlocks.filter(b => b.id !== id);
@@ -478,7 +548,52 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
         if (prevId) focusRef.current = { id: prevId, cursor: 'end' };
       }
     }
-  }, []);
+
+    // ArrowUp: jump to previous block when cursor is on the first visual line
+    if (e.key === 'ArrowUp' && index > 0) {
+      const el = document.getElementById(`block-${id}`);
+      if (el && isCaretOnFirstLine(el)) {
+        e.preventDefault();
+        focusBlockElement(currentBlocks[index - 1].id, 'end');
+        setActiveBlockId(currentBlocks[index - 1].id);
+      }
+    }
+
+    // ArrowDown: jump to next block when cursor is on the last visual line
+    if (e.key === 'ArrowDown' && index < currentBlocks.length - 1) {
+      const el = document.getElementById(`block-${id}`);
+      if (el && isCaretOnLastLine(el)) {
+        e.preventDefault();
+        focusBlockElement(currentBlocks[index + 1].id, 'start');
+        setActiveBlockId(currentBlocks[index + 1].id);
+      }
+    }
+
+    // Tab: jump to next EMPTY cell (skip filled ones); Shift+Tab: previous cell (immediate)
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        // Shift+Tab — go to the immediately previous cell
+        if (index > 0) {
+          focusBlockElement(currentBlocks[index - 1].id, 'end');
+          setActiveBlockId(currentBlocks[index - 1].id);
+        }
+      } else {
+        // Tab — find the next empty cell after current position
+        const nextEmpty = currentBlocks.slice(index + 1).find(b => !b.text.trim());
+        if (nextEmpty) {
+          focusBlockElement(nextEmpty.id, 'start');
+          setActiveBlockId(nextEmpty.id);
+        } else {
+          // No empty cell ahead — create one at the end
+          const newBlock: DocBlock = { id: generateId(), text: '', style: { ...currentBlocks[index].style } };
+          setBlocks([...currentBlocks, newBlock]);
+          setIsSaved(false);
+          focusRef.current = { id: newBlock.id, cursor: 'start' };
+        }
+      }
+    }
+  }, [setActiveBlockId]);
 
   const updateActiveBlockStyle = (key: keyof BlockStyle, value: any) => {
     if (!activeBlockId) return;
@@ -497,6 +612,34 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
 
   const execFormat = (command: string) => {
     document.execCommand(command, false);
+  };
+
+  // ── Text / highlight colour (operate on the current selection) ──────────────
+  // The native colour picker steals focus, so we snapshot the selection on
+  // mousedown and restore it before applying the colour.
+  const savedRangeRef = useRef<Range | null>(null);
+
+  const saveSelection = () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+  };
+
+  const applyColor = (command: 'foreColor' | 'hiliteColor', color: string) => {
+    if (!activeBlockId) return;
+    const el = document.getElementById(`block-${activeBlockId}`);
+    if (!el) return;
+    el.focus();
+    const sel = window.getSelection();
+    if (sel && savedRangeRef.current) {
+      sel.removeAllRanges();
+      sel.addRange(savedRangeRef.current);
+    }
+    document.execCommand('styleWithCSS', false, 'true');
+    document.execCommand(command, false, color);
+    document.execCommand('styleWithCSS', false, 'false');
+    // Persist the resulting HTML (colour spans) to the block.
+    setBlocks(prev => prev.map(b => b.id === activeBlockId ? { ...b, text: el.innerHTML } : b));
+    setIsSaved(false);
   };
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
@@ -746,6 +889,65 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
           >
             <ListOrdered className="w-4 h-4" />
           </button>
+          <div className="w-px h-6 bg-gray-200 mx-1" />
+          {/* Headings */}
+          {([1, 2, 3] as const).map(lvl => {
+            const HeadingIcon = lvl === 1 ? Heading1 : lvl === 2 ? Heading2 : Heading3;
+            return (
+              <button
+                key={lvl}
+                onClick={() => updateActiveBlockStyle('heading', currentStyle.heading === lvl ? 0 : lvl)}
+                className={`p-1.5 rounded hover:bg-gray-100 transition-colors ${currentStyle.heading === lvl ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
+                title={`Heading ${lvl}`}
+              >
+                <HeadingIcon className="w-4 h-4" />
+              </button>
+            );
+          })}
+          <div className="w-px h-6 bg-gray-200 mx-1" />
+          {/* Alignment */}
+          {([
+            { val: 'left', Icon: AlignLeft },
+            { val: 'center', Icon: AlignCenter },
+            { val: 'right', Icon: AlignRight },
+            { val: 'justify', Icon: AlignJustify },
+          ] as const).map(({ val, Icon }) => (
+            <button
+              key={val}
+              onClick={() => updateActiveBlockStyle('textAlign', val)}
+              className={`p-1.5 rounded hover:bg-gray-100 transition-colors ${(currentStyle.textAlign || 'left') === val ? 'bg-zinc-100 text-black' : 'text-gray-600'}`}
+              title={`Align ${val}`}
+            >
+              <Icon className="w-4 h-4" />
+            </button>
+          ))}
+          <div className="w-px h-6 bg-gray-200 mx-1" />
+          {/* Text colour */}
+          <label
+            className="relative p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-600 cursor-pointer flex items-center justify-center"
+            title="Text color"
+            onMouseDown={saveSelection}
+          >
+            <Baseline className="w-4 h-4" />
+            <input
+              type="color"
+              className="absolute inset-0 opacity-0 cursor-pointer"
+              onChange={(e) => applyColor('foreColor', e.target.value)}
+            />
+          </label>
+          {/* Highlight colour */}
+          <label
+            className="relative p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-600 cursor-pointer flex items-center justify-center"
+            title="Highlight color"
+            onMouseDown={saveSelection}
+          >
+            <Highlighter className="w-4 h-4" />
+            <input
+              type="color"
+              className="absolute inset-0 opacity-0 cursor-pointer"
+              onChange={(e) => applyColor('hiliteColor', e.target.value)}
+            />
+          </label>
         </div>
       </div>
 
@@ -772,6 +974,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
                 return (
                   <div
                     key={block.id}
+                    data-block-index={index}
                     className={`group relative flex items-start -ml-8 pr-4 transition-all ${dropStyle}`}
                     draggable
                     onDragStart={(e) => handleDragStart(e, index)}
@@ -786,8 +989,41 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
                   >
                     <div
                       className="w-8 h-full flex items-start pt-1 justify-center opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity select-none text-gray-300 hover:text-gray-500"
+                      style={{ touchAction: 'none' }}
                       onMouseDown={(e) => {
-                        // This is the only place drag should start
+                        // Mouse drag is handled by the row's HTML5 draggable above.
+                      }}
+                      onPointerDown={(e) => {
+                        // Touch-only pointer drag (mouse keeps native HTML5 DnD).
+                        if (e.pointerType !== 'touch') return;
+                        e.stopPropagation();
+                        e.currentTarget.setPointerCapture(e.pointerId);
+                        setDraggedBlockIndex(index);
+                      }}
+                      onPointerMove={(e) => {
+                        if (e.pointerType !== 'touch' || draggedBlockIndex === null) return;
+                        const row = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest('[data-block-index]');
+                        if (!row) return;
+                        const idx = Number(row.getAttribute('data-block-index'));
+                        const rect = row.getBoundingClientRect();
+                        const position = e.clientY < rect.top + rect.height / 2 ? 'top' : 'bottom';
+                        setDropTarget(prev => (prev && prev.index === idx && prev.position === position) ? prev : { index: idx, position });
+                      }}
+                      onPointerUp={(e) => {
+                        if (e.pointerType !== 'touch') return;
+                        if (draggedBlockIndex !== null && dropTarget !== null) {
+                          const newBlocks = [...blocks];
+                          const dragged = newBlocks[draggedBlockIndex];
+                          newBlocks.splice(draggedBlockIndex, 1);
+                          let t = dropTarget.index;
+                          if (draggedBlockIndex < dropTarget.index) t -= 1;
+                          if (dropTarget.position === 'bottom') t += 1;
+                          newBlocks.splice(t, 0, dragged);
+                          setBlocks(newBlocks);
+                          setIsSaved(false);
+                        }
+                        setDraggedBlockIndex(null);
+                        setDropTarget(null);
                       }}
                     >
                       <GripVertical className="w-4 h-4" />
@@ -936,10 +1172,11 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ doc, onSave, onC
                         html={block.text}
                         className={`flex-1 bg-transparent outline-none border-none text-gray-800 leading-relaxed ${getFontFamilyClass(block.style.fontFamily)}`}
                         style={{
-                          fontSize: `${block.style.fontSize}px`,
-                          fontWeight: block.style.bold ? 'bold' : 'normal',
+                          fontSize: `${block.style.heading ? HEADING_SIZES[block.style.heading] : block.style.fontSize}px`,
+                          fontWeight: (block.style.bold || block.style.heading) ? 'bold' : 'normal',
                           fontStyle: block.style.italic ? 'italic' : 'normal',
                           textDecoration: block.style.underline ? 'underline' : 'none',
+                          textAlign: block.style.textAlign || 'left',
                           minHeight: '1.625em'
                         }}
                         onChange={handleBlockChange}

@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { X, Send, User, ChevronDown, Paperclip, Image as ImageIcon, File, Check, Copy, Settings, Sparkles } from 'lucide-react';
-import { Tooltip } from './Tooltip';
 import { ChatMessage, ChatAttachment } from '../types';
 import { uploadFileToS3 } from '../lib/supabase';
 import debugLog from '../utils/debugLog';
@@ -8,12 +7,6 @@ import { LLM_MODELS, LLMModel, getModelById } from '../utils/llmModels';
 import { ProviderIcon } from './LLMIcons';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-
-// Configure marked once — GFM + line breaks so single newlines render as <br>
-marked.setOptions({ gfm: true, breaks: true });
-
-const renderMarkdown = (text: string): string =>
-  DOMPurify.sanitize(marked.parse(text) as string);
 
 interface AIChatProps {
     history: ChatMessage[];
@@ -23,107 +16,6 @@ interface AIChatProps {
     selectedModelId: string;
     onModelChange: (modelId: string) => void | Promise<void>;
 }
-
-// ── Per-message bubble with self-contained copy state ───────────────────────
-const MessageBubble = React.memo(({ msg, selectedModelId }: { msg: ChatMessage; selectedModelId: string }) => {
-    const [copied, setCopied] = useState(false);
-
-    const handleCopy = () => {
-        navigator.clipboard.writeText(msg.text).then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        }).catch(() => {
-            // fallback for environments that block clipboard access
-            const el = document.createElement('textarea');
-            el.value = msg.text;
-            el.style.position = 'fixed';
-            el.style.opacity = '0';
-            document.body.appendChild(el);
-            el.select();
-            document.execCommand('copy');
-            document.body.removeChild(el);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        });
-    };
-
-    const htmlContent = useMemo(
-        () => msg.role === 'model' ? renderMarkdown(msg.text) : null,
-        [msg.text, msg.role]
-    );
-
-    return (
-        <div className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                msg.role === 'user'
-                    ? 'bg-slate-700 text-white'
-                    : 'bg-white border border-slate-200 text-violet-600 shadow-sm'
-            }`}>
-                {msg.role === 'user'
-                    ? <User className="w-4 h-4" />
-                    : <ProviderIcon provider={getModelById(msg.model || selectedModelId).provider} className="w-4 h-4" />}
-            </div>
-            <div className={`flex flex-col gap-1 max-w-[88%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                {msg.attachments?.map(att => (
-                    <div key={att.id} className="rounded-xl border border-slate-200 overflow-hidden bg-white shadow-sm">
-                        {att.type === 'image' ? (
-                            <img src={att.url} alt={att.name} className="max-w-[200px] max-h-32 object-cover" />
-                        ) : (
-                            <div className="px-3 py-2 flex items-center gap-2 text-xs text-slate-600">
-                                <File className="w-4 h-4" />
-                                {att.name}
-                            </div>
-                        )}
-                    </div>
-                ))}
-                {msg.text && (
-                    <div className={`rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
-                        msg.role === 'user'
-                            ? 'bg-slate-800 text-white rounded-tr-md'
-                            : msg.isHandoff
-                              ? 'bg-violet-50 border border-violet-200 text-violet-950 rounded-tl-md'
-                              : 'bg-white border border-slate-100 text-slate-800 rounded-tl-md'
-                    }`}>
-                        {msg.role === 'model' && htmlContent ? (
-                            <>
-                                <div
-                                    className="prose prose-sm prose-slate max-w-none
-                                        prose-p:my-1 prose-p:leading-relaxed
-                                        prose-headings:font-semibold prose-headings:text-slate-800 prose-headings:mt-3 prose-headings:mb-1
-                                        prose-ul:my-1 prose-ul:pl-4 prose-ol:my-1 prose-ol:pl-4
-                                        prose-li:my-0.5
-                                        prose-code:bg-slate-100 prose-code:text-violet-700 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:font-mono
-                                        prose-pre:bg-slate-100 prose-pre:text-slate-800 prose-pre:rounded-xl prose-pre:p-4 prose-pre:overflow-x-auto prose-pre:border prose-pre:border-slate-200
-                                        prose-blockquote:border-violet-300 prose-blockquote:text-slate-600 prose-blockquote:italic
-                                        prose-strong:text-slate-900
-                                        prose-a:text-violet-600 prose-a:underline"
-                                    dangerouslySetInnerHTML={{ __html: htmlContent }}
-                                />
-                                <div className="flex justify-end mt-2 pt-1 border-t border-slate-100">
-                                    <button
-                                        onClick={handleCopy}
-                                        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"
-                                        title="Copy response"
-                                    >
-                                        {copied
-                                            ? <><Check className="w-3.5 h-3.5 text-green-500" /><span className="text-green-500">Copied</span></>
-                                            : <><Copy className="w-3.5 h-3.5" /><span>Copy</span></>
-                                        }
-                                    </button>
-                                </div>
-                            </>
-                        ) : (
-                            <span className="whitespace-pre-wrap">{msg.text}</span>
-                        )}
-                    </div>
-                )}
-                {msg.role === 'model' && msg.model && (
-                    <span className="text-[10px] text-slate-400 px-1">{getModelById(msg.model).name}</span>
-                )}
-            </div>
-        </div>
-    );
-});
 
 export const AIChat = React.memo<AIChatProps>(({
     history,
@@ -139,36 +31,104 @@ export const AIChat = React.memo<AIChatProps>(({
     const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
     const [width, setWidth] = useState(420);
     const [isResizing, setIsResizing] = useState(false);
+    const [copiedId, setCopiedId] = useState<string | null>(null);
+
+    const copyMessage = React.useCallback((id: string, text: string) => {
+        const markCopied = () => { setCopiedId(id); setTimeout(() => setCopiedId(null), 2000); };
+        if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(text).then(markCopied).catch(markCopied);
+        } else {
+            markCopied();
+        }
+    }, []);
 
     const selectedModel = getModelById(selectedModelId);
 
-    const startResizing = React.useCallback((e: React.MouseEvent) => {
+    const startResizing = React.useCallback((e: React.PointerEvent) => {
         e.preventDefault();
+        e.currentTarget.setPointerCapture(e.pointerId);
         setIsResizing(true);
     }, []);
 
-    useEffect(() => {
+    const handleResizeMove = React.useCallback((e: React.PointerEvent) => {
         if (!isResizing) return;
-        const handleMouseMove = (e: MouseEvent) => {
-            const newWidth = window.innerWidth - e.clientX;
-            if (newWidth > 300 && newWidth < Math.min(900, window.innerWidth - 50)) {
-                setWidth(newWidth);
-            }
-        };
-        const handleMouseUp = () => setIsResizing(false);
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
-        return () => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
-        };
+        const newWidth = window.innerWidth - e.clientX;
+        if (newWidth > 300 && newWidth < Math.min(900, window.innerWidth - 50)) {
+            setWidth(newWidth);
+        }
     }, [isResizing]);
+
+    const stopResizing = React.useCallback(() => setIsResizing(false), []);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    const renderedHistory = history.map(msg => (
-        <MessageBubble key={msg.id} msg={msg} selectedModelId={selectedModelId} />
-    ));
+    const renderedHistory = useMemo(() => {
+        return history.map(msg => {
+            const isCopied = copiedId === msg.id;
+            const isUser = msg.role === 'user';
+            return (
+                <div key={msg.id} className={`flex gap-2.5 ${isUser ? 'flex-row-reverse' : ''}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                        isUser
+                            ? 'bg-slate-700 text-white'
+                            : 'bg-white border border-slate-200 text-violet-600 shadow-sm'
+                    }`}>
+                        {isUser
+                            ? <User className="w-4 h-4" />
+                            : <ProviderIcon provider={getModelById(msg.model || selectedModelId).provider} className="w-4 h-4" />}
+                    </div>
+                    <div className={`flex flex-col gap-1 max-w-[88%] ${isUser ? 'items-end' : 'items-start'}`}>
+                        {msg.attachments?.map(att => (
+                            <div key={att.id} className="rounded-xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+                                {att.type === 'image' ? (
+                                    <img src={att.url} alt={att.name} className="max-w-[200px] max-h-32 object-cover" />
+                                ) : (
+                                    <div className="px-3 py-2 flex items-center gap-2 text-xs text-slate-600">
+                                        <File className="w-4 h-4" />
+                                        {att.name}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                        {msg.text && (
+                            <div className={`relative rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
+                                isUser
+                                    ? 'bg-slate-800 text-white rounded-tr-md pb-8'
+                                    : msg.isHandoff
+                                      ? 'bg-violet-50 border border-violet-200 text-violet-950 rounded-tl-md'
+                                      : 'bg-white border border-slate-100 text-slate-800 rounded-tl-md pb-8'
+                            }`}>
+                                {msg.role === 'model' && !msg.isHandoff ? (
+                                    <div
+                                        className="prose prose-sm max-w-none prose-slate prose-pre:bg-slate-900 prose-pre:text-slate-100 prose-code:text-violet-700 prose-code:bg-violet-50 prose-code:rounded prose-code:px-1 prose-headings:text-slate-800"
+                                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.text) as string) }}
+                                    />
+                                ) : (
+                                    <span className="whitespace-pre-wrap">{msg.text}</span>
+                                )}
+                                {!msg.isHandoff && (
+                                    <button
+                                        onClick={() => copyMessage(msg.id, msg.text)}
+                                        title="Copy message"
+                                        className={`absolute bottom-1.5 ${isUser ? 'left-2' : 'right-2'} p-1 rounded-md transition-colors ${
+                                            isCopied
+                                                ? isUser ? 'text-green-400' : 'text-green-500'
+                                                : isUser ? 'text-slate-400 hover:text-slate-200 hover:bg-white/10' : 'text-slate-300 hover:text-slate-500 hover:bg-slate-100'
+                                        }`}
+                                    >
+                                        {isCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                        {msg.role === 'model' && msg.model && (
+                            <span className="text-[10px] text-slate-400 px-1">{getModelById(msg.model).name}</span>
+                        )}
+                    </div>
+                </div>
+            );
+        });
+    }, [history, selectedModelId, copiedId, copyMessage]);
 
     useEffect(() => {
         if (isOpen) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -179,15 +139,12 @@ export const AIChat = React.memo<AIChatProps>(({
         if ((!input.trim() && attachments.length === 0) || isProcessing) return;
         const msg = input;
         const currentAttachments = [...attachments];
-        // Clear immediately so the box feels responsive
-        setInput('');
-        setAttachments([]);
         try {
             await onSendMessage(msg, currentAttachments, selectedModelId);
+            setInput('');
+            setAttachments([]);
         } catch (err) {
             debugLog.warn('AIChat', 'Message send failed', err);
-            // Restore message so the user doesn't lose what they typed
-            setInput(msg);
         }
     };
 
@@ -234,22 +191,20 @@ export const AIChat = React.memo<AIChatProps>(({
 
     return (
         <>
-            <Tooltip text="Open AI Chat" position="left">
-              <button
-                  onClick={() => setIsOpen(true)}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  className={`fixed top-36 z-[70] w-11 h-11 flex items-center justify-center rounded-2xl shadow-lg border transition-all duration-300 ${
-                      isOpen
-                          ? 'translate-x-full opacity-0 pointer-events-none'
-                          : 'right-4 bg-gradient-to-br from-violet-600 to-indigo-600 text-white border-violet-500/30 hover:shadow-violet-500/25 opacity-100'
-                  }`}
-              >
-                  <Sparkles className="w-5 h-5" />
-              </button>
-            </Tooltip>
+            <button
+                onClick={() => setIsOpen(true)}
+                
+                className={`fixed top-36 z-[70] w-11 h-11 flex items-center justify-center rounded-2xl shadow-lg border transition-all duration-300 ${
+                    isOpen
+                        ? 'translate-x-full opacity-0 pointer-events-none'
+                        : 'right-4 bg-gradient-to-br from-violet-600 to-indigo-600 text-white border-violet-500/30 hover:shadow-violet-500/25 opacity-100'
+                }`}
+                title="Open AI Chat"
+            >
+                <Sparkles className="w-5 h-5" />
+            </button>
 
             <div
-                onPointerDown={(e) => e.stopPropagation()}
                 className={`fixed right-0 top-0 h-full z-[70] flex flex-col shadow-2xl border-l border-slate-200/80 transition-transform duration-300 ease-out ${
                     isOpen ? 'translate-x-0' : 'translate-x-full'
                 }`}
@@ -259,8 +214,11 @@ export const AIChat = React.memo<AIChatProps>(({
                 }}
             >
                 <div
-                    onMouseDown={startResizing}
-                    className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize z-50 hover:bg-violet-300/40"
+                    onPointerDown={startResizing}
+                    onPointerMove={handleResizeMove}
+                    onPointerUp={stopResizing}
+                    onPointerCancel={stopResizing}
+                    className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize z-50 hover:bg-violet-300/40 touch-none"
                 />
 
                 <div className="shrink-0 px-4 py-3 border-b border-slate-200/80 bg-white/80 backdrop-blur-md flex items-center justify-between relative z-30">
@@ -281,22 +239,19 @@ export const AIChat = React.memo<AIChatProps>(({
                         </div>
                     </div>
                     <div className="flex items-center gap-1">
-                        <Tooltip text="API key settings" position="bottom">
-                          <button
-                              onClick={onSettingsClick}
-                              className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-violet-600"
-                          >
-                              <Settings className="w-4 h-4" />
-                          </button>
-                        </Tooltip>
-                        <Tooltip text="Close chat" position="bottom">
-                          <button
-                              onClick={() => setIsOpen(false)}
-                              className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"
-                          >
-                              <X className="w-5 h-5" />
-                          </button>
-                        </Tooltip>
+                        <button
+                            onClick={onSettingsClick}
+                            className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-violet-600"
+                            title="API keys"
+                        >
+                            <Settings className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => setIsOpen(false)}
+                            className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
                     </div>
 
                     {isModelMenuOpen && (
@@ -369,16 +324,12 @@ export const AIChat = React.memo<AIChatProps>(({
                     )}
                     <form onSubmit={handleSubmit} className="flex gap-2 items-end">
                         <div className="flex gap-0.5 pb-1">
-                            <Tooltip text="Attach image" position="top">
-                              <button type="button" onClick={() => document.getElementById('ai-chat-img')?.click()} className="p-2 text-slate-400 hover:text-violet-600 rounded-lg">
-                                  <ImageIcon className="w-5 h-5" />
-                              </button>
-                            </Tooltip>
-                            <Tooltip text="Attach file" position="top">
-                              <button type="button" onClick={() => document.getElementById('ai-chat-file')?.click()} className="p-2 text-slate-400 hover:text-violet-600 rounded-lg">
-                                  <Paperclip className="w-5 h-5" />
-                              </button>
-                            </Tooltip>
+                            <button type="button" onClick={() => document.getElementById('ai-chat-img')?.click()} className="p-2 text-slate-400 hover:text-violet-600 rounded-lg">
+                                <ImageIcon className="w-5 h-5" />
+                            </button>
+                            <button type="button" onClick={() => document.getElementById('ai-chat-file')?.click()} className="p-2 text-slate-400 hover:text-violet-600 rounded-lg">
+                                <Paperclip className="w-5 h-5" />
+                            </button>
                         </div>
                         <input id="ai-chat-img" type="file" className="hidden" accept="image/*" onChange={e => handleFileSelect(e, 'image')} />
                         <input id="ai-chat-file" type="file" className="hidden" onChange={e => handleFileSelect(e, 'file')} />
@@ -389,15 +340,13 @@ export const AIChat = React.memo<AIChatProps>(({
                             placeholder="Message your canvas..."
                             className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400 outline-none"
                         />
-                        <Tooltip text="Send message" position="top">
-                          <button
-                              type="submit"
-                              disabled={(!input.trim() && attachments.length === 0) || isProcessing}
-                              className="p-2.5 bg-violet-600 text-white rounded-xl hover:bg-violet-700 disabled:opacity-40 mb-0.5"
-                          >
-                              <Send className="w-4 h-4" />
-                          </button>
-                        </Tooltip>
+                        <button
+                            type="submit"
+                            disabled={(!input.trim() && attachments.length === 0) || isProcessing}
+                            className="p-2.5 bg-violet-600 text-white rounded-xl hover:bg-violet-700 disabled:opacity-40 mb-0.5"
+                        >
+                            <Send className="w-4 h-4" />
+                        </button>
                     </form>
                 </div>
             </div>

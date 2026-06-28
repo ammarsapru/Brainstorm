@@ -26,6 +26,7 @@ textarea,
 /* ── Touch / coarse-pointer overrides ───────────────────── */
 @media (hover: none) and (pointer: coarse) {
   .group-hover\:opacity-100,
+  .group-hover\/cell\:opacity-100,
   .group-hover\:opacity-0:hover,
   .group-hover\:opacity-0 {
     opacity: 1 !important;

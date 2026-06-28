@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  ArrowRight, Brain, Zap, Share2, Layout, FileText,
+  ArrowRight, FileText,
   Users, Lightbulb, Target, Layers, Instagram, Linkedin, Github, Mail,
-  CheckCircle2, Globe, Sparkles, MessageCircle, Send, Bot, User, GripHorizontal, Plus, Play,
-  MousePointer2, Network, GitFork, MessageSquareText, Wand2, Maximize2, MousePointerClick, Download,
-  X, Shield, Lock, Database, Eye, Trash2
+  CheckCircle2, Sparkles, MessageCircle, Bot, GripHorizontal,
+  MousePointer2, GitFork, MessageSquareText, Wand2, Maximize2, MousePointerClick, Download,
+  X, Shield, Lock, Database, Eye, Trash2, Code, Image as ImageIcon, Network,
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -13,131 +13,48 @@ interface LandingPageProps {
 
 const DOWNLOAD_URL = import.meta.env.VITE_DESKTOP_DOWNLOAD_URL || '/Brainstorm-Setup.exe';
 
-// --- Custom Hooks for Animation ---
 const useScrollReveal = () => {
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('active');
-        }
+        if (entry.isIntersecting) entry.target.classList.add('active');
       });
     }, { threshold: 0.1 });
-
     document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
-
     return () => observer.disconnect();
   }, []);
 };
 
-// --- Modal Components ---
+// ─── Modals ──────────────────────────────────────────────────────────────────
 
 const PrivacyModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
-  <div
-    className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-    onClick={onClose}
-  >
-    <div
-      className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto"
-      onClick={e => e.stopPropagation()}
-    >
+  <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
       <div className="sticky top-0 bg-white border-b border-gray-100 px-8 py-5 flex items-center justify-between rounded-t-2xl">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-            <Shield className="w-4 h-4 text-white" />
-          </div>
+          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center"><Shield className="w-4 h-4 text-white" /></div>
           <h2 className="text-xl font-bold text-gray-900">Privacy Policy</h2>
         </div>
-        <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-          <X className="w-5 h-5 text-gray-500" />
-        </button>
+        <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-colors"><X className="w-5 h-5 text-gray-500" /></button>
       </div>
-
       <div className="px-8 py-6 space-y-6 text-gray-600 text-sm leading-relaxed">
         <p className="text-gray-500 text-xs">Last updated: June 2026</p>
-
-        <p>
-          Brainstorm is a personal brainstorming and note-taking tool. We designed it with privacy in mind —
-          your ideas belong to you. Here is a straightforward account of what we collect and why.
-        </p>
-
+        <p>Brainstorm is a personal brainstorming and note-taking tool. We designed it with privacy in mind — your ideas belong to you.</p>
         <div className="space-y-5">
+          {[
+            { icon: <Mail className="w-4 h-4 text-blue-600" />, bg: 'bg-blue-50', title: 'Account Information', body: 'When you sign in, we collect your email address via Supabase Auth (supports email/password and Google OAuth). We use this solely to identify your account. We do not share your email with third parties.' },
+            { icon: <Database className="w-4 h-4 text-emerald-600" />, bg: 'bg-emerald-50', title: 'Your Canvas Data', body: 'Everything you create — idea cards, connections, freehand drawings, notes, and session names — is stored in our Supabase database. It is not used to train AI models or shared with anyone.' },
+            { icon: <MessageCircle className="w-4 h-4 text-purple-600" />, bg: 'bg-purple-50', title: 'AI Chat History', body: 'Your AI chat conversations within each session are stored in our database. When you send a message, your text is transmitted to the respective AI provider using your own API key. We do not log or retain the raw API calls ourselves.' },
+            { icon: <FileText className="w-4 h-4 text-amber-600" />, bg: 'bg-amber-50', title: 'Uploaded Files', body: 'PDFs and images you attach to cards are stored in Supabase Storage. Files are associated with your account and accessible only to you. We validate file types using magic-byte inspection before storage.' },
+            { icon: <Lock className="w-4 h-4 text-red-600" />, bg: 'bg-red-50', title: 'API Keys (BYOK)', body: "If you add your own AI API keys, they are encrypted client-side using AES-GCM-256 with a non-extractable key stored in your browser's IndexedDB. Your raw API keys are never transmitted to our servers." },
+          ].map((item, i) => (
+            <div key={i} className="flex gap-4">
+              <div className={`w-8 h-8 ${item.bg} rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5`}>{item.icon}</div>
+              <div><h3 className="font-bold text-gray-900 mb-1">{item.title}</h3><p>{item.body}</p></div>
+            </div>
+          ))}
           <div className="flex gap-4">
-            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-              <Mail className="w-4 h-4 text-blue-600" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 mb-1">Account Information</h3>
-              <p>
-                When you sign in, we collect your <strong>email address</strong> via Supabase Auth (supports email/password
-                and Google OAuth). We use this solely to identify your account and let you access your sessions across devices.
-                We do not share your email with third parties.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-4">
-            <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-              <Database className="w-4 h-4 text-emerald-600" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 mb-1">Your Canvas Data</h3>
-              <p>
-                Everything you create — <strong>idea cards, connections between cards, freehand drawings, notes,
-                and session names</strong> — is stored in our Supabase database. This data is tied to your account
-                so you can access it from any device. It is not used to train AI models or shared with anyone.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-4">
-            <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-              <MessageCircle className="w-4 h-4 text-purple-600" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 mb-1">AI Chat History</h3>
-              <p>
-                Your <strong>AI chat conversations</strong> within each session are stored in our database. This
-                lets you pick up where you left off. When you send a message to an AI model, your text is
-                transmitted to the respective AI provider (Google Gemini, OpenAI, or Anthropic) using your own
-                API key. We do not log or retain the raw API calls ourselves.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-4">
-            <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-              <FileText className="w-4 h-4 text-amber-600" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 mb-1">Uploaded Files</h3>
-              <p>
-                <strong>PDFs and images</strong> you attach to cards are stored in Supabase Storage. Files are
-                associated with your account and are accessible only to you. We validate file types using
-                magic-byte inspection before storage.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-4">
-            <div className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-              <Lock className="w-4 h-4 text-red-600" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 mb-1">API Keys (BYOK)</h3>
-              <p>
-                If you add your own AI API keys (Google Gemini, OpenAI, Anthropic), they are <strong>encrypted
-                client-side using AES-GCM-256</strong> with a non-extractable key stored in your browser's
-                IndexedDB. Your raw API keys are never transmitted to our servers or stored in our database.
-                They stay in your browser only.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-4">
-            <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-              <Eye className="w-4 h-4 text-gray-600" />
-            </div>
+            <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><Eye className="w-4 h-4 text-gray-600" /></div>
             <div>
               <h3 className="font-bold text-gray-900 mb-1">What We Do Not Collect</h3>
               <ul className="list-disc list-inside space-y-1 mt-1">
@@ -149,27 +66,16 @@ const PrivacyModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
               </ul>
             </div>
           </div>
-
           <div className="flex gap-4">
-            <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-              <Trash2 className="w-4 h-4 text-gray-600" />
-            </div>
+            <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><Trash2 className="w-4 h-4 text-gray-600" /></div>
             <div>
               <h3 className="font-bold text-gray-900 mb-1">Data Deletion</h3>
-              <p>
-                You can delete individual sessions and cards at any time from within the app. To request full
-                account and data deletion, email us at <strong>ammarsaboor40@gmail.com</strong> and we will
-                process it within 30 days.
-              </p>
+              <p>You can delete individual sessions and cards at any time. To request full account deletion, email us at <strong>ammarsaboor40@gmail.com</strong> and we will process it within 30 days.</p>
             </div>
           </div>
         </div>
-
         <div className="bg-gray-50 rounded-xl p-4 text-xs text-gray-500">
-          Questions about your data? Contact us at{' '}
-          <a href="mailto:ammarsaboor40@gmail.com" className="text-black font-semibold hover:underline">
-            ammarsaboor40@gmail.com
-          </a>
+          Questions? Contact us at <a href="mailto:ammarsaboor40@gmail.com" className="text-black font-semibold hover:underline">ammarsaboor40@gmail.com</a>
         </div>
       </div>
     </div>
@@ -177,149 +83,74 @@ const PrivacyModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
 );
 
 const TermsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
-  <div
-    className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-    onClick={onClose}
-  >
-    <div
-      className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto"
-      onClick={e => e.stopPropagation()}
-    >
+  <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
       <div className="sticky top-0 bg-white border-b border-gray-100 px-8 py-5 flex items-center justify-between rounded-t-2xl">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-            <FileText className="w-4 h-4 text-white" />
-          </div>
+          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center"><FileText className="w-4 h-4 text-white" /></div>
           <h2 className="text-xl font-bold text-gray-900">Terms of Service</h2>
         </div>
-        <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-          <X className="w-5 h-5 text-gray-500" />
-        </button>
+        <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-colors"><X className="w-5 h-5 text-gray-500" /></button>
       </div>
-
       <div className="px-8 py-6 space-y-6 text-gray-600 text-sm leading-relaxed">
         <p className="text-gray-500 text-xs">Last updated: June 2026</p>
-
-        <p>
-          By using Brainstorm, you agree to these terms. They are intentionally simple and straightforward.
-        </p>
-
+        <p>By using Brainstorm, you agree to these terms. They are intentionally simple and straightforward.</p>
         <div className="space-y-5">
-          <div>
-            <h3 className="font-bold text-gray-900 mb-2">1. Your Content</h3>
-            <p>
-              Everything you create in Brainstorm — cards, notes, drawings, uploaded files — belongs to you.
-              We do not claim any ownership over your content, and we will never use it for advertising or sell it.
-              You are responsible for ensuring the content you upload does not violate any laws or third-party rights.
-            </p>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-gray-900 mb-2">2. Acceptable Use</h3>
-            <p>You agree not to:</p>
-            <ul className="list-disc list-inside space-y-1 mt-2">
-              <li>Use the app for any illegal activity</li>
-              <li>Upload malicious files or attempt to compromise the service</li>
-              <li>Attempt to access other users' data</li>
-              <li>Abuse or scrape the Supabase backend in ways that degrade service for others</li>
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-gray-900 mb-2">3. AI API Keys</h3>
-            <p>
-              Brainstorm is a bring-your-own-key (BYOK) application. When you provide API keys for Google Gemini,
-              OpenAI, or Anthropic, you are responsible for your usage under each provider's terms of service.
-              Any costs incurred from AI API usage are your responsibility. Your keys are stored encrypted in
-              your browser only — we cannot access them.
-            </p>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-gray-900 mb-2">4. Service Availability</h3>
-            <p>
-              Brainstorm is provided as-is, free of charge. We make reasonable efforts to keep the service
-              running but do not guarantee uptime or data preservation. We recommend exporting important work
-              using the built-in PDF or JSON export features.
-            </p>
-          </div>
-
+          {[
+            { title: '1. Your Content', body: 'Everything you create in Brainstorm belongs to you. We do not claim any ownership over your content and will never use it for advertising or sell it.' },
+            { title: '2. Acceptable Use', body: "You agree not to use the app for illegal activity, upload malicious files, attempt to access other users' data, or abuse the Supabase backend in ways that degrade service for others." },
+            { title: '3. AI API Keys', body: 'Brainstorm is a bring-your-own-key (BYOK) application. When you provide API keys, you are responsible for your usage under each provider\'s terms. Any costs incurred from AI API usage are your responsibility.' },
+            { title: '4. Service Availability', body: 'Brainstorm is provided as-is, free of charge. We make reasonable efforts to keep the service running but do not guarantee uptime or data preservation. We recommend exporting important work using the built-in PDF export.' },
+            { title: '6. Changes', body: 'We may update these terms as the app evolves. Continued use of the service after changes constitutes acceptance.' },
+          ].map((item, i) => (
+            <div key={i}>
+              <h3 className="font-bold text-gray-900 mb-2">{item.title}</h3>
+              <p>{item.body}</p>
+            </div>
+          ))}
           <div>
             <h3 className="font-bold text-gray-900 mb-2">5. Open Source</h3>
-            <p>
-              Brainstorm is open source. The source code is available on{' '}
-              <a
-                href="https://github.com/ammarsapru/Brainstorm"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-black font-semibold hover:underline"
-              >
-                GitHub
-              </a>
-              {' '}under its respective license. Contributions and forks are welcome.
-            </p>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-gray-900 mb-2">6. Changes</h3>
-            <p>
-              We may update these terms as the app evolves. Continued use of the service after changes
-              constitutes acceptance of the updated terms. Major changes will be communicated via the app.
-            </p>
+            <p>Brainstorm is open source. The source code is available on{' '}
+              <a href="https://github.com/ammarsapru/Brainstorm" target="_blank" rel="noopener noreferrer" className="text-black font-semibold hover:underline">GitHub</a>{' '}
+              under its respective license. Contributions and forks are welcome.</p>
           </div>
         </div>
-
         <div className="bg-gray-50 rounded-xl p-4 text-xs text-gray-500">
-          Questions? Contact us at{' '}
-          <a href="mailto:ammarsaboor40@gmail.com" className="text-black font-semibold hover:underline">
-            ammarsaboor40@gmail.com
-          </a>
+          Questions? <a href="mailto:ammarsaboor40@gmail.com" className="text-black font-semibold hover:underline">ammarsaboor40@gmail.com</a>
         </div>
       </div>
     </div>
   </div>
 );
 
-// --- Preview Components ---
+// ─── Demo components ──────────────────────────────────────────────────────────
 
 const CardToDocAnimation = () => {
   const [stage, setStage] = useState<'card' | 'transition' | 'doc'>('card');
-
   useEffect(() => {
     const timer = setInterval(() => {
-      setStage(prev => {
-        if (prev === 'card') return 'transition';
-        if (prev === 'transition') return 'doc';
-        return 'card';
-      });
+      setStage(prev => prev === 'card' ? 'transition' : prev === 'transition' ? 'doc' : 'card');
     }, 3000);
     return () => clearInterval(timer);
   }, []);
 
   return (
-    <div className="relative w-full h-[450px] flex items-center justify-center bg-slate-900 rounded-3xl overflow-hidden border border-white/10 shadow-2xl group">
-      {/* Background Dots */}
+    <div className="relative w-full h-[450px] flex items-center justify-center bg-slate-900 rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
       <div className="absolute inset-0 bg-[radial-gradient(#ffffff10_1px,transparent_1px)] [background-size:24px_24px]"></div>
-
-      {/* Card Stage */}
-      <div className={`absolute transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${stage === 'card' ? 'scale-100 opacity-100' : 'scale-150 opacity-0 pointer-events-none'}`}>
+      <div className={`absolute transition-all duration-700 ease-out ${stage === 'card' ? 'scale-100 opacity-100' : 'scale-150 opacity-0 pointer-events-none'}`}>
         <div className="w-64 h-40 bg-white rounded-xl shadow-2xl p-6 border-b-4 border-emerald-500 relative">
           <div className="w-12 h-2 bg-slate-200 rounded mb-4"></div>
           <div className="w-40 h-3 bg-slate-100 rounded mb-2"></div>
           <div className="w-32 h-3 bg-slate-100 rounded"></div>
-
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse">
             <MousePointerClick className="w-8 h-8 text-emerald-500 drop-shadow-lg" />
           </div>
-
           <div className="absolute -top-3 -right-3 bg-emerald-500 text-white p-1 rounded-full shadow-lg">
             <Sparkles className="w-4 h-4" />
           </div>
         </div>
-        <p className="text-white/40 text-center mt-6 font-medium text-sm tracking-widest uppercase">Double Click to Expand</p>
+        <p className="text-white/40 text-center mt-6 font-medium text-sm tracking-widest uppercase">Double Tap to Expand</p>
       </div>
-
-      {/* Doc Stage */}
       <div className={`absolute w-[85%] h-[85%] bg-white rounded-xl shadow-2xl flex flex-col transition-all duration-700 ease-out ${stage === 'doc' ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-20 opacity-0 scale-90 pointer-events-none'}`}>
         <div className="h-12 border-b border-slate-100 flex items-center px-4 justify-between">
           <div className="flex gap-2">
@@ -337,7 +168,6 @@ const CardToDocAnimation = () => {
             <div className="w-full h-3 bg-slate-100 rounded"></div>
             <div className="w-full h-3 bg-slate-100 rounded"></div>
             <div className="w-[90%] h-3 bg-slate-100 rounded"></div>
-            <div className="w-[95%] h-3 bg-slate-100 rounded"></div>
           </div>
           <div className="pt-4 flex gap-3">
             <div className="w-10 h-10 rounded bg-emerald-100"></div>
@@ -348,8 +178,6 @@ const CardToDocAnimation = () => {
           </div>
         </div>
       </div>
-
-      {/* HUD Label */}
       <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
         <span className="text-xs font-bold text-white uppercase tracking-tighter">Live Deep-Dive Mode</span>
@@ -358,6 +186,7 @@ const CardToDocAnimation = () => {
   );
 };
 
+// Touch-safe canvas preview — uses pointer events throughout, no mouse events
 const CanvasPreview = () => {
   const [cards, setCards] = useState([
     { id: '1', x: 120, y: 140, text: 'Product Strategy', color: '#ffffff', rotate: -2 },
@@ -365,50 +194,56 @@ const CanvasPreview = () => {
   ]);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const activePointerRef = useRef<number | null>(null);
 
-  const handleMouseDown = (e: React.MouseEvent, id: string) => {
+  const handlePointerDown = (e: React.PointerEvent, id: string) => {
     e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    activePointerRef.current = e.pointerId;
     setDraggingId(id);
   };
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (draggingId && containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        setCards(prev => prev.map(c => c.id === draggingId ? { ...c, x, y, rotate: 0 } : c));
-      }
-    };
-    const handleMouseUp = () => setDraggingId(null);
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!draggingId || e.pointerId !== activePointerRef.current || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    setCards(prev => prev.map(c =>
+      c.id === draggingId
+        ? { ...c, x: e.clientX - rect.left, y: e.clientY - rect.top, rotate: 0 }
+        : c
+    ));
+  };
 
-    if (draggingId) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [draggingId]);
+  const handlePointerUp = () => {
+    setDraggingId(null);
+    activePointerRef.current = null;
+  };
 
   return (
-    <div ref={containerRef} className="w-full h-[400px] relative overflow-hidden select-none cursor-crosshair">
+    <div
+      ref={containerRef}
+      className="w-full h-[400px] relative overflow-hidden select-none cursor-crosshair touch-none"
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+    >
       <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible z-0">
-        <path d={`M ${cards[0].x} ${cards[0].y} Q ${(cards[0].x + cards[1].x) / 2} ${(cards[0].y + cards[1].y) / 2 + 50} ${cards[1].x} ${cards[1].y}`}
-          stroke="#cbd5e1" strokeWidth="2" strokeDasharray="6,4" fill="none" />
+        <path
+          d={`M ${cards[0].x} ${cards[0].y} Q ${(cards[0].x + cards[1].x) / 2} ${(cards[0].y + cards[1].y) / 2 + 50} ${cards[1].x} ${cards[1].y}`}
+          stroke="#cbd5e1" strokeWidth="2" strokeDasharray="6,4" fill="none"
+        />
       </svg>
-
       {cards.map(card => (
         <div
           key={card.id}
-          onMouseDown={(e) => handleMouseDown(e, card.id)}
-          className="absolute flex flex-col items-center justify-center w-36 h-24 rounded-lg shadow-lg cursor-grab active:cursor-grabbing hover:scale-105 transition-transform duration-300 border border-gray-100 bg-white z-10"
+          onPointerDown={(e) => handlePointerDown(e, card.id)}
+          className="absolute flex flex-col items-center justify-center w-36 h-24 rounded-lg shadow-lg cursor-grab active:cursor-grabbing border border-gray-100 bg-white z-10 touch-none"
           style={{
-            left: card.x, top: card.y,
+            left: card.x,
+            top: card.y,
             backgroundColor: card.color,
             transform: `translate(-50%, -50%) rotate(${card.rotate}deg)`,
-            zIndex: draggingId === card.id ? 20 : 10
+            zIndex: draggingId === card.id ? 20 : 10,
+            transition: draggingId === card.id ? 'none' : 'transform 0.3s',
           }}
         >
           <div className="font-semibold text-gray-700 text-sm">{card.text}</div>
@@ -417,12 +252,6 @@ const CanvasPreview = () => {
           </div>
         </div>
       ))}
-
-      {/* Floating cursors for effect */}
-      <div className="absolute top-1/4 right-1/4 animate-float-delayed">
-        <MousePointer2 className="w-5 h-5 text-blue-500 fill-blue-500/20" />
-        <div className="bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded ml-4 rounded-tl-none">Sarah</div>
-      </div>
     </div>
   );
 };
@@ -432,51 +261,38 @@ const AIPreview = () => {
   const [loading, setLoading] = useState(false);
 
   const handleGenerate = () => {
-    if (generated) {
-      setGenerated(false);
-      return;
-    }
+    if (generated) { setGenerated(false); return; }
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setGenerated(true);
-    }, 800);
+    setTimeout(() => { setLoading(false); setGenerated(true); }, 800);
   };
 
   return (
     <div className="bg-white/5 border border-white/10 backdrop-blur-sm rounded-xl p-8 h-[360px] relative overflow-hidden flex items-center justify-center select-none w-full">
-
-      {/* Connections */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none">
         {generated && (
           <>
-            <line x1="50%" y1="50%" x2="50%" y2="20%" stroke="#a78bfa" strokeWidth="1" className="animate-in fade-in duration-700 opacity-50" />
-            <line x1="50%" y1="50%" x2="20%" y2="80%" stroke="#a78bfa" strokeWidth="1" className="animate-in fade-in duration-700 opacity-50" />
-            <line x1="50%" y1="50%" x2="80%" y2="80%" stroke="#a78bfa" strokeWidth="1" className="animate-in fade-in duration-700 opacity-50" />
+            <line x1="50%" y1="50%" x2="50%" y2="20%" stroke="#a78bfa" strokeWidth="1" opacity="0.5" />
+            <line x1="50%" y1="50%" x2="20%" y2="80%" stroke="#a78bfa" strokeWidth="1" opacity="0.5" />
+            <line x1="50%" y1="50%" x2="80%" y2="80%" stroke="#a78bfa" strokeWidth="1" opacity="0.5" />
           </>
         )}
       </svg>
-
-      {/* Satellite Nodes */}
       {generated && (
         <>
-          <div className="absolute top-[20%] left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 px-4 py-2 rounded-lg border border-purple-500/30 text-sm font-medium text-purple-200 animate-in zoom-in slide-in-from-bottom-4 duration-500">Research</div>
-          <div className="absolute top-[80%] left-[20%] -translate-x-1/2 -translate-y-1/2 bg-gray-800 px-4 py-2 rounded-lg border border-purple-500/30 text-sm font-medium text-purple-200 animate-in zoom-in slide-in-from-right-4 duration-500 delay-100">Design</div>
-          <div className="absolute top-[80%] right-[20%] translate-x-1/2 -translate-y-1/2 bg-gray-800 px-4 py-2 rounded-lg border border-purple-500/30 text-sm font-medium text-purple-200 animate-in zoom-in slide-in-from-left-4 duration-500 delay-200">Develop</div>
+          <div className="absolute top-[20%] left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 px-4 py-2 rounded-lg border border-purple-500/30 text-sm font-medium text-purple-200">Research</div>
+          <div className="absolute top-[80%] left-[20%] -translate-x-1/2 -translate-y-1/2 bg-gray-800 px-4 py-2 rounded-lg border border-purple-500/30 text-sm font-medium text-purple-200">Design</div>
+          <div className="absolute top-[80%] right-[20%] translate-x-1/2 -translate-y-1/2 bg-gray-800 px-4 py-2 rounded-lg border border-purple-500/30 text-sm font-medium text-purple-200">Develop</div>
         </>
       )}
-
-      {/* Main Node */}
-      <div className="relative z-10 bg-gray-900 w-56 h-36 rounded-2xl shadow-2xl border border-purple-500/50 flex flex-col items-center justify-center gap-4 transition-transform duration-300">
+      <div className="relative z-10 bg-gray-900 w-56 h-36 rounded-2xl shadow-2xl border border-purple-500/50 flex flex-col items-center justify-center gap-4">
         <span className="font-semibold text-white tracking-wide text-lg">New Project</span>
         <button
           onClick={handleGenerate}
-          className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all duration-300
-               ${generated
+          className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 ${
+            generated
               ? 'bg-gray-800 text-gray-400'
-              : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_0_20px_rgba(139,92,246,0.5)] hover:shadow-[0_0_30px_rgba(139,92,246,0.7)]'
-            }
-             `}
+              : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_0_20px_rgba(139,92,246,0.5)]'
+          }`}
         >
           {loading ? <span className="animate-spin">✨</span> : <Sparkles className="w-3 h-3" />}
           {generated ? 'Clear' : 'Generate Roadmap'}
@@ -486,80 +302,40 @@ const AIPreview = () => {
   );
 };
 
-const ConnectionsPreview = () => {
-  return (
-    <div className="relative h-[300px] w-full flex items-center justify-center">
-      <div className="absolute inset-0 bg-emerald-50/50 rounded-full blur-3xl transform rotate-12"></div>
-
-      <div className="relative z-10 flex flex-col gap-8">
-        <div className="flex gap-12">
-          <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100 w-32 text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="text-xs text-gray-400 mb-1">Parent</div>
-            <div className="font-bold text-gray-800">Goal</div>
-          </div>
-          <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100 w-32 text-center animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
-            <div className="text-xs text-gray-400 mb-1">Equivalent</div>
-            <div className="font-bold text-gray-800">Target</div>
-          </div>
-        </div>
-
-        <div className="flex justify-center">
-          <div className="bg-emerald-50 p-4 rounded-xl shadow-inner border border-emerald-100 w-40 text-center animate-in zoom-in duration-500 delay-300">
-            <div className="text-xs text-emerald-600 mb-1 font-bold">Dependency</div>
-            <div className="font-bold text-gray-800">Key Result</div>
-          </div>
-        </div>
+const ChatPreview = () => (
+  <div className="bg-white rounded-l-2xl shadow-xl border-y border-l border-gray-100 p-6 h-[400px] w-full flex flex-col relative overflow-hidden">
+    <div className="flex items-center gap-3 border-b border-gray-50 pb-4 mb-4">
+      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+        <Bot className="w-5 h-5 text-blue-600" />
       </div>
-
-      <svg className="absolute inset-0 w-full h-full pointer-events-none">
-        <path d="M 160 110 L 220 180" stroke="#10b981" strokeWidth="2" markerEnd="url(#arrow)" strokeDasharray="4,4" className="animate-pulse" />
-        <path d="M 320 110 L 260 180" stroke="#cbd5e1" strokeWidth="2" />
-        <defs>
-          <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
-            <path d="M0,0 L0,6 L9,3 z" fill="#10b981" />
-          </marker>
-        </defs>
-      </svg>
-    </div>
-  );
-};
-
-const ChatPreview = () => {
-  return (
-    <div className="bg-white rounded-l-2xl shadow-xl border-y border-l border-gray-100 p-6 h-[400px] w-full flex flex-col relative overflow-hidden">
-      <div className="flex items-center gap-3 border-b border-gray-50 pb-4 mb-4">
-        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-          <Bot className="w-5 h-5 text-blue-600" />
-        </div>
-        <div>
-          <div className="font-bold text-gray-900">Brainstorm AI</div>
-          <div className="text-xs text-green-500 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Active
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 space-y-4">
-        <div className="flex justify-start">
-          <div className="bg-gray-100 rounded-2xl rounded-tl-none px-4 py-3 text-sm text-gray-700 max-w-[80%]">
-            How can I help with your board today?
-          </div>
-        </div>
-        <div className="flex justify-end">
-          <div className="bg-blue-600 rounded-2xl rounded-tr-none px-4 py-3 text-sm text-white max-w-[80%] shadow-md">
-            Summarize the marketing strategy cards.
-          </div>
-        </div>
-        <div className="flex justify-start">
-          <div className="bg-gray-100 rounded-2xl rounded-tl-none px-4 py-3 text-sm text-gray-700 max-w-[80%]">
-            Based on your 5 cards, the core strategy focuses on <strong>community engagement</strong> and <strong>viral loops</strong>.
-          </div>
+      <div>
+        <div className="font-bold text-gray-900">Brainstorm AI</div>
+        <div className="text-xs text-green-500 flex items-center gap-1">
+          <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Active · Reads your canvas
         </div>
       </div>
     </div>
-  );
-};
+    <div className="flex-1 space-y-4 overflow-hidden">
+      <div className="flex justify-start">
+        <div className="bg-gray-100 rounded-2xl rounded-tl-none px-4 py-3 text-sm text-gray-700 max-w-[80%]">
+          I can see your 8 cards and the PDF you uploaded. How can I help?
+        </div>
+      </div>
+      <div className="flex justify-end">
+        <div className="bg-blue-600 rounded-2xl rounded-tr-none px-4 py-3 text-sm text-white max-w-[80%] shadow-md">
+          Summarise the strategy cards and add an action plan.
+        </div>
+      </div>
+      <div className="flex justify-start">
+        <div className="bg-gray-100 rounded-2xl rounded-tl-none px-4 py-3 text-sm text-gray-700 max-w-[80%]">
+          Based on your 3 strategy cards, the focus is <strong>community-led growth</strong>. I've added 4 action cards to your canvas.
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
+// ─── Main ────────────────────────────────────────────────────────────────────
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
   useScrollReveal();
@@ -586,11 +362,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
 
   return (
     <div className="min-h-screen w-full font-sans overflow-x-hidden selection:bg-black selection:text-white text-gray-900 bg-white">
-
       {showPrivacy && <PrivacyModal onClose={() => setShowPrivacy(false)} />}
       {showTerms && <TermsModal onClose={() => setShowTerms(false)} />}
 
-      {/* Download Toast */}
+      {/* Download toast */}
       <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[150] transition-all duration-500 ${showDownloadToast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
         <div className="flex items-center gap-3 bg-gray-900 text-white px-5 py-3 rounded-full shadow-2xl border border-white/10">
           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
@@ -599,47 +374,38 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       </div>
 
       <style>{`
-        .reveal {
-          opacity: 0;
-          transform: translateY(20px);
-          transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .reveal.active {
-          opacity: 1;
-          transform: translateY(0);
-        }
+        .reveal { opacity: 0; transform: translateY(20px); transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+        .reveal.active { opacity: 1; transform: translateY(0); }
+        @keyframes blob { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(30px,-20px) scale(1.05)} 66%{transform:translate(-20px,20px) scale(0.95)} }
+        .animate-blob { animation: blob 8s infinite; }
+        .animation-delay-2000 { animation-delay: 2s; }
+        .animation-delay-4000 { animation-delay: 4s; }
       `}</style>
 
-      {/* --- Sticky Navigation Bar --- */}
-      <nav className="fixed top-0 z-[100] w-full bg-white/80 backdrop-blur-md border-b border-gray-100 transition-all duration-300">
+      {/* ── Nav ─────────────────────────────────────────────────────────────── */}
+      <nav className="fixed top-0 z-[100] w-full bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center cursor-pointer group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <div className="w-9 h-9 bg-black rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-sm group-hover:scale-105 transition-transform duration-300">B</div>
-            <span className="font-bold text-xl tracking-tight text-gray-900 ml-1 -mt-0.5 group-hover:text-black">rainstorm</span>
+            <div className="w-9 h-9 bg-black rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-sm group-hover:scale-105 transition-transform">B</div>
+            <span className="font-bold text-xl tracking-tight text-gray-900 ml-1 -mt-0.5">rainstorm</span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-500">
             <a href="#canvas" onClick={scrollToSection('canvas')} className="hover:text-black transition-colors">Canvas</a>
-            <a href="#ai" onClick={scrollToSection('ai')} className="hover:text-black transition-colors">Intelligence</a>
-            <a href="#deep-dive" onClick={scrollToSection('deep-dive')} className="hover:text-black transition-colors">Deep Dive</a>
+            <a href="#ai" onClick={scrollToSection('ai')} className="hover:text-black transition-colors">AI</a>
+            <a href="#deep-dive" onClick={scrollToSection('deep-dive')} className="hover:text-black transition-colors">Documents</a>
             <a href="#chat" onClick={scrollToSection('chat')} className="hover:text-black transition-colors">Chat</a>
           </div>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={onGetStarted}
-              className="px-5 py-2 bg-black text-white rounded-full font-semibold text-sm hover:bg-gray-800 transition-all hover:scale-105 active:scale-95 shadow-lg"
-            >
-              Launch App
-            </button>
-          </div>
+          <button
+            onClick={onGetStarted}
+            className="px-5 py-2 bg-black text-white rounded-full font-semibold text-sm hover:bg-gray-800 transition-all hover:scale-105 active:scale-95 shadow-lg"
+          >
+            Launch App — Free
+          </button>
         </div>
       </nav>
 
-      {/* =========================================================================
-          SECTION 1: HERO
-          ========================================================================= */}
-      <main className="relative pt-32 pb-32 px-6 flex flex-col items-center text-center overflow-hidden">
-
-        {/* Enhanced Background with Dot Grid + Blobs */}
+      {/* ── Hero ────────────────────────────────────────────────────────────── */}
+      <main className="relative pt-32 pb-24 px-6 flex flex-col items-center text-center overflow-hidden">
         <div className="absolute inset-0 -z-10 bg-white">
           <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:20px_20px]"></div>
           <div className="absolute top-[10%] left-[20%] w-[600px] h-[600px] bg-purple-200/40 rounded-full mix-blend-multiply filter blur-[80px] animate-blob"></div>
@@ -648,69 +414,88 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
         </div>
 
         <div className="max-w-4xl space-y-8 reveal active flex flex-col items-center z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-gray-200 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-700">
+          {/* Provider badge */}
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 shadow-sm">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
             </span>
-            <span className="text-xs font-semibold text-gray-600 tracking-wide uppercase">v2.0 with Gemini AI</span>
+            <span className="text-xs font-semibold text-gray-600 tracking-wide">Gemini · GPT-4o · Claude — your key, your choice</span>
           </div>
 
-          <h1 className="font-bold text-6xl md:text-8xl tracking-tight leading-[1.1] text-gray-900 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
-            Think bigger. <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-500 to-teal-600">Connect better.</span>
+          <h1 className="font-bold text-6xl md:text-8xl tracking-tight leading-[1.1] text-gray-900">
+            Every card is<br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-500 to-teal-600">a document.</span>
           </h1>
 
-          <p className="text-xl md:text-2xl text-gray-500 max-w-2xl leading-relaxed font-light animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
-            The infinite canvas for your mind. Create thought cards, connect ideas dynamically, and let AI help you expand your thoughts into actionable plans.
+          <p className="text-xl md:text-2xl text-gray-500 max-w-2xl leading-relaxed font-light">
+            An infinite canvas where sticky notes become rich documents, PDFs become searchable cards, and three AI models read your whole board to help you think.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4 pt-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
+          <div className="flex flex-col sm:flex-row items-center gap-4 pt-2">
             <button
               onClick={onGetStarted}
               className="px-8 py-4 bg-black text-white rounded-full font-bold text-lg shadow-xl shadow-gray-200 hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2"
             >
-              Start Brainstorming <ArrowRight className="w-5 h-5" />
+              Start for Free <ArrowRight className="w-5 h-5" />
             </button>
             <button
               onClick={handleDownload}
               className="px-8 py-4 bg-white text-gray-900 border border-gray-200 rounded-full font-bold text-lg shadow-sm hover:bg-gray-50 hover:border-gray-300 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
             >
-              <Download className="w-5 h-5" /> Download App (Windows)
+              <Download className="w-5 h-5" /> Desktop App (Windows)
             </button>
           </div>
+
+          <p className="text-sm text-gray-400 font-medium">Free forever · Open source · No credit card</p>
         </div>
       </main>
 
-      {/* =========================================================================
-          SECTION 2: CANVAS
-          ========================================================================= */}
+      {/* ── Feature strip ───────────────────────────────────────────────────── */}
+      <section className="py-10 border-y border-gray-100 bg-gray-50">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            {[
+              { icon: <FileText className="w-5 h-5 text-emerald-600" />, label: 'PDF text extraction', sub: 'AI reads your uploads' },
+              { icon: <Code className="w-5 h-5 text-violet-600" />, label: 'Code files', sub: '20+ languages, syntax highlighted' },
+              { icon: <ImageIcon className="w-5 h-5 text-blue-600" />, label: 'Image cards', sub: 'Paste or drag in images' },
+              { icon: <Download className="w-5 h-5 text-amber-600" />, label: 'PDF export', sub: 'Auto-sections & table of contents' },
+            ].map((f, i) => (
+              <div key={i} className="flex flex-col items-center gap-2 p-4">
+                <div className="w-10 h-10 rounded-xl bg-white border border-gray-100 shadow-sm flex items-center justify-center">{f.icon}</div>
+                <div className="font-semibold text-gray-800 text-sm">{f.label}</div>
+                <div className="text-xs text-gray-400">{f.sub}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Canvas ──────────────────────────────────────────────────────────── */}
       <section id="canvas" className="py-24 bg-slate-50 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:20px_20px]"></div>
-
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="flex flex-col md:flex-row items-center gap-12">
-
             <div className="w-full md:w-1/3 bg-white/90 backdrop-blur-sm border border-white/50 p-8 rounded-2xl shadow-xl reveal">
               <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center text-white mb-6 shadow-md">
                 <MousePointer2 className="w-6 h-6" />
               </div>
               <h2 className="text-3xl font-bold text-gray-900 mb-4 leading-tight">Infinite Canvas</h2>
               <p className="text-gray-600 mb-6 font-medium leading-relaxed">
-                No more running out of space. Our canvas expands as you think. Drag, drop, and organize your chaotic thoughts into structured brilliance.
+                No more running out of space. Drag, pinch, connect, and draw. Works on desktop, tablet, and phone.
               </p>
               <ul className="space-y-3">
-                <li className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                  <Maximize2 className="w-4 h-4 text-blue-500" />
-                  <span>Infinite Zoom & Pan</span>
-                </li>
-                <li className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                  <GripHorizontal className="w-4 h-4 text-blue-500" />
-                  <span>Drag & Drop Everything</span>
-                </li>
+                {[
+                  { icon: <Maximize2 className="w-4 h-4 text-blue-500" />, text: 'Pinch to zoom, swipe to pan' },
+                  { icon: <GripHorizontal className="w-4 h-4 text-blue-500" />, text: 'Drag & drop on any device' },
+                  { icon: <Network className="w-4 h-4 text-blue-500" />, text: 'Connect cards with typed arrows' },
+                ].map((item, i) => (
+                  <li key={i} className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    {item.icon}<span>{item.text}</span>
+                  </li>
+                ))}
               </ul>
             </div>
-
             <div className="w-full md:w-2/3 h-[400px] reveal delay-200">
               <CanvasPreview />
             </div>
@@ -718,9 +503,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
         </div>
       </section>
 
-      {/* =========================================================================
-          SECTION 2.5: DEEP DIVE
-          ========================================================================= */}
+      {/* ── Documents ───────────────────────────────────────────────────────── */}
       <section id="deep-dive" className="py-24 bg-white relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="grid md:grid-cols-2 gap-16 items-center">
@@ -728,25 +511,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 mb-6 shadow-sm">
                 <Maximize2 className="w-6 h-6" />
               </div>
-              <h2 className="text-4xl font-bold text-gray-900 mb-6 tracking-tight">Seamless Deep Dives</h2>
+              <h2 className="text-4xl font-bold text-gray-900 mb-6 tracking-tight">Cards that go deep</h2>
               <p className="text-xl text-gray-600 leading-relaxed mb-8">
-                Every thought card is more than just a note. Double-click any card to instantly expand it into a full-featured markdown document.
+                Double-click any card to open a full rich-text document editor. Lists, headers, code blocks, embedded images — all inside a sticky note.
               </p>
               <div className="space-y-4">
                 {[
-                  "Transform high-level ideas into detailed specs",
-                  "Rich text editing with lists and formatting",
-                  "Auto-syncs back to your spatial view",
-                  "Infinite room for your longest brainstorming"
+                  'Full markdown editor inside every card',
+                  'Upload PDFs — AI extracts and reads the text',
+                  'Drag in code files for syntax-highlighted viewing',
+                  'Export the whole board as a structured PDF report',
                 ].map((text, i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
                     <span className="font-semibold text-gray-700">{text}</span>
                   </div>
                 ))}
               </div>
             </div>
-
             <div className="reveal delay-300">
               <CardToDocAnimation />
             </div>
@@ -754,139 +536,139 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
         </div>
       </section>
 
-      {/* =========================================================================
-          SECTION 3: AI - DARK COMMAND CENTER
-          ========================================================================= */}
+      {/* ── AI ──────────────────────────────────────────────────────────────── */}
       <section id="ai" className="py-32 bg-[#0F1117] relative overflow-hidden text-white">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:100px_100px]"></div>
-
         <div className="max-w-4xl mx-auto px-6 relative z-10 flex flex-col items-center">
           <div className="text-center mb-16 reveal">
             <div className="inline-flex items-center justify-center w-12 h-12 bg-purple-500/10 border border-purple-500/20 rounded-xl mb-6">
               <Wand2 className="w-6 h-6 text-purple-400" />
             </div>
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">Your Intelligent Co-pilot</h2>
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">Three AIs. One canvas.</h2>
             <p className="text-lg text-gray-400 max-w-2xl mx-auto font-light">
-              Generative AI that doesn't just write text—it builds structures. Turn a single keyword into a comprehensive roadmap with one click.
+              Switch between Gemini, GPT-4o, and Claude in the same chat — each one reads your cards, your documents, and your uploaded files before it responds.
             </p>
           </div>
-
           <div className="w-full reveal delay-200">
             <AIPreview />
           </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-16 w-full reveal delay-300">
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-center">
-              <div className="font-bold text-purple-300 mb-1">Expansion</div>
-              <div className="text-xs text-gray-400">Auto-generate related ideas</div>
-            </div>
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-center">
-              <div className="font-bold text-purple-300 mb-1">Summarization</div>
-              <div className="text-xs text-gray-400">Condense boards into reports</div>
-            </div>
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-center">
-              <div className="font-bold text-purple-300 mb-1">Context</div>
-              <div className="text-xs text-gray-400">AI understands spatial relationships</div>
-            </div>
+            {[
+              { title: 'Canvas-aware', desc: 'Sees every card, connection, and uploaded file' },
+              { title: 'Action-capable', desc: 'Creates, moves, connects, and colours cards on command' },
+              { title: 'Your key', desc: 'BYOK — keys stay AES-GCM encrypted in your browser' },
+            ].map((f, i) => (
+              <div key={i} className="p-4 rounded-xl bg-white/5 border border-white/10 text-center">
+                <div className="font-bold text-purple-300 mb-1">{f.title}</div>
+                <div className="text-xs text-gray-400">{f.desc}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* =========================================================================
-          SECTION 4: CHAT
-          ========================================================================= */}
+      {/* ── Chat ────────────────────────────────────────────────────────────── */}
       <section id="chat" className="py-24 bg-blue-50/30 border-y border-blue-50 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="grid lg:grid-cols-2 gap-20 items-center">
-
             <div className="order-2 lg:order-1 reveal">
               <ChatPreview />
             </div>
-
             <div className="order-1 lg:order-2 reveal delay-200 pl-0 lg:pl-10">
               <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 mb-6">
                 <MessageSquareText className="w-6 h-6" />
               </div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">Contextual Chat</h2>
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">Chat that sees your work</h2>
               <p className="text-lg text-gray-600 leading-relaxed mb-6 font-medium">
-                Don't leave your canvas to get answers. Chat with your AI model directly alongside your work. It sees what you're working on and provides relevant advice.
+                The AI reads your cards, your connections, and the content inside them — including PDFs you've uploaded — before every reply. Ask it to act and it will.
               </p>
               <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
-                  <Bot className="w-5 h-5 text-gray-400" />
-                  <span className="text-sm font-semibold text-gray-700">"What's missing from this strategy?"</span>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
-                  <Bot className="w-5 h-5 text-gray-400" />
-                  <span className="text-sm font-semibold text-gray-700">"Summarize these 5 notes."</span>
-                </div>
+                {[
+                  '"What\'s missing from this strategy?"',
+                  '"Summarise the PDF I uploaded and add key points as cards."',
+                  '"Connect all the red cards to the main goal."',
+                ].map((prompt, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
+                    <Bot className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                    <span className="text-sm font-semibold text-gray-700">{prompt}</span>
+                  </div>
+                ))}
               </div>
             </div>
-
           </div>
         </div>
       </section>
 
-      {/* =========================================================================
-          SECTION 5: CONNECTIONS
-          ========================================================================= */}
+      {/* ── Connections ─────────────────────────────────────────────────────── */}
       <section id="connections" className="py-24 bg-white relative">
         <div className="max-w-7xl mx-auto px-6 relative z-10">
-          <div className="grid lg:grid-cols-2 gap-12">
-
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="reveal">
               <div className="w-12 h-12 bg-emerald-100 border border-emerald-200 rounded-xl flex items-center justify-center text-emerald-700 mb-6">
                 <GitFork className="w-6 h-6" />
               </div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">Semantic Linking</h2>
-              <p className="text-lg text-gray-600 leading-relaxed font-medium">
-                Go beyond simple lines. Define <span className="text-emerald-600 font-bold">relationships</span>. Map hierarchies, dependencies, and flows to create a true knowledge graph.
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">Connections that mean something</h2>
+              <p className="text-lg text-gray-600 leading-relaxed font-medium mb-6">
+                Draw arrows between cards to define relationships — parent-child, equivalence, dependency. The AI understands these links when it reads your canvas.
               </p>
-            </div>
-
-            <div className="flex items-end justify-center lg:justify-end reveal delay-200">
-              <div className="w-full max-w-md">
-                <ConnectionsPreview />
+              <div className="flex flex-col gap-3">
+                {[
+                  { color: 'bg-emerald-100 text-emerald-700', label: 'Parent → Child', desc: 'Hierarchy and breakdown' },
+                  { color: 'bg-blue-100 text-blue-700', label: 'Equivalence', desc: 'Two sides of the same idea' },
+                  { color: 'bg-amber-100 text-amber-700', label: 'Custom colour + label', desc: 'Any relationship you need' },
+                ].map((rel, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <span className={`text-xs font-bold px-2 py-1 rounded ${rel.color}`}>{rel.label}</span>
+                    <span className="text-sm text-gray-500">{rel.desc}</span>
+                  </div>
+                ))}
               </div>
             </div>
-
+            <div className="reveal delay-200 flex items-center justify-center">
+              <div className="relative w-72 h-64 select-none">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-white border-2 border-gray-200 rounded-xl px-5 py-3 shadow-sm text-center">
+                  <div className="text-xs text-gray-400 mb-1 font-medium">Goal</div>
+                  <div className="font-bold text-gray-800">Launch v2</div>
+                </div>
+                <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                  <defs>
+                    <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+                      <path d="M0,0 L0,6 L8,3 z" fill="#10b981" />
+                    </marker>
+                  </defs>
+                  <line x1="50%" y1="70" x2="28%" y2="155" stroke="#10b981" strokeWidth="2" strokeDasharray="5,3" markerEnd="url(#arr)" />
+                  <line x1="50%" y1="70" x2="72%" y2="155" stroke="#10b981" strokeWidth="2" strokeDasharray="5,3" markerEnd="url(#arr)" />
+                </svg>
+                <div className="absolute bottom-0 left-[10%] bg-white border-2 border-emerald-200 rounded-xl px-4 py-3 shadow-sm text-center">
+                  <div className="text-xs text-emerald-600 mb-1 font-bold">Task</div>
+                  <div className="font-bold text-gray-800">Design</div>
+                </div>
+                <div className="absolute bottom-0 right-[10%] bg-white border-2 border-emerald-200 rounded-xl px-4 py-3 shadow-sm text-center">
+                  <div className="text-xs text-emerald-600 mb-1 font-bold">Task</div>
+                  <div className="font-bold text-gray-800">Build</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* --- Use Cases Grid --- */}
-      <section id="use-cases" className="py-24 bg-gray-50 border-t border-gray-200 relative z-10">
+      {/* ── Use cases ───────────────────────────────────────────────────────── */}
+      <section id="use-cases" className="py-24 bg-gray-50 border-t border-gray-200">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16 reveal">
             <h2 className="text-3xl font-bold text-gray-900 mb-4 tracking-tight">Built for every thinker</h2>
-            <p className="text-gray-500">From solo brainstorming to complex architecture.</p>
+            <p className="text-gray-500">From a student's first notes to a developer's architecture diagram.</p>
           </div>
-
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 reveal">
             {[
-              {
-                icon: <Target className="w-6 h-6 text-red-600" />,
-                title: "Product Managers",
-                desc: "Map out user flows, organize feature requests, and summarize strategy for stakeholders."
-              },
-              {
-                icon: <Lightbulb className="w-6 h-6 text-amber-500" />,
-                title: "Creatives",
-                desc: "Moodboard with images, draft copy, and connect visual concepts in one place."
-              },
-              {
-                icon: <Users className="w-6 h-6 text-blue-600" />,
-                title: "Students",
-                desc: "Organize research papers, map out essay structures, and upload source PDFs."
-              },
-              {
-                icon: <Layers className="w-6 h-6 text-violet-600" />,
-                title: "Developers",
-                desc: "Architect system diagrams, plan database schemas, and document API flows."
-              }
+              { icon: <Target className="w-6 h-6 text-red-600" />, title: 'Product Managers', desc: 'Map user flows, organise feature requests, and export strategy docs for stakeholders.' },
+              { icon: <Lightbulb className="w-6 h-6 text-amber-500" />, title: 'Creatives', desc: 'Moodboard with images, draft copy, and connect visual concepts in one place.' },
+              { icon: <Users className="w-6 h-6 text-blue-600" />, title: 'Students', desc: 'Organise research, upload source PDFs, and let AI summarise across all your cards.' },
+              { icon: <Layers className="w-6 h-6 text-violet-600" />, title: 'Developers', desc: 'Diagram systems, plan schemas, upload code files with syntax highlighting, export to PDF.' },
             ].map((useCase, i) => (
               <div key={i} className="p-8 rounded-2xl bg-white shadow-sm border border-gray-200 hover:shadow-md hover:-translate-y-1 transition-all duration-300 group cursor-default">
-                <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center mb-6 group-hover:bg-black group-hover:text-white transition-colors">
+                <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center mb-6 group-hover:bg-black transition-colors">
                   {useCase.icon}
                 </div>
                 <h3 className="font-bold text-lg text-gray-900 mb-2">{useCase.title}</h3>
@@ -897,44 +679,46 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
         </div>
       </section>
 
-      {/* --- Footer --- */}
-      <footer className="bg-white border-t border-gray-200 pt-16 pb-8 relative z-10">
+      {/* ── CTA banner ──────────────────────────────────────────────────────── */}
+      <section className="py-24 bg-black text-white text-center">
+        <div className="max-w-2xl mx-auto px-6 reveal">
+          <h2 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Free forever. No card needed.</h2>
+          <p className="text-gray-400 text-lg mb-10">Open source · Works on desktop, tablet, and phone · Your data, your keys</p>
+          <button
+            onClick={onGetStarted}
+            className="px-10 py-5 bg-white text-black rounded-full font-bold text-xl hover:bg-gray-100 hover:scale-105 active:scale-95 transition-all shadow-2xl flex items-center gap-3 mx-auto"
+          >
+            Open Brainstorm <ArrowRight className="w-6 h-6" />
+          </button>
+        </div>
+      </section>
+
+      {/* ── Footer ──────────────────────────────────────────────────────────── */}
+      <footer className="bg-white border-t border-gray-200 pt-16 pb-8">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-3 gap-12 mb-12">
             <div className="col-span-1 md:col-span-2">
-              <div className="flex items-center gap-2 mb-4 group cursor-pointer">
+              <div className="flex items-center gap-2 mb-4 group cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
                 <div className="w-9 h-9 bg-black rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-105 transition-transform">B</div>
-                <span className="text-xl font-bold text-gray-900 group-hover:text-black transition-colors ml-1 -mt-0.5">rainstorm</span>
+                <span className="text-xl font-bold text-gray-900 ml-1 -mt-0.5">rainstorm</span>
               </div>
-              <p className="text-gray-500 max-w-sm mb-6 font-medium text-sm">
-                The ultimate tool for thinking, planning, and creating. Open source and free for everyone.
-              </p>
+              <p className="text-gray-500 max-w-sm mb-6 font-medium text-sm">The infinite canvas for your mind. Open source and free for everyone.</p>
               <div className="flex gap-4">
-                <a href="https://www.instagram.com/ammarsaboorr11" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 rounded-full text-gray-600 hover:bg-gray-100 hover:text-black transition-all" aria-label="Instagram">
-                  <Instagram className="w-4 h-4" />
-                </a>
-                <a href="https://github.com/ammarsapru" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 rounded-full text-gray-600 hover:bg-gray-100 hover:text-black transition-all" aria-label="GitHub">
-                  <Github className="w-4 h-4" />
-                </a>
-                <a href="https://www.linkedin.com/in/ammar-sheikh-703247317" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 rounded-full text-gray-600 hover:bg-gray-100 hover:text-black transition-all" aria-label="LinkedIn">
-                  <Linkedin className="w-4 h-4" />
-                </a>
+                <a href="https://www.instagram.com/ammarsaboorr11" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 rounded-full text-gray-600 hover:bg-gray-100 hover:text-black transition-all" aria-label="Instagram"><Instagram className="w-4 h-4" /></a>
+                <a href="https://github.com/ammarsapru" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 rounded-full text-gray-600 hover:bg-gray-100 hover:text-black transition-all" aria-label="GitHub"><Github className="w-4 h-4" /></a>
+                <a href="https://www.linkedin.com/in/ammar-sheikh-703247317" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 rounded-full text-gray-600 hover:bg-gray-100 hover:text-black transition-all" aria-label="LinkedIn"><Linkedin className="w-4 h-4" /></a>
               </div>
             </div>
-
             <div>
               <h4 className="font-bold text-gray-900 mb-4 text-sm">Contact</h4>
               <ul className="space-y-2 text-gray-500 text-sm font-medium">
                 <li className="flex items-center gap-2">
                   <Mail className="w-4 h-4 flex-shrink-0" />
-                  <a href="mailto:ammarsaboor40@gmail.com" className="hover:text-black transition-colors">
-                    ammarsaboor40@gmail.com
-                  </a>
+                  <a href="mailto:ammarsaboor40@gmail.com" className="hover:text-black transition-colors">ammarsaboor40@gmail.com</a>
                 </li>
               </ul>
             </div>
           </div>
-
           <div className="border-t border-gray-100 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-400 font-medium">
             <p>© {new Date().getFullYear()} Brainstorm. Open source.</p>
             <div className="flex gap-6">

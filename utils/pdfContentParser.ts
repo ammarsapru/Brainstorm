@@ -104,7 +104,7 @@ export const getCardDisplayTitle = (card: IdeaCard): string => {
   const firstHeading = blocks.find(b => stripHtml(b.text).trim());
   if (firstHeading) {
     const line = stripHtml(firstHeading.text).trim();
-    if (line) return line.length > 100 ? `${line.slice(0, 97)}…` : line;
+    if (line) return line.length > 100 ? `${line.slice(0, 97)}...` : line;
   }
   if (card.fileName?.trim()) return card.fileName.trim();
   return 'Untitled';

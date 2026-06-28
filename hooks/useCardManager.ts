@@ -118,9 +118,11 @@ export function useCardManager({
       color: '#ffffff',
       style: { ...DEFAULT_CARD_STYLE },
       collectionId,
-      cardType: 'note',
+      kind: 'text',
+      createdAt: Date.now(),
       ...partial,
     };
+    syncUpdateCard(newCard);
     cardsRef.current = [...cardsRef.current, newCard];
     setCards(prev => {
       if (prev.find(c => c.id === newCard.id)) return prev;
@@ -129,7 +131,7 @@ export function useCardManager({
     setSelectedId(newCard.id);
     setNewCardId(newCard.id);
     setTimeout(() => setNewCardId(null), 400);
-  }, [isDirtyRef]);
+  }, [isDirtyRef, syncUpdateCard]);
 
   const handleAddCard = useCallback((x?: number, y?: number, partial?: Partial<IdeaCard>) => {
     let worldPos: Point;
@@ -158,8 +160,10 @@ export function useCardManager({
   }, [finalizeCardCreation]);
 
   const handleMoveCardToCollection = useCallback((cardId: string, collectionId: string) => {
+    const existing = cardsRef.current.find(c => c.id === cardId);
+    if (existing) syncUpdateCard({ ...existing, collectionId });
     setCards(prev => prev.map(c => c.id === cardId ? { ...c, collectionId } : c));
-  }, []);
+  }, [syncUpdateCard]);
 
   const registerCardTextarea = useCallback((cardId: string, el: HTMLTextAreaElement | null) => {
     const map = cardTextareaMapRef.current;
@@ -167,8 +171,16 @@ export function useCardManager({
     else map.delete(cardId);
   }, []);
 
-  const focusCardTextarea = useCallback((cardId: string) => {
-    cardTextareaMapRef.current.get(cardId)?.focus();
+  const focusCardTextarea = useCallback((cardId: string, cursorPos?: 'start' | 'end') => {
+    const el = cardTextareaMapRef.current.get(cardId);
+    if (!el) return;
+    el.focus();
+    if (cursorPos === 'start') {
+      el.setSelectionRange(0, 0);
+    } else if (cursorPos === 'end') {
+      const len = el.value.length;
+      el.setSelectionRange(len, len);
+    }
   }, []);
 
   const findNearestCardVertical = useCallback((fromCardId: string, direction: 'up' | 'down'): string | null => {
@@ -196,7 +208,8 @@ export function useCardManager({
     const nextId = findNearestCardVertical(fromCardId, direction);
     if (!nextId) return;
     setSelectedId(nextId);
-    requestAnimationFrame(() => focusCardTextarea(nextId));
+    // Moving up → land at end of target text; moving down → land at start
+    requestAnimationFrame(() => focusCardTextarea(nextId, direction === 'up' ? 'end' : 'start'));
   }, [findNearestCardVertical, focusCardTextarea]);
 
   // Batch-create cards from AI brainstorm (bypasses collection modal, queues each for sync)

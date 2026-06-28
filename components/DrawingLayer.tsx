@@ -97,12 +97,14 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({ strokes, currentStro
       </g>
       
       {mousePos && eraserRadius && (
-        <circle 
-          cx={mousePos.x} 
-          cy={mousePos.y} 
-          r={eraserRadius} 
-          fill="rgba(0,0,0,0.8)" 
-          pointerEvents="none" 
+        <circle
+          cx={mousePos.x}
+          cy={mousePos.y}
+          r={eraserRadius}
+          fill="rgba(236,72,153,0.6)"
+          stroke="rgba(236,72,153,0.9)"
+          strokeWidth={1}
+          pointerEvents="none"
         />
       )}
     </svg>

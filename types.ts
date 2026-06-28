@@ -61,21 +61,36 @@ export interface Collection {
 
 export type CardType = 'note' | 'table' | 'label';
 
+export type CardKind = 'text' | 'label' | 'image' | 'file' | 'browser';
+// Visual shape for label cards — turns labels into flowchart primitives.
+// 'rectangle' = process (default), 'diamond' = decision, 'circle' = start/end, 'square' = generic node.
+export type LabelShape = 'rectangle' | 'diamond' | 'circle' | 'square';
+export type FileSubtype = 'pdf' | 'md' | 'docx' | 'pptx' | 'txt' | 'code' | 'other';
+export type ImageSubtype = 'png' | 'jpeg' | 'gif' | 'webp' | 'svg' | 'other';
+
 export interface IdeaCard {
   id: string;
   x: number;
   y: number;
-  text: string; // Plain text for display on canvas
-  content?: string; // Stringified DocBlock[] JSON for DocumentEditor
+  text: string;
+  content?: string; // Stringified DocBlock[] JSON for DocumentEditor (text cards only)
+  createdAt?: number; // Unix ms — set on creation, used for PDF ordering
   width: number;
   height: number;
   color: string;
   style: CardStyle;
-  image?: string;
-  fileName?: string;
   collectionId?: string;
-  cardType: CardType; // Discriminant for future card type rendering
-  typeData?: Record<string, unknown>; // Type-specific payload (table rows, label config, etc.)
+  // Primary discriminants — set on all cards going forward
+  kind: CardKind;
+  fileSubtype?: FileSubtype;   // only when kind === 'file'
+  imageSubtype?: ImageSubtype; // only when kind === 'image'
+  shape?: LabelShape;          // only when kind === 'label' — flowchart shape (default 'rectangle')
+  url?: string;                // canonical media URL (image/file cards)
+  fileName?: string;           // display name for file/image cards
+  typeData?: Record<string, unknown>;
+  // Deprecated fields — kept so old loaded sessions still type-check during migration
+  image?: string;
+  cardType?: CardType;
 }
 
 export interface Connection {
@@ -139,6 +154,7 @@ export interface APIKeys {
   openai?: string;
   anthropic?: string;
   gemini: string;
+  llamacloud?: string;
 }
 
 export interface Session {

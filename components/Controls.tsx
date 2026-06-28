@@ -35,6 +35,7 @@ interface SidebarProps {
   onInitiateMoveFile?: (fileId: string) => void;
   onUploadToFolder?: (file: File, folderId: string) => void;
   onMoveFileSystemItem?: (sourceId: string, targetFolderId: string) => void;
+  onPlaceFileOnCanvas?: (item: FileSystemItem, clientX: number, clientY: number) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -67,7 +68,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeleteFile,
   onInitiateMoveFile,
   onUploadToFolder,
-  onMoveFileSystemItem
+  onMoveFileSystemItem,
+  onPlaceFileOnCanvas
 }) => {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
@@ -77,6 +79,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // State for expanded card groups (now Collections)
   const [expandedCollections, setExpandedCollections] = useState<Record<string, boolean>>({});
   const [dragOverColId, setDragOverColId] = useState<string | null>(null);
+  // Touch-only pointer drag for moving cards into collections (mouse keeps HTML5 DnD).
+  const touchCardRef = useRef<{ id: string; moved: boolean } | null>(null);
 
   // Dedicated state for tool sections
   const [isCanvasExpanded, setIsCanvasExpanded] = useState(true);
@@ -141,6 +145,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <Tooltip text="Open tools sidebar" position="right">
           <button
             onClick={() => setIsOpen(true)}
+            onPointerDown={(e) => e.stopPropagation()}
             className="fixed left-6 top-24 z-40 p-2 bg-white rounded-lg shadow-md border border-gray-100 text-gray-600 hover:bg-gray-50 transition-colors"
           >
             <ChevronRight className="w-5 h-5" />
@@ -188,7 +193,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => setIsCanvasExpanded(!isCanvasExpanded)}
               className="flex items-center gap-2 w-full mb-2 group text-left"
             >
-              <div className="text-xs font-bold text-gray-400 uppercase tracking-wider group-hover:text-gray-800 group-hover:font-extrabold transition-all duration-200">Canvas</div>
+              <div className="text-sm font-bold text-gray-500 uppercase tracking-wider group-hover:text-gray-800 transition-all duration-200">Canvas</div>
               {isCanvasExpanded ? <ChevronUp className="w-3 h-3 text-gray-400 group-hover:text-gray-600" /> : <ChevronDown className="w-3 h-3 text-gray-400 group-hover:text-gray-600" />}
             </button>
             {isCanvasExpanded && (
@@ -283,7 +288,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => setIsActionsExpanded(!isActionsExpanded)}
               className="flex items-center gap-2 w-full mb-2 group text-left"
             >
-              <div className="text-xs font-bold text-gray-400 uppercase tracking-wider group-hover:text-gray-800 group-hover:font-extrabold transition-all duration-200">Actions</div>
+              <div className="text-sm font-bold text-gray-500 uppercase tracking-wider group-hover:text-gray-800 transition-all duration-200">Actions</div>
               {isActionsExpanded ? <ChevronUp className="w-3 h-3 text-gray-400 group-hover:text-gray-600" /> : <ChevronDown className="w-3 h-3 text-gray-400 group-hover:text-gray-600" />}
             </button>
             {isActionsExpanded && (
@@ -336,7 +341,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => setIsFilesExpanded(!isFilesExpanded)}
                 className="flex items-center gap-2 group text-left"
               >
-                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider group-hover:text-gray-800 group-hover:font-extrabold transition-all duration-200">Files</div>
+                <div className="text-sm font-bold text-gray-500 uppercase tracking-wider group-hover:text-gray-800 transition-all duration-200">Files</div>
                 {isFilesExpanded ? <ChevronUp className="w-3 h-3 text-gray-400 group-hover:text-gray-600" /> : <ChevronDown className="w-3 h-3 text-gray-400 group-hover:text-gray-600" />}
               </button>
 
@@ -375,6 +380,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onInitiateMoveFile={onInitiateMoveFile}
                     onUploadToFolder={onUploadToFolder}
                     onMoveItem={onMoveFileSystemItem}
+                    onPlaceOnCanvas={onPlaceFileOnCanvas}
                   />
                   {fileSystem.length === 0 && (
                     <div className="p-4 text-center text-xs text-gray-400">
@@ -393,7 +399,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => setIsCardsExpanded(!isCardsExpanded)}
                 className="flex items-center gap-2 group text-left"
               >
-                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider group-hover:text-gray-800 group-hover:font-extrabold transition-all duration-200">Collections</div>
+                <div className="text-sm font-bold text-gray-500 uppercase tracking-wider group-hover:text-gray-800 transition-all duration-200">Collections</div>
                 {isCardsExpanded ? <ChevronUp className="w-3 h-3 text-gray-400 group-hover:text-gray-600" /> : <ChevronDown className="w-3 h-3 text-gray-400 group-hover:text-gray-600" />}
               </button>
 
@@ -409,7 +415,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {isCardsExpanded && (
               <div className="bg-white rounded-lg border border-gray-100 p-1 shadow-inner flex flex-col animate-in slide-in-from-top-2 duration-200">
-                <div className="overflow-y-auto max-h-[300px]">
+                <div className="overflow-y-auto max-h-[500px]">
                   {collections.length === 0 && (
                     <div className="p-4 text-center text-xs text-gray-400">
                       No collections.
@@ -424,6 +430,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     return (
                       <div
                         key={col.id}
+                        data-collection-id={col.id}
                         className={`mb-1 transition-all rounded-lg border-2 ${isDragTarget
                           ? 'border-black bg-zinc-100'
                           : 'border-transparent'
@@ -434,7 +441,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <button
                           onClick={() => toggleCollection(col.id)}
-                          className={`flex items-center gap-2 w-full text-left px-2 py-1.5 hover:bg-gray-50 rounded text-xs font-medium text-gray-600 ${expandedCollections[col.id] ? 'bg-gray-50' : ''}`}
+                          className={`flex items-center gap-2 w-full text-left px-2 py-2 hover:bg-gray-50 rounded text-sm font-medium text-gray-600 ${expandedCollections[col.id] ? 'bg-gray-50' : ''}`}
                         >
                           {expandedCollections[col.id] ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                           <Folder className={`w-3.5 h-3.5 ${isDragTarget ? 'text-black' : 'text-zinc-400'}`} />
@@ -447,13 +454,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             {collectionCards.map(card => (
                               <div
                                 key={card.id}
-                                onClick={() => onOpenCard(card)}
+                                onClick={(e) => {
+                                  if (touchCardRef.current?.moved) { e.preventDefault(); e.stopPropagation(); return; }
+                                  onOpenCard(card);
+                                }}
                                 draggable
                                 onDragStart={(e) => handleDragStart(e, card.id)}
+                                style={{ touchAction: 'pan-y' }}
+                                onPointerDown={(e) => {
+                                  if (e.pointerType !== 'touch') return;
+                                  e.currentTarget.setPointerCapture(e.pointerId);
+                                  touchCardRef.current = { id: card.id, moved: false };
+                                }}
+                                onPointerMove={(e) => {
+                                  if (e.pointerType !== 'touch' || !touchCardRef.current) return;
+                                  touchCardRef.current.moved = true;
+                                  const folder = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest('[data-collection-id]');
+                                  setDragOverColId(folder ? folder.getAttribute('data-collection-id') : null);
+                                }}
+                                onPointerUp={(e) => {
+                                  if (e.pointerType !== 'touch' || !touchCardRef.current) return;
+                                  const folder = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest('[data-collection-id]');
+                                  if (touchCardRef.current.moved && folder) {
+                                    const colId = folder.getAttribute('data-collection-id');
+                                    if (colId) onMoveCardToCollection(touchCardRef.current.id, colId);
+                                  }
+                                  setDragOverColId(null);
+                                  // Clear after the click handler (which fires next) has read `moved`.
+                                  setTimeout(() => { touchCardRef.current = null; }, 0);
+                                }}
                                 className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-gray-100 cursor-pointer group transition-colors select-none"
                               >
                                 <StickyNote className={`w-3 h-3 ${card.image ? 'text-purple-400' : 'text-yellow-500'}`} />
-                                <span className="text-sm text-gray-700 truncate flex-1">{card.text || card.fileName || 'Untitled Card'}</span>
+                                <span className="text-sm font-medium text-gray-700 truncate flex-1">{card.text || card.fileName || 'Untitled Card'}</span>
                               </div>
                             ))}
                             {collectionCards.length === 0 && (

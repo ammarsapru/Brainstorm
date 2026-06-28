@@ -40,7 +40,7 @@ export const HelpGuide: React.FC = () => {
       </button>
 
       <div
-        className={`absolute top-12 right-0 w-80 bg-white/97 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-100 transition-all duration-200 origin-top-right overflow-hidden ${
+        className={`absolute top-12 right-0 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 transition-all duration-200 origin-top-right overflow-hidden ${
           isHovered
             ? 'opacity-100 scale-100 translate-y-0 visible'
             : 'opacity-0 scale-95 -translate-y-2 invisible'

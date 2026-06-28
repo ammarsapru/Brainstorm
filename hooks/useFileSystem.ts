@@ -3,6 +3,8 @@ import { FileSystemItem, IdeaCard } from '../types';
 import { DEFAULT_CARD_STYLE } from '../constants';
 import { generateId } from '../utils/generateId';
 import { uploadFileToS3 } from '../lib/supabase';
+import { showUploadToast } from '../utils/toast';
+import { mimeToFileSubtype, mimeToImageSubtype } from '../utils/cardMigration';
 
 export interface UseFileSystemResult {
   fileSystem: FileSystemItem[];
@@ -21,6 +23,10 @@ export interface UseFileSystemResult {
   setFullScreenImage: Dispatch<SetStateAction<string | null>>;
   fullScreenPdf: { src: string; title?: string } | null;
   setFullScreenPdf: Dispatch<SetStateAction<{ src: string; title?: string } | null>>;
+  fullScreenBrowser: { src: string; title?: string } | null;
+  setFullScreenBrowser: Dispatch<SetStateAction<{ src: string; title?: string } | null>>;
+  fullScreenCode: { src: string; fileName?: string } | null;
+  setFullScreenCode: Dispatch<SetStateAction<{ src: string; fileName?: string } | null>>;
   handleToggleFolder: (id: string) => void;
   handleMoveFileSystemItem: (sourceId: string, targetFolderId: string) => void;
   handleUploadToFolder: (file: File, folderId: string) => Promise<void>;
@@ -141,6 +147,8 @@ export function useFileSystem({
   const [splitDropdownOpen, setSplitDropdownOpen] = useState<'primary' | 'secondary' | null>(null);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
   const [fullScreenPdf, setFullScreenPdf] = useState<{ src: string; title?: string } | null>(null);
+  const [fullScreenBrowser, setFullScreenBrowser] = useState<{ src: string; title?: string } | null>(null);
+  const [fullScreenCode, setFullScreenCode] = useState<{ src: string; fileName?: string } | null>(null);
 
   const findFile = useCallback((items: FileSystemItem[], id: string) => findFileById(items, id), []);
 
@@ -149,22 +157,26 @@ export function useFileSystem({
   }, []);
 
   const handleMoveFileSystemItem = useCallback((sourceId: string, targetFolderId: string) => {
+    isDirtyRef.current = true;
     setFileSystem(prev => {
       const result = removeFileSystemItem(prev, sourceId);
       if (!result.removed) return prev;
       return insertIntoFileSystem(result.newItems, targetFolderId, result.removed);
     });
-  }, []);
+  }, [isDirtyRef]);
 
   const handleUploadToFolder = useCallback(async (file: File, folderId: string) => {
+    const dismiss = showUploadToast(file.name);
     const url = await uploadFileToS3(file);
+    dismiss();
     if (!url) return;
+    isDirtyRef.current = true;
     const newItem: FileSystemItem = {
       id: generateId(), type: 'file', name: file.name,
       content: url, mediaType: file.type || 'application/octet-stream', createdAt: Date.now(),
     };
     setFileSystem(prev => insertIntoFileSystem(prev, folderId, newItem));
-  }, []);
+  }, [isDirtyRef]);
 
   const handleInitiateMoveFile = useCallback((fileId: string) => {
     setFolderSelectModal({ isOpen: true, pendingFileId: fileId });
@@ -197,6 +209,7 @@ export function useFileSystem({
       return;
     }
 
+    isDirtyRef.current = true;
     const newItem: FileSystemItem = {
       id: generateId(),
       type: type as 'file' | 'folder',
@@ -209,7 +222,7 @@ export function useFileSystem({
 
     setFileSystem(prev => insertIntoFileSystem(prev, parentId, newItem));
     if (type === 'file') setActiveDocId(newItem.id);
-  }, [creationModal, onCollectionCreate]);
+  }, [creationModal, onCollectionCreate, isDirtyRef]);
 
   const handleSaveDoc = useCallback((id: string, content: string, name: string) => {
     isDirtyRef.current = true;
@@ -260,24 +273,62 @@ export function useFileSystem({
   }, []);
 
   const handleUploadImage = useCallback(async (file: File) => {
+    const dismiss = showUploadToast(file.name);
     const publicUrl = await uploadFileToS3(file);
+    dismiss();
     if (!publicUrl) return;
     handleAddCard(window.innerWidth / 2, window.innerHeight / 2, {
-      image: publicUrl, height: 200, style: { ...DEFAULT_CARD_STYLE },
+      fileName: file.name,
+      kind: 'image',
+      imageSubtype: mimeToImageSubtype(file.type, file.name),
+      url: publicUrl,
+      image: publicUrl,
+      width: 300,
+      height: 200,
+      style: { ...DEFAULT_CARD_STYLE },
     });
     setFileSystem(prev => addImageToFileSystem(prev, publicUrl, file.type));
   }, [handleAddCard, addImageToFileSystem]);
 
   const handleUploadDoc = useCallback(async (file: File) => {
+    const dismiss = showUploadToast(file.name);
     const publicUrl = await uploadFileToS3(file);
+    dismiss();
     if (!publicUrl) return;
-    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const fileSubtype = mimeToFileSubtype(file.type, file.name);
+
+    let extractedContent: string | undefined;
+    if (fileSubtype === 'pdf') {
+      try {
+        const { extractPdfText } = await import('../utils/pdfExtractor');
+        const rawText = await extractPdfText(publicUrl);
+        if (rawText.trim()) {
+          const blocks = rawText.split('\n\n').filter(Boolean).map((para, i) => ({
+            id: `p${i}`, text: para.trim(), style: { listType: 'none' as const },
+          }));
+          extractedContent = JSON.stringify(blocks);
+        }
+      } catch { /* silent — card created without content */ }
+    } else if (fileSubtype === 'txt' || fileSubtype === 'md' || fileSubtype === 'code') {
+      try {
+        const raw = await file.text();
+        const blocks = raw.split('\n').map((line, i) => ({
+          id: `l${i}`, text: line, style: { listType: 'none' as const },
+        }));
+        extractedContent = JSON.stringify(blocks);
+      } catch { /* silent */ }
+    }
+
     handleAddCard(window.innerWidth / 2, window.innerHeight / 2, {
       fileName: file.name,
-      text: isPdf ? '' : `Document: ${file.name}`,
-      image: isPdf ? publicUrl : undefined,
-      width: isPdf ? 400 : undefined,
-      height: isPdf ? 500 : undefined,
+      kind: 'file',
+      fileSubtype,
+      url: publicUrl,
+      image: publicUrl,
+      text: '',
+      content: extractedContent,
+      width: 400,
+      height: 500,
       color: '#f3f4f6',
     });
     setFileSystem(prev => [...prev, {
@@ -287,32 +338,43 @@ export function useFileSystem({
   }, [handleAddCard]);
 
   const handleOpenFile = useCallback((item: FileSystemItem) => {
-    if (item.content?.startsWith('data:')) {
+    if (item.content) {
       const type = item.mediaType || '';
-      if (type.includes('pdf') || item.name.toLowerCase().endsWith('.pdf')) {
-        setFullScreenPdf({ src: item.content, title: item.name });
-        return;
-      } else if (type.includes('image/')) {
-        setFullScreenImage(item.content);
+      const isPdf = type.includes('pdf') || item.name.toLowerCase().endsWith('.pdf');
+      const isImage = type.startsWith('image/');
+      if (isPdf) { setFullScreenPdf({ src: item.content, title: item.name }); return; }
+      if (isImage) { setFullScreenImage(item.content); return; }
+      if (item.content.startsWith('data:')) {
+        const link = document.createElement('a');
+        link.href = item.content;
+        link.download = item.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
         return;
       }
-      const link = document.createElement('a');
-      link.href = item.content;
-      link.download = item.name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      return;
     }
     setActiveDocId(item.id);
   }, []);
 
   const handleOpenCard = useCallback((card: IdeaCard) => {
-    if (card.image) {
-      if (card.image.startsWith('data:application/pdf') || card.fileName?.toLowerCase().endsWith('.pdf')) {
-        setFullScreenPdf({ src: card.image, title: card.fileName });
+    if (card.kind === 'browser') {
+      setFullScreenBrowser({ src: card.url || '', title: card.text || 'Browser' });
+      return;
+    }
+    const mediaSrc = card.url ?? card.image;
+    if (mediaSrc) {
+      const isPdf =
+        card.kind === 'file' && card.fileSubtype === 'pdf' ||
+        mediaSrc.startsWith('data:application/pdf') ||
+        card.fileName?.toLowerCase().endsWith('.pdf') ||
+        mediaSrc.toLowerCase().includes('.pdf');
+      if (isPdf) {
+        setFullScreenPdf({ src: mediaSrc, title: card.fileName });
+      } else if (card.kind === 'file' && card.fileSubtype === 'code') {
+        setFullScreenCode({ src: mediaSrc, fileName: card.fileName });
       } else {
-        setFullScreenImage(card.image);
+        setFullScreenImage(mediaSrc);
       }
       return;
     }
@@ -349,5 +411,7 @@ export function useFileSystem({
     handleOpenCard,
     addImageToFileSystem,
     findFile,
+    fullScreenBrowser, setFullScreenBrowser,
+    fullScreenCode, setFullScreenCode,
   };
 }

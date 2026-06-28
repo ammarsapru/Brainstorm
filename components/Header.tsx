@@ -16,6 +16,7 @@ interface HeaderProps {
   onSave?: () => void; // Added onSave prop
   onSwitchAccount?: () => void; // New Prop
   onExportMasterPDF?: () => void;
+  isPdfExporting?: boolean;
   onExportJSON?: () => void;
   isSaving?: boolean;
   saveStatus?: 'idle' | 'working' | 'saving' | 'saved' | 'error';
@@ -35,6 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSave,
   onSwitchAccount,
   onExportMasterPDF,
+  isPdfExporting = false,
   onExportJSON,
   isSaving = false,
   saveStatus = 'saved',
@@ -153,10 +155,11 @@ export const Header: React.FC<HeaderProps> = ({
               <Tooltip text="Export entire session as a structured PDF" position="bottom">
                 <button
                   onClick={onExportMasterPDF}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                  disabled={isPdfExporting}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Download className="w-4 h-4" />
-                  <span className="hidden sm:inline">Master PDF</span>
+                  <Download className={`w-4 h-4 ${isPdfExporting ? 'animate-bounce' : ''}`} />
+                  <span className="hidden sm:inline">{isPdfExporting ? 'Generating...' : 'Master PDF'}</span>
                 </button>
               </Tooltip>
             )}

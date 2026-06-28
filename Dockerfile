@@ -32,7 +32,7 @@ RUN echo "server { \
     add_header X-Frame-Options 'DENY' always; \
     add_header Referrer-Policy 'strict-origin-when-cross-origin' always; \
     add_header Permissions-Policy 'camera=(), microphone=(), geolocation=()' always; \
-    add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com https://api.openai.com https://api.anthropic.com https://fonts.googleapis.com https://fonts.gstatic.com https://huggingface.co https://*.huggingface.co; img-src 'self' blob: data: https:; worker-src 'self' blob:; object-src 'none'; base-uri 'self';\" always; \
+    add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com https://api.openai.com https://api.anthropic.com https://fonts.googleapis.com https://fonts.gstatic.com https://huggingface.co https://*.huggingface.co; img-src 'self' blob: data: https:; worker-src 'self' blob:; frame-src https: blob:; object-src 'none'; base-uri 'self';\" always; \
     location / { \
         root   /usr/share/nginx/html; \
         index  index.html index.htm; \

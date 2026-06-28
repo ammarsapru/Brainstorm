@@ -7,6 +7,7 @@ import { buildFileSystemTree } from '../utils/tree-transformer';
 import { INITIAL_CARDS, INITIAL_COLLECTIONS } from '@/constants';
 import { loadChatHistory } from '../../../../services/chatService';
 import { showToast } from '../../../../utils/toast';
+import { migrateCard } from '../../../../utils/cardMigration';
 
 interface UseWorkspaceResult {
     session: Session | null;
@@ -97,7 +98,7 @@ export function useWorkspace(
             if (collectionsError) throw collectionsError;
             if (strokesError) throw strokesError;
 
-            const cards: IdeaCard[] = (cardsData || []).map((c: Record<string, unknown>) => ({
+            const cards: IdeaCard[] = (cardsData || []).map((c: Record<string, unknown>) => migrateCard({
                 id: c.id as string,
                 x: c.x as number,
                 y: c.y as number,
@@ -108,11 +109,16 @@ export function useWorkspace(
                 color: c.color as string,
                 style: c.style as IdeaCard['style'],
                 image: c.image as string | undefined,
+                url: c.image as string | undefined,
                 fileName: c.file_name as string | undefined,
                 collectionId: c.collection_id as string | undefined,
                 cardType: (c.card_type as IdeaCard['cardType']) ?? 'note',
                 typeData: (c.type_data as Record<string, unknown>) ?? undefined,
-            }));
+                kind: (c.type_data as Record<string, unknown>)?.kind as IdeaCard['kind'] | undefined,
+                fileSubtype: (c.type_data as Record<string, unknown>)?.fileSubtype as IdeaCard['fileSubtype'] | undefined,
+                imageSubtype: (c.type_data as Record<string, unknown>)?.imageSubtype as IdeaCard['imageSubtype'] | undefined,
+                shape: (c.type_data as Record<string, unknown>)?.shape as IdeaCard['shape'] | undefined,
+            } as IdeaCard));
 
             const connections: Connection[] = (connsData || []).map(c =>
                 connectionFromDbRow(c as Record<string, unknown>)

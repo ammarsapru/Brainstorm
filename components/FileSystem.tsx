@@ -14,6 +14,7 @@ interface FileSystemProps {
   onMoveItem?: (sourceId: string, targetFolderId: string) => void;
   onUploadToFolder?: (file: File, folderId: string) => void;
   onInitiateMoveFile?: (fileId: string) => void;
+  onPlaceOnCanvas?: (item: FileSystemItem, clientX: number, clientY: number) => void;
 }
 
 export const FileSystem: React.FC<FileSystemProps> = ({
@@ -27,13 +28,16 @@ export const FileSystem: React.FC<FileSystemProps> = ({
   onDelete,
   onMoveItem,
   onUploadToFolder,
-  onInitiateMoveFile
+  onInitiateMoveFile,
+  onPlaceOnCanvas
 }) => {
 
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  // Touch-only pointer drag of a file onto the canvas (mouse keeps HTML5 DnD).
+  const touchFileRef = useRef<{ item: FileSystemItem; moved: boolean } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -90,9 +94,11 @@ export const FileSystem: React.FC<FileSystemProps> = ({
             style={{ paddingLeft: `${level * 12 + 8}px` }}
             onClick={(e) => {
               // If clicking anywhere on the row, we toggle folder or open file
-              // BUT if menu was open, we might want to just close menu? 
+              // BUT if menu was open, we might want to just close menu?
               // For now, let's keep standard behavior but allow the menu button to override.
               e.stopPropagation();
+              // Suppress open if this tap was actually a touch-drag onto the canvas.
+              if (touchFileRef.current?.moved) return;
               if (menuOpenId === item.id) {
                 setMenuOpenId(null);
                 return;
@@ -110,6 +116,24 @@ export const FileSystem: React.FC<FileSystemProps> = ({
             }}
             draggable={item.type === 'file'}
             onDragStart={(e) => handleDragStart(e, item)}
+            style={item.type === 'file' ? { touchAction: 'none' } : undefined}
+            onPointerDown={(e) => {
+              if (item.type !== 'file' || e.pointerType !== 'touch' || !onPlaceOnCanvas) return;
+              e.currentTarget.setPointerCapture(e.pointerId);
+              touchFileRef.current = { item, moved: false };
+            }}
+            onPointerMove={(e) => {
+              if (e.pointerType !== 'touch' || !touchFileRef.current) return;
+              touchFileRef.current.moved = true;
+            }}
+            onPointerUp={(e) => {
+              if (e.pointerType !== 'touch' || !touchFileRef.current) return;
+              const dragged = touchFileRef.current;
+              const overCanvas = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest('[data-canvas-root]');
+              if (dragged.moved && overCanvas) onPlaceOnCanvas?.(dragged.item, e.clientX, e.clientY);
+              // Clear after the click handler (which fires next) has read `moved`.
+              setTimeout(() => { touchFileRef.current = null; }, 0);
+            }}
             onDragOver={(e) => {
               if (item.type === 'folder') {
                 e.preventDefault();
@@ -217,7 +241,7 @@ export const FileSystem: React.FC<FileSystemProps> = ({
             >
               <button
                 onClick={() => startRenaming(item)}
-                className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
               >
                 <Pencil className="w-3 h-3" /> Rename
               </button>
@@ -228,7 +252,7 @@ export const FileSystem: React.FC<FileSystemProps> = ({
                   }
                   setMenuOpenId(null);
                 }}
-                className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2"
+                className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
               >
                 <Trash2 className="w-3 h-3" /> Delete
               </button>
@@ -237,13 +261,13 @@ export const FileSystem: React.FC<FileSystemProps> = ({
                   <div className="h-px bg-gray-100 my-1"></div>
                   <button
                     onClick={() => { onCreateFile(item.id); setMenuOpenId(null); }}
-                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                   >
                     <FilePlus className="w-3 h-3" /> New File
                   </button>
                   <button
                     onClick={() => { onCreateFolder(item.id); setMenuOpenId(null); }}
-                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                   >
                     <Plus className="w-3 h-3" /> New Folder
                   </button>
@@ -260,7 +284,7 @@ export const FileSystem: React.FC<FileSystemProps> = ({
                       input.click();
                       setMenuOpenId(null); 
                     }}
-                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                   >
                     <Upload className="w-3 h-3" /> Upload File
                   </button>
@@ -274,7 +298,7 @@ export const FileSystem: React.FC<FileSystemProps> = ({
                       onInitiateMoveFile?.(item.id); 
                       setMenuOpenId(null); 
                     }}
-                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                   >
                     <Move className="w-3 h-3" /> Move to Folder...
                   </button>
@@ -297,6 +321,7 @@ export const FileSystem: React.FC<FileSystemProps> = ({
               onMoveItem={onMoveItem}
               onUploadToFolder={onUploadToFolder}
               onInitiateMoveFile={onInitiateMoveFile}
+              onPlaceOnCanvas={onPlaceOnCanvas}
             />
           )}
         </div>

@@ -13,16 +13,18 @@ interface APIKeyModalProps {
   requiredProvider?: 'google' | 'openai' | 'anthropic';
 }
 
-const KEY_PREFIXES: Record<keyof APIKeys, string> = {
+const KEY_PREFIXES: Partial<Record<keyof APIKeys, string>> = {
   gemini: 'AIzaSy',
   openai: 'sk-',
   anthropic: 'sk-ant-',
+  llamacloud: 'llx-',
 };
 
 const validateKey = (field: keyof APIKeys, value: string | undefined): string | undefined => {
   if (!value?.trim()) return undefined;
-  if (!value.startsWith(KEY_PREFIXES[field])) {
-    const labels: Record<keyof APIKeys, string> = { gemini: 'AIzaSy...', openai: 'sk-...', anthropic: 'sk-ant-...' };
+  const prefix = KEY_PREFIXES[field];
+  if (prefix && !value.startsWith(prefix)) {
+    const labels: Partial<Record<keyof APIKeys, string>> = { gemini: 'AIzaSy...', openai: 'sk-...', anthropic: 'sk-ant-...', llamacloud: 'llx-...' };
     return `Key should start with "${labels[field]}"`;
   }
   return undefined;
@@ -210,6 +212,29 @@ export const APIKeyModal: React.FC<APIKeyModalProps> = ({
                 className={`w-full px-3 py-2 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none font-mono text-xs ${errors.anthropic ? 'border-red-400' : 'border-gray-200'}`}
               />
               {errors.anthropic && <p className="text-[10px] text-red-500">{errors.anthropic}</p>}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="font-semibold text-gray-700 flex justify-between items-center">
+                <span>LlamaParse <span className="font-normal text-gray-400 text-[10px]">(PDF reading)</span></span>
+                <span className="flex gap-2">
+                  <a href="https://cloud.llamaindex.ai/" target="_blank" rel="noreferrer" className="text-[10px] text-violet-500 hover:underline">Get key</a>
+                  <span className="text-[10px] text-gray-300">|</span>
+                  <a href="https://cloud.llamaindex.ai/" target="_blank" rel="noreferrer" className="text-[10px] text-amber-500 hover:underline">Free 1000 pages/day</a>
+                </span>
+              </label>
+              <input
+                type="password"
+                placeholder="llx-..."
+                value={keys.llamacloud || ''}
+                onChange={e => handleFieldChange('llamacloud', e.target.value)}
+                autoComplete="off"
+                data-lpignore="true"
+                data-1p-ignore
+                className={`w-full px-3 py-2 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none font-mono text-xs ${errors.llamacloud ? 'border-red-400' : 'border-gray-200'}`}
+              />
+              {errors.llamacloud && <p className="text-[10px] text-red-500">{errors.llamacloud}</p>}
+              <p className="text-[10px] text-gray-400">Enables AI-quality reading of complex PDFs, .docx exports, and scanned documents.</p>
             </div>
           </div>
 

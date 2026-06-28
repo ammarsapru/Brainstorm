@@ -1,10 +1,12 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { IdeaCard, Connection, FileSystemItem, ChatMessage, APIKeys } from "../types";
+import { GoogleGenAI, Type, type Part } from "@google/genai";
+import { IdeaCard, Connection, FileSystemItem, ChatMessage, ChatAttachment, APIKeys } from "../types";
 import { uploadFileToS3, callAIProxy } from '../lib/supabase';
 import { embeddingService } from './embeddingService';
 import { getProviderForModel } from '../utils/llmModels';
 import debugLog from '../utils/debugLog';
 import { showToast } from '../utils/toast';
+import { extractPdfText } from '../utils/pdfExtractor';
+import { extractPdfTextViaLlamaParse, extractPdfTextViaGemini } from '../utils/pdfTextExtractor';
 
 const requireNonEmptyKey = (key: string | undefined | null, providerLabel: string): string => {
   const trimmed = (key || '').trim();
@@ -106,7 +108,25 @@ export type ChatRequestOptions = {
   handoffContext?: string;
   /** AbortSignal to cancel the in-flight request when user navigates away or sends a new message */
   signal?: AbortSignal;
+  /** Images/files attached by the user in this message */
+  attachments?: ChatAttachment[];
 };
+
+/** Fetch a public URL and return base64 data for multimodal payloads (used for Gemini). */
+async function fetchBase64(url: string): Promise<{ data: string; mimeType: string } | null> {
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const mimeType = blob.type || 'image/jpeg';
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve({ data: (reader.result as string).split(',')[1], mimeType });
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch { return null; }
+}
 
 export const summarizeChatHandoff = async (
   priorThread: ChatMessage[],
@@ -171,42 +191,67 @@ Action types:
 {"actions":[
   {"type":"search_cards","query":"keyword"},
   {"type":"read_card","id":"card-id"},
-  {"type":"create_cards","cards":[{"id":"c1","text":"Title","content":"content here","color":"#ffeba8"}]},
-  {"type":"update_cards","updates":[{"id":"card-id","text":"New Title","content":"Updated content","color":"#ffcaca","x":400,"y":300}]},
+  {"type":"create_cards","cards":[{"id":"c1","text":"Title","kind":"text","content":"body text here","color":"#ffeba8"}]},
+  {"type":"update_cards","updates":[{"id":"card-id","text":"New Title","content":"Updated body","color":"#ffcaca","x":400,"y":300}]},
   {"type":"delete_cards","ids":["card-id"]},
   {"type":"connect_cards","connections":[{"fromId":"c1","toId":"c2","style":"dashed","color":"#ffcaca","relationType":"parent-child"}]},
   {"type":"update_connections","updates":[{"id":"conn-id","style":"solid","color":"#e9f5db","relationType":"equivalence"}]},
   {"type":"delete_connections","ids":["conn-id"]}
 ]}
 
-Connection field values:
+**read_card** returns the full body for text cards. For PDF, document, and code file cards it extracts and returns the complete file content automatically — you don't need to explain any limitations to the user.
+**search_cards** does semantic search and returns matching card summaries.
+
+**Card kinds** — include \`kind\` in create_cards to control how the card renders:
+- "text" (default) — note/document card with an editable rich-text body (\`content\` field)
+- "label" — large visual section header on the canvas; purely a title, no body; great for grouping clusters
+- "browser" — embeds a live website inside the card; requires \`url\` field (full https:// URL)
+- "image" — displays an image; requires \`url\` field (must be a direct image URL ending in .jpg/.png/etc)
+Omit kind (or use "text") for regular note cards. Infer the right kind from context.
+
+**Flowcharts** — label cards support a \`shape\` field that turns them into flowchart nodes:
+- "rectangle" (default) — a process / action step
+- "diamond" — a decision / yes-no branch
+- "circle" — a start or end node
+- "square" — a generic node
+To build a flowchart: create label cards with the right \`shape\`, keep their \`text\` short (a few words), and use connect_cards (relationType "parent-child") to link the flow. Label decision branches by writing the condition into the next card's text (e.g. a card after a diamond).
+
+**Content fields**:
+- \`text\` = the card's header/title — keep it short (one line)
+- \`content\` = the card's document body text — write full paragraphs here, separated by \\n
+- To APPEND to an existing card's content without replacing it: first use read_card to read the current body, then use update_cards with original body + your new content joined with \\n\\n
+
+**Spatial rules**:
+- Card positions are shown as pos:(x,y) in the canvas context. The canvas context also shows "Suggested position for new cards" — use coordinates near that suggestion for new cards so they appear in empty space.
+- You may override x,y in create_cards if you want specific placement. The view will automatically pan to newly created cards.
+- When asked to spread, rearrange, or organise: use update_cards with new x,y values spread across the canvas.
+
+**Connection field values**:
 - style: "solid" | "dashed" | "dotted"
 - relationType: "equivalence" (arrows both ends) | "parent-child" (circle→arrow) | "child-parent" (arrow→circle)
 - color: any hex color — omit field to keep default
 
-Example — creating 3 colored connected cards with styled lines in ONE response:
+Colors: #ffffff White · #ffeba8 Yellow · #ffcaca Red · #e9f5db Green · #e0f2fe Blue · #f3e8ff Purple
+
+Example — creating 3 colored connected cards in ONE response:
 {"actions":[
   {"type":"create_cards","cards":[
-    {"id":"c1","text":"Event A","content":"Full explanation of Event A.","color":"#ffeba8"},
-    {"id":"c2","text":"Event B","content":"Full explanation of Event B.","color":"#ffcaca"},
-    {"id":"c3","text":"Event C","content":"Full explanation of Event C.","color":"#e9f5db"}
+    {"id":"c1","text":"Event A","kind":"text","content":"Full explanation of Event A.","color":"#ffeba8"},
+    {"id":"c2","text":"Event B","kind":"text","content":"Full explanation of Event B.","color":"#ffcaca"},
+    {"id":"c3","text":"Event C","kind":"label","color":"#e9f5db"}
   ]},
   {"type":"connect_cards","connections":[
     {"fromId":"c1","toId":"c2","style":"solid","color":"#ffeba8","relationType":"parent-child"},
-    {"fromId":"c2","toId":"c3","style":"dashed","color":"#ffcaca","relationType":"parent-child"}
+    {"fromId":"c2","toId":"c3","style":"dashed","relationType":"parent-child"}
   ]}
 ]}
 
-Colors: #ffffff White · #ffeba8 Yellow · #ffcaca Red · #e9f5db Green · #e0f2fe Blue · #f3e8ff Purple
-
 Rules:
-- Multi-action: when asked to create + color + connect (or any combination), put ALL action types in one actions array — never split into separate replies.
-- Color goes directly on the card in create_cards — do NOT use a separate update_cards step just to add color after creation.
+- Multi-action: put ALL action types in one actions array — never split into separate replies.
+- Color goes directly on the card in create_cards — do NOT use a separate update_cards step just to add color.
 - When creating multiple cards: assign a DIFFERENT color from the palette to each card.
-- When creating cards you plan to connect: give each a short temporary id (e.g. "c1", "c2"), then reference those ids in connect_cards. Action order matters: create_cards must come BEFORE connect_cards in the array.
-- To reposition cards: include x and y in update_cards. Card positions are shown as pos:(x,y) in the canvas context.
-- When asked to spread out or rearrange: use update_cards with new x,y values for each card.
-When you output a JSON block: keep your text to 1-3 sentences only — confirm what you did, nothing more.
+- When creating cards you plan to connect: give each a short temporary id (e.g. "c1", "c2"), then reference those ids in connect_cards. create_cards must come BEFORE connect_cards in the array.
+When you output a JSON block: ONE sentence, under 12 words total. Examples: "Done." / "Created 10 cards." / "Connected and coloured." NEVER describe what the cards contain, never list topics, never explain the changes — the user can see the canvas.
 Do NOT list card IDs, pre-announce the plan, or narrate every change.
 Use search_cards before answering questions about specific card content.`;
 
@@ -221,6 +266,7 @@ Use search_cards before answering questions about specific card content.`;
 4. When you act (canvas actions): do it decisively, confirm in 1-3 sentences, never announce first.
 5. When creating cards: write 3-4 substantive sentences in the \`content\` field. When explicitly asked to fill out or expand a card's content: write at least 10 paragraphs of 2 sentences each — cover the topic thoroughly.
 6. Use search_cards proactively when you need the full text of a card before answering.
+7. **File and PDF cards**: when the user asks about the content of a PDF, document, or code file on the canvas, you MUST use \`read_card\` with that card's ID. The platform will extract and return the full text from the file automatically. NEVER say you cannot read a file — always attempt \`read_card\` first. Only after receiving the file content should you respond.
 
 **Act vs. talk guide:**
 - "Add / brainstorm / create" → create_cards
@@ -230,7 +276,9 @@ Use search_cards before answering questions about specific card content.`;
 - Ambiguous request → ask ONE clarifying question, then act on the answer
 ${capabilitiesBlock}${handoffBlock}
 
-Board context (use card IDs exactly as shown):
+In your chat text, always refer to cards by their title (e.g. "the 'Week 2' card"), never by their ID. Use IDs only inside JSON action objects.
+
+Board context (use card IDs exactly as shown in JSON actions):
 ${boardContext}`;
 
   const executeAttempt = async (currentMessage: string, depth: number = 0): Promise<string> => {
@@ -239,21 +287,25 @@ ${boardContext}`;
     let resultText = "";
 
     try {
-      // Try server-side proxy first — keys stored encrypted, never in browser
+      // Try server-side proxy first — keys stored encrypted, never in browser.
+      // Skip proxy when attachments are present: the text-only Edge Function can't forward image data.
       let usedProxy = false;
-      try {
-        const data = await callAIProxy({
-          action: 'chat',
-          modelId,
-          systemPrompt: sysPrompt,
-          history: history.map(m => ({ role: m.role, text: m.text })),
-          newMessage: currentMessage,
-        }, options.signal);
-        resultText = (data.text as string) ?? '';
-        usedProxy = true;
-      } catch (err: any) {
-        if (err?.name === 'AbortError') throw err;
-        // Proxy unavailable or no server-side key — fall through to direct calls
+      const hasAttachments = (options.attachments?.length ?? 0) > 0;
+      if (!hasAttachments) {
+        try {
+          const data = await callAIProxy({
+            action: 'chat',
+            modelId,
+            systemPrompt: sysPrompt,
+            history: history.map(m => ({ role: m.role, text: m.text })),
+            newMessage: currentMessage,
+          }, options.signal);
+          resultText = (data.text as string) ?? '';
+          usedProxy = true;
+        } catch (err: any) {
+          if (err?.name === 'AbortError') throw err;
+          // Proxy unavailable or no server-side key — fall through to direct calls
+        }
       }
 
       if (!usedProxy) {
@@ -262,13 +314,23 @@ ${boardContext}`;
       if (getProviderForModel(modelId) === 'openai') {
         if (!apiKeys.openai) return "Please add your OpenAI API Key in Settings (⚙️).";
 
+        // Build multimodal user content if attachments present
+        const userContent: unknown[] = [{ type: 'text', text: currentMessage }];
+        for (const att of options.attachments ?? []) {
+          if (att.type === 'image') {
+            userContent.push({ type: 'image_url', image_url: { url: att.url, detail: 'auto' } });
+          } else {
+            userContent.push({ type: 'text', text: `[Attached file: ${att.name} — ${att.url}]` });
+          }
+        }
+
         const messages = [
           { role: 'system', content: sysPrompt },
           ...history.map(msg => ({
             role: msg.role === 'model' ? 'assistant' : 'user',
             content: msg.text
           })),
-          { role: 'user', content: currentMessage }
+          { role: 'user', content: userContent.length > 1 ? userContent : currentMessage }
         ];
 
         const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -292,12 +354,29 @@ ${boardContext}`;
       else if (getProviderForModel(modelId) === 'anthropic') {
         if (!apiKeys.anthropic) return "Please add your Anthropic API Key in Settings (⚙️).";
 
+        // Build multimodal user content parts for Anthropic
+        const userParts: unknown[] = [];
+        for (const att of options.attachments ?? []) {
+          if (att.type === 'image') {
+            if (att.url.startsWith('data:')) {
+              const [header, b64data] = att.url.split(',');
+              const mediaType = header.match(/data:(.*);base64/)?.[1] || 'image/jpeg';
+              userParts.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: b64data } });
+            } else {
+              userParts.push({ type: 'image', source: { type: 'url', url: att.url } });
+            }
+          } else {
+            userParts.push({ type: 'text', text: `[Attached file: ${att.name} — ${att.url}]` });
+          }
+        }
+        userParts.push({ type: 'text', text: currentMessage });
+
         const messages = [
           ...history.map(msg => ({
             role: msg.role === 'model' ? 'assistant' : 'user',
             content: msg.text
           })),
-          { role: 'user', content: currentMessage }
+          { role: 'user', content: userParts.length > 1 ? userParts : currentMessage }
         ];
 
         const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -341,7 +420,23 @@ ${boardContext}`;
           config: { systemInstruction: sysPrompt }
         });
 
-        const result = await chat.sendMessage({ message: currentMessage });
+        // Build multimodal parts for Gemini — images must be inlined as base64
+        const geminiParts: Part[] = [];
+        for (const att of options.attachments ?? []) {
+          if (att.type === 'image') {
+            const b64 = att.url.startsWith('data:')
+              ? { data: att.url.split(',')[1], mimeType: att.url.match(/data:(.*);base64/)?.[1] || 'image/jpeg' }
+              : await fetchBase64(att.url);
+            if (b64) {
+              geminiParts.push({ inlineData: { data: b64.data, mimeType: b64.mimeType } });
+            }
+          } else {
+            geminiParts.push({ text: `[Attached file: ${att.name} — ${att.url}]` });
+          }
+        }
+        geminiParts.push({ text: currentMessage });
+
+        const result = await chat.sendMessage({ message: geminiParts });
         resultText = result.text || "I didn't catch that.";
       }
       } // end if (!usedProxy)
@@ -360,24 +455,117 @@ ${boardContext}`;
           if (parsed.actions && Array.isArray(parsed.actions)) {
             const searchAction = parsed.actions.find((a: any) => a.type === 'search_cards');
             if (searchAction && searchAction.query) {
-              // Execute local RAG
               const results = await embeddingService.searchSimilar(searchAction.query);
-              const contextString = results.map(r => `[ID: ${r.card.id}, Text: ${r.card.text}, Content Snippet: ${(r.card.content || '').substring(0, 100)}, Color: ${r.card.color}]`).join('\\n');
+              const parseBody = (content?: string): string => {
+                if (!content) return '';
+                try {
+                  const blocks = JSON.parse(content);
+                  if (Array.isArray(blocks)) {
+                    const text = blocks
+                      .map((b: any) => (b.text || '').replace(/<[^>]+>/g, '').replace(/&[a-z]+;/gi, ' ').trim())
+                      .filter(Boolean).join(' ');
+                    return text.length > 300 ? text.slice(0, 300) + '…' : text;
+                  }
+                } catch { /* not JSON */ }
+                return content.substring(0, 300);
+              };
+              const contextString = results.map(r => {
+                const kindLabel = r.card.kind === 'file'
+                  ? `[file/${r.card.fileSubtype || 'other'} "${r.card.fileName || ''}"]`
+                  : r.card.kind ? `[${r.card.kind}]` : '[text]';
+                const body = parseBody(r.card.content);
+                return `ID: ${r.card.id}, ${kindLabel} Title: "${r.card.text || r.card.fileName || ''}", Body: "${body || 'empty'}"`;
+              }).join('\n');
 
               const internalSystemResponse = `(System): Search results for "${searchAction.query}":\n${contextString}\nPlease proceed with the user's original request using this new context.`;
-
-              // Recursive RLM call
               return await executeAttempt(internalSystemResponse, depth + 1);
             }
 
             const readAction = parsed.actions.find((a: any) => a.type === 'read_card');
             if (readAction && readAction.id) {
+              debugLog('aiService', 'read_card action triggered for id:', readAction.id);
               const cardData = await embeddingService.getCardById(readAction.id);
+              debugLog('aiService', 'read_card card data:', cardData ? `kind=${cardData.kind} url=${cardData.url ? 'present' : 'missing'}` : 'NOT FOUND');
               if (cardData) {
-                const internalSystemResponse = `(System): Full content for card ${readAction.id}:\nTitle: ${cardData.text}\nColor: ${cardData.color}\nContent: ${cardData.content || 'None'}\nPlease proceed with the user's original request using this new context.`;
+                const title = cardData.text || cardData.fileName || 'Untitled';
+                const kindLabel = cardData.kind
+                  ? `${cardData.kind}${cardData.fileSubtype ? `/${cardData.fileSubtype}` : ''}`
+                  : 'text';
+                let bodyText = '';
+
+                // Helper: parse DocBlock JSON to plain text
+                const parseDocBlocks = (raw?: string): string => {
+                  if (!raw) return '';
+                  try {
+                    const blocks = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                    if (Array.isArray(blocks)) {
+                      return blocks
+                        .map((b: any) => (b.text || '').replace(/<[^>]+>/g, '').replace(/&[a-z]+;/gi, ' ').trim())
+                        .filter(Boolean)
+                        .join('\n');
+                    }
+                    return String(raw);
+                  } catch { return String(raw); }
+                };
+
+                if (cardData.kind === 'file' || cardData.kind === 'image') {
+                  const url = cardData.url;
+                  if (url) {
+                    const isPdf = url.toLowerCase().includes('.pdf') || cardData.fileSubtype === 'pdf';
+                    debugLog('aiService', 'read_card file extraction:', { url: url.slice(0, 60), isPdf });
+                    if (isPdf) {
+                      // Priority: LlamaParse → Gemini vision → pdfjs → stored content
+                      if (!bodyText && apiKeys.llamacloud) {
+                        try {
+                          bodyText = await extractPdfTextViaLlamaParse(url, apiKeys.llamacloud);
+                          debugLog('aiService', 'read_card LlamaParse extracted length:', bodyText.length);
+                        } catch (e) { debugLog.warn('aiService', 'LlamaParse failed', e); }
+                      }
+                      if (!bodyText && apiKeys.gemini) {
+                        try {
+                          bodyText = await extractPdfTextViaGemini(url, apiKeys.gemini);
+                          debugLog('aiService', 'read_card Gemini extracted length:', bodyText.length);
+                        } catch (e) { debugLog.warn('aiService', 'Gemini extraction failed', e); }
+                      }
+                      if (!bodyText) {
+                        try {
+                          bodyText = await extractPdfText(url);
+                          debugLog('aiService', 'read_card pdfjs extracted length:', bodyText.length);
+                        } catch (e) {
+                          debugLog.warn('aiService', 'pdfjs extraction failed, using stored content', e);
+                          bodyText = parseDocBlocks(cardData.content);
+                        }
+                      }
+                    } else {
+                      try {
+                        const res = await fetch(url, { mode: 'cors' });
+                        if (res.ok) {
+                          const raw = await res.text();
+                          bodyText = raw.length > 60_000 ? raw.slice(0, 60_000) + '\n[truncated]' : raw;
+                        } else {
+                          bodyText = parseDocBlocks(cardData.content);
+                        }
+                      } catch {
+                        bodyText = parseDocBlocks(cardData.content);
+                      }
+                    }
+                    // Final fallback: always return stored content if extraction produced nothing
+                    if (!bodyText.trim()) {
+                      bodyText = parseDocBlocks(cardData.content);
+                    }
+                  } else {
+                    // No URL — use stored content
+                    bodyText = parseDocBlocks(cardData.content);
+                  }
+                } else if (cardData.content) {
+                  // Text card — parse DocBlocks
+                  bodyText = parseDocBlocks(cardData.content);
+                }
+
+                const internalSystemResponse = `(System): Full content of card titled "${title}" (${kindLabel}):\n\n${bodyText || '(no body content)'}\n\nPlease proceed with the user's original request using this information.`;
                 return await executeAttempt(internalSystemResponse, depth + 1);
               } else {
-                const internalSystemResponse = `(System): Card with ID ${readAction.id} not found.`;
+                const internalSystemResponse = `(System): Card not found. Use search_cards to find the card you need.`;
                 return await executeAttempt(internalSystemResponse, depth + 1);
               }
             }

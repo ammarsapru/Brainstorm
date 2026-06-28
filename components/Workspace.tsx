@@ -10,7 +10,10 @@ import { APIKeyModal } from './APIKeyModal';
 import { ErrorBoundary } from './ErrorBoundary';
 import { FullScreenImageOverlay } from './FullScreenImageOverlay';
 import { FullScreenPdfOverlay } from './FullScreenPdfOverlay';
+import { FullScreenBrowserOverlay } from './FullScreenBrowserOverlay';
+import { FullScreenCodeOverlay } from './FullScreenCodeOverlay';
 import { CreationModal } from './CreationModal';
+import { CardCreationMenu } from './CardCreationMenu';
 import { CollectionSelectorModal } from './CollectionSelectorModal';
 import { FolderSelectorModal } from './FolderSelectorModal';
 import { DrawingLayer } from './DrawingLayer';
@@ -31,7 +34,8 @@ import { uploadFileToS3 } from '../lib/supabase';
 import { embeddingService } from '../services/embeddingService';
 import { generateId } from '../utils/generateId';
 import debugLog from '../utils/debugLog';
-import { showToast } from '../utils/toast';
+import { showToast, showUploadToast } from '../utils/toast';
+import { mimeToFileSubtype, mimeToImageSubtype } from '../utils/cardMigration';
 
 interface WorkspaceProps {
   session: Session;
@@ -166,6 +170,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     splitDropdownOpen, setSplitDropdownOpen,
     fullScreenImage, setFullScreenImage,
     fullScreenPdf, setFullScreenPdf,
+    fullScreenBrowser, setFullScreenBrowser,
+    fullScreenCode, setFullScreenCode,
     handleToggleFolder, handleMoveFileSystemItem, handleUploadToFolder,
     handleInitiateMoveFile, handleFolderSelect,
     handleCreateFile, handleCreateFolder, handleCreateCollection,
@@ -178,14 +184,36 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     isDirtyRef,
     handleAddCard,
     handleUpdateCard,
-    onCollectionCreate: (name) => setCollections(prev => [...prev, { id: generateId(), name }]),
+    onCollectionCreate: (name) => { isDirtyRef.current = true; setCollections(prev => [...prev, { id: generateId(), name }]); },
   });
 
-  // 8. AI canvas actions (needs all card/connection/chat primitives)
+  // 8. Pan-to-cards: centres + zooms to fit a set of card IDs
+  const panToCards = useCallback((cardIds: string[]) => {
+    const targets = cardsRef.current.filter(c => cardIds.includes(c.id));
+    if (!targets.length) return;
+    const minX = Math.min(...targets.map(c => c.x));
+    const minY = Math.min(...targets.map(c => c.y));
+    const maxX = Math.max(...targets.map(c => c.x + (c.width  || CARD_WIDTH)));
+    const maxY = Math.max(...targets.map(c => c.y + (c.height || CARD_HEIGHT)));
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const padding = 120;
+    const zoomX = (vw - padding * 2) / Math.max(maxX - minX + CARD_WIDTH,  1);
+    const zoomY = (vh - padding * 2) / Math.max(maxY - minY + CARD_HEIGHT, 1);
+    const newScale = Math.min(Math.max(Math.min(zoomX, zoomY), 0.25), 1.2);
+    setViewport({ x: vw / 2 - centerX * newScale, y: vh / 2 - centerY * newScale, scale: newScale });
+  }, [cardsRef, setViewport]);
+
+  // 9. AI canvas actions (needs all card/connection/chat primitives)
   const { isProcessingAI, handleGenerateAI, handleSendMessage } = useAICanvas({
     ensureKeyForModel, selectedModelId, apiKeys,
-    cardsRef, connectionsRef, setConnections, handleUpdateConnection,
+    cardsRef, connectionsRef, viewportRef, setConnections,
+    syncUpdateConnection, deleteConnection,
+    handleUpdateConnection,
     handleAddCard, handleUpdateCard, handleDeleteCard, addCardsBatch,
+    panToCards,
     chatHistory, setChatHistory, setIsChatProcessing,
     handoffContextRef, sessionId: session.id,
   });
@@ -200,6 +228,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   const [dragCardOffset, setDragCardOffset] = useState<Point>({ x: 0, y: 0 });
   const [mousePos, setMousePos] = useState<Point>({ x: 0, y: 0 });
   const [clickPopup, setClickPopup] = useState<{ x: number, y: number } | null>(null);
+  const [cardCreationMenu, setCardCreationMenu] = useState<{ x: number; y: number } | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const activePointerIdRef = useRef<number | null>(null);
@@ -254,7 +283,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
 
   // Embedding sync (deferred, low-priority)
   useEffect(() => {
-    const sig = cards.map(c => `${c.id}|${c.text}|${c.color}|${c.content || ''}`).join('\n');
+    const sig = cards.map(c => `${c.id}|${c.text}|${c.color}|${c.fileName || ''}|${c.content || ''}`).join('\n');
     if (cardsEmbeddingSignatureRef.current === sig) return;
     cardsEmbeddingSignatureRef.current = sig;
     const run = () => embeddingService.syncCards(cards).catch(console.error);
@@ -329,14 +358,21 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     if (card) setMousePos({ x: card.x, y: card.y });
   }, [setConnectingFromId]);
 
+  const [isPdfExporting, setIsPdfExporting] = useState(false);
   const handleExportMasterPDF = useCallback(async () => {
+    if (isPdfExporting) return;
+    setIsPdfExporting(true);
+    showToast('Generating PDF...', 'info', 8000);
     try {
       await generateMasterPDF(sessionName, cards, connections);
+      showToast('PDF downloaded!', 'success');
     } catch (err) {
       debugLog.error('Workspace', 'PDF export failed', err);
       showToast('Failed to export PDF. Please try again.', 'error');
+    } finally {
+      setIsPdfExporting(false);
     }
-  }, [sessionName, cards, connections]);
+  }, [isPdfExporting, sessionName, cards, connections]);
 
   const handleExportJSON = useCallback(() => {
     const exportData = { name: sessionName, exportedAt: new Date().toISOString(), cards, connections, fileSystem, collections, strokes };
@@ -382,6 +418,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     }
 
     setClickPopup(null);
+    setCardCreationMenu(null);
     if (connectingFromId) {
       if (e.currentTarget.setPointerCapture) {
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -391,11 +428,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       handleAddCard(e.clientX, e.clientY, { id: newId });
       isDirtyRef.current = true;
       const newConnId = generateId();
-      setConnections(prev => [...prev, {
+      const newConn = {
         id: newConnId, fromId: connectingFromId, toId: newId,
         style: DEFAULT_CONNECTION_STYLE, arrowStart: DEFAULT_ARROW_START,
         arrowEnd: DEFAULT_ARROW_END, relationType: DEFAULT_RELATION_TYPE,
-      }]);
+      };
+      setConnections(prev => [...prev, newConn]);
+      syncUpdateConnection(newConn);
       setConnectingFromId(null);
       setSelectedConnectionId(newConnId);
       return;
@@ -430,7 +469,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       setDragStart({ x: e.clientX, y: e.clientY });
       setMode('pan');
     }
-  }, [connectingFromId, mode, drawingTool, strokeColor, strokeRadius, screenToWorld, handleAddCard, setConnections, setConnectingFromId, setSelectedConnectionId, setSelectedId]);
+  }, [connectingFromId, mode, drawingTool, strokeColor, strokeRadius, screenToWorld, handleAddCard, setConnections, syncUpdateConnection, setConnectingFromId, setSelectedConnectionId, setSelectedId]);
 
   const handlePointerDownCard = useCallback((e: React.PointerEvent, id: string) => {
     e.stopPropagation();
@@ -442,11 +481,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     if (connectingFromId && connectingFromId !== id) {
       isDirtyRef.current = true;
       const newConnId = generateId();
-      setConnections(prev => [...prev, {
+      const newConn = {
         id: newConnId, fromId: connectingFromId, toId: id,
         style: DEFAULT_CONNECTION_STYLE, arrowStart: DEFAULT_ARROW_START,
         arrowEnd: DEFAULT_ARROW_END, relationType: DEFAULT_RELATION_TYPE,
-      }]);
+      };
+      setConnections(prev => [...prev, newConn]);
+      syncUpdateConnection(newConn);
       setConnectingFromId(null);
       setSelectedConnectionId(newConnId);
       return;
@@ -461,11 +502,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
         setDragCardOffset({ x: card.x - worldMouse.x, y: card.y - worldMouse.y });
       }
     }
-  }, [connectingFromId, mode, screenToWorld, setConnections, setConnectingFromId, setSelectedConnectionId, setSelectedId]);
+  }, [connectingFromId, mode, screenToWorld, setConnections, syncUpdateConnection, setConnectingFromId, setSelectedConnectionId, setSelectedId]);
 
   const handleCardDoubleClick = useCallback((e: React.MouseEvent, id: string) => {
     const card = cardsRef.current.find(c => c.id === id);
-    if (card) handleOpenCard(card);
+    if (card && card.kind !== 'label' && card.kind !== 'browser') handleOpenCard(card);
   }, [handleOpenCard]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
@@ -567,6 +608,27 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     return () => { if (el) el.removeEventListener('wheel', handleWheel); };
   }, []);
 
+  // Deletes a card AND removes any associated file system entry linked by URL or filename
+  const handleDeleteCardAndFile = useCallback((id: string) => {
+    const card = cardsRef.current.find(c => c.id === id);
+    if (card && (card.image || card.fileName)) {
+      isDirtyRef.current = true;
+      setFileSystem(prev => {
+        const remove = (items: FileSystemItem[]): FileSystemItem[] =>
+          items
+            .filter(item => !(
+              item.type === 'file' && (
+                (card.image && item.content === card.image) ||
+                (card.fileName && item.name === card.fileName)
+              )
+            ))
+            .map(item => ({ ...item, children: item.children ? remove(item.children) : undefined }));
+        return remove(prev);
+      });
+    }
+    handleDeleteCard(id);
+  }, [handleDeleteCard, cardsRef, setFileSystem, isDirtyRef]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -604,7 +666,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
         if (activeDocId !== null || fullScreenImage !== null || creationModal.isOpen || collectionSelectModal.isOpen || isApiKeyModalOpen) return;
         if (target.closest('.sidebar') || target.closest('.header') || target.closest('.aichat') || target.closest('button')) return;
         if (selectedId && !isInput) {
-          handleDeleteCard(selectedId);
+          handleDeleteCardAndFile(selectedId);
         } else if (selectedConnectionId && !isInput) {
           deleteConnection(selectedConnectionId);
           setConnections(prev => prev.filter(c => c.id !== selectedConnectionId));
@@ -617,7 +679,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
-  }, [selectedId, selectedConnectionId, activeDocId, fullScreenImage, creationModal.isOpen, collectionSelectModal.isOpen, isApiKeyModalOpen, handleMoveFocusVertical, handleDeleteCard, deleteConnection, setConnections, setSelectedConnectionId, setConnColorPickerOpen]);
+  }, [selectedId, selectedConnectionId, activeDocId, fullScreenImage, creationModal.isOpen, collectionSelectModal.isOpen, isApiKeyModalOpen, handleMoveFocusVertical, handleDeleteCardAndFile, deleteConnection, setConnections, setSelectedConnectionId, setConnColorPickerOpen]);
 
   // Paste handler
   useEffect(() => {
@@ -627,14 +689,50 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       if (e.clipboardData) {
         const items = e.clipboardData.items;
         for (let i = 0; i < items.length; i++) {
-          if (items[i].type.indexOf('image') !== -1) {
+          if (items[i].type === 'application/pdf') {
             const blob = items[i].getAsFile();
             if (blob) {
+              const pdfName = (blob as File).name || 'document.pdf';
+              const dismissPdf = showUploadToast(pdfName);
               uploadFileToS3(blob).then(publicUrl => {
+                dismissPdf();
                 if (publicUrl) {
                   const center = screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
                   const pos = findEmptyPosition(center.x, center.y);
-                  handleAddCard(undefined, undefined, { x: pos.x, y: pos.y, image: publicUrl, height: 200, style: { ...DEFAULT_CARD_STYLE } });
+                  handleAddCard(undefined, undefined, {
+                    x: pos.x, y: pos.y, fileName: pdfName,
+                    kind: 'file', fileSubtype: 'pdf',
+                    url: publicUrl, image: publicUrl,
+                    text: '', width: 400, height: 500, color: '#f3f4f6',
+                    style: { ...DEFAULT_CARD_STYLE },
+                  });
+                  isDirtyRef.current = true;
+                  setFileSystem(prev => [...prev, {
+                    id: generateId(), type: 'file', name: pdfName,
+                    content: publicUrl, mediaType: 'application/pdf', createdAt: Date.now(),
+                  }]);
+                }
+              });
+              e.preventDefault(); return;
+            }
+          }
+          if (items[i].type.indexOf('image') !== -1) {
+            const blob = items[i].getAsFile();
+            if (blob) {
+              const imgName = (blob as File).name || 'image';
+              const dismissImg = showUploadToast(imgName);
+              uploadFileToS3(blob).then(publicUrl => {
+                dismissImg();
+                if (publicUrl) {
+                  const center = screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
+                  const pos = findEmptyPosition(center.x, center.y);
+                  handleAddCard(undefined, undefined, {
+                    x: pos.x, y: pos.y,
+                    kind: 'image', imageSubtype: mimeToImageSubtype(blob.type, (blob as File).name ?? ''),
+                    url: publicUrl, image: publicUrl, width: 300, height: 200,
+                    style: { ...DEFAULT_CARD_STYLE },
+                  });
+                  isDirtyRef.current = true;
                   setFileSystem(prev => addImageToFileSystem(prev, publicUrl, blob.type));
                 }
               });
@@ -655,52 +753,68 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     return () => window.removeEventListener('paste', handlePaste);
   }, [handleAddCard, screenToWorld, findEmptyPosition, setFileSystem, addImageToFileSystem]);
 
+  // Place an existing file-system doc onto the canvas as a card. Shared by the
+  // mouse HTML5-drop path and the touch pointer-drag path (from FileSystem).
+  const placeDocOnCanvas = useCallback((doc: FileSystemItem, clientX: number, clientY: number) => {
+    if (doc.mediaType?.startsWith('image/')) {
+      handleAddCard(clientX, clientY, { image: doc.content, height: 200, style: { ...DEFAULT_CARD_STYLE } });
+    } else {
+      let cardText = doc.content || '';
+      if (cardText.startsWith('data:')) {
+        cardText = `Document: ${doc.name}`;
+      } else {
+        try { const p = JSON.parse(cardText); if (Array.isArray(p)) cardText = p.map((b: any) => b.text).join('\n'); } catch {}
+      }
+      const isPdf = doc.mediaType === 'application/pdf' || doc.name.toLowerCase().endsWith('.pdf');
+      handleAddCard(clientX, clientY, isPdf ? {
+        fileName: doc.name, kind: 'file', fileSubtype: 'pdf',
+        url: doc.content, image: doc.content,
+        text: '', width: 400, height: 500,
+        color: '#f8fafc', style: { ...DEFAULT_CARD_STYLE, fontSize: 14 },
+      } : {
+        text: cardText || doc.name, fileName: doc.name,
+        color: '#f8fafc', style: { ...DEFAULT_CARD_STYLE, fontSize: 14 },
+      });
+    }
+  }, [handleAddCard]);
+
   // Drop handler
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const docId = e.dataTransfer.getData('application/react-dnd-doc-id');
     if (docId) {
       const doc = findFile(fileSystem, docId);
-      if (doc) {
-        if (doc.mediaType?.startsWith('image/')) {
-          handleAddCard(e.clientX, e.clientY, { image: doc.content, height: 200, style: { ...DEFAULT_CARD_STYLE } });
-        } else {
-          let cardText = doc.content || '';
-          if (cardText.startsWith('data:')) {
-            cardText = `Document: ${doc.name}`;
-          } else {
-            try { const p = JSON.parse(cardText); if (Array.isArray(p)) cardText = p.map((b: any) => b.text).join('\n'); } catch {}
-          }
-          const isPdf = doc.mediaType === 'application/pdf';
-          handleAddCard(e.clientX, e.clientY, {
-            text: isPdf ? '' : (cardText || doc.name), fileName: doc.name,
-            color: '#f8fafc', image: isPdf ? doc.content : undefined,
-            width: isPdf ? 400 : undefined, height: isPdf ? 500 : undefined,
-            style: { ...DEFAULT_CARD_STYLE, fontSize: 14 },
-          });
-        }
-      }
+      if (doc) placeDocOnCanvas(doc, e.clientX, e.clientY);
       return;
     }
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       Array.from(e.dataTransfer.files).forEach((file: File, index: number) => {
+        const dismissDrop = showUploadToast(file.name);
         uploadFileToS3(file).then(publicUrl => {
+          dismissDrop();
           if (!publicUrl) return;
           const dropX = e.clientX + index * 20;
           const dropY = e.clientY + index * 20;
           if (file.type.startsWith('image/')) {
-            handleAddCard(dropX, dropY, { image: publicUrl, height: 200, style: { ...DEFAULT_CARD_STYLE } });
+            handleAddCard(dropX, dropY, {
+              fileName: file.name, kind: 'image',
+              imageSubtype: mimeToImageSubtype(file.type, file.name),
+              url: publicUrl, image: publicUrl, width: 300, height: 200,
+              style: { ...DEFAULT_CARD_STYLE },
+            });
             setFileSystem(prev => addImageToFileSystem(prev, publicUrl, file.type));
-          } else if (file.type === 'text/plain' || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
-            handleAddCard(dropX, dropY, { fileName: file.name, text: `Document: ${file.name}`, color: '#f3f4f6' });
-          } else if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-            handleAddCard(dropX, dropY, { fileName: file.name, image: publicUrl, text: '', width: 400, height: 500, color: '#f3f4f6' });
           } else {
-            handleAddCard(dropX, dropY, { fileName: file.name, text: `File: ${file.name}`, color: '#f3f4f6' });
+            handleAddCard(dropX, dropY, {
+              fileName: file.name, kind: 'file',
+              fileSubtype: mimeToFileSubtype(file.type, file.name),
+              url: publicUrl, image: publicUrl, text: '', width: 400, height: 500,
+              color: '#f3f4f6',
+            });
           }
           if (!file.type.startsWith('image/')) {
             setFileSystem(prev => [...prev, { id: generateId(), type: 'file', name: file.name, content: publicUrl, mediaType: file.type || 'application/octet-stream', createdAt: Date.now() }]);
           }
+          isDirtyRef.current = true;
         });
       });
     }
@@ -750,17 +864,19 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       ref={wrapperRef}
       role="application"
       aria-label="Brainstorm canvas"
+      data-canvas-root="true"
       className="fixed inset-0 overflow-hidden bg-black select-none font-sans"
       onPointerDown={handlePointerDownCanvas}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
-      onDoubleClick={(e) => { if (e.target === containerRef.current || e.target === wrapperRef.current) handleAddCard(e.clientX, e.clientY); }}
+      onDoubleClick={(e) => { if (e.target === containerRef.current || e.target === wrapperRef.current) { setClickPopup(null); setCardCreationMenu({ x: e.clientX, y: e.clientY }); } }}
       onContextMenu={(e) => {
         const target = e.target as HTMLElement;
         if (!target.closest('.group') && !target.closest('.sidebar') && !target.closest('.header') && !target.closest('button')) {
           e.preventDefault();
-          setClickPopup({ x: e.clientX, y: e.clientY });
+          setClickPopup(null);
+          setCardCreationMenu({ x: e.clientX, y: e.clientY });
         }
       }}
       onDragOver={handleDragOver}
@@ -773,24 +889,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
         backgroundSize: `${50 * viewport.scale}px ${50 * viewport.scale}px`,
       }}
     >
-      {clickPopup && (
-        <div
-          className="absolute z-50 transform -translate-x-1/2 -translate-y-1/2 animate-in fade-in zoom-in duration-200"
-          style={{ left: clickPopup.x, top: clickPopup.y }}
-        >
-          <button
-            className="bg-zinc-900 text-white px-5 py-3 rounded-xl shadow-2xl border border-zinc-700 hover:bg-zinc-800 flex items-center gap-2 font-medium transition-colors"
-            onPointerLeave={() => setClickPopup(null)}
-            onPointerDown={(e) => {
-              e.stopPropagation(); e.preventDefault();
-              handleAddCard(clickPopup.x, clickPopup.y);
-              setClickPopup(null);
-            }}
-          >
-            <Plus className="w-4 h-4 text-blue-400" />
-            Create Card Here
-          </button>
-        </div>
+      {cardCreationMenu && (
+        <CardCreationMenu
+          x={cardCreationMenu.x}
+          y={cardCreationMenu.y}
+          onClose={() => setCardCreationMenu(null)}
+          onSelectText={() => handleAddCard(cardCreationMenu.x, cardCreationMenu.y, { kind: 'text' })}
+          onSelectLabel={() => handleAddCard(cardCreationMenu.x, cardCreationMenu.y, { kind: 'label', width: 200, height: 50, color: '#f9fafb' })}
+          onSelectBrowser={() => handleAddCard(cardCreationMenu.x, cardCreationMenu.y, { kind: 'browser', url: '', width: 860, height: 560, color: '#f8fafc' })}
+          onImageFile={(file) => handleUploadImage(file)}
+          onDocFile={(file) => handleUploadDoc(file)}
+        />
       )}
 
       <div onPointerDown={(e) => e.stopPropagation()}>
@@ -806,6 +915,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
           onLogout={onLogout}
           onSwitchAccount={onSwitchAccount}
           onExportMasterPDF={handleExportMasterPDF}
+          isPdfExporting={isPdfExporting}
           onExportJSON={handleExportJSON}
           isSaving={isSaving || hasUnsavedChanges}
           saveStatus={saveStatus}
@@ -943,7 +1053,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
               isSelected={selectedId === card.id}
               scale={viewport.scale}
               onUpdate={handleUpdateCard}
-              onDelete={handleDeleteCard}
+              onDelete={handleDeleteCardAndFile}
               onPointerDown={handlePointerDownCard}
               onDoubleClick={handleCardDoubleClick}
               onConnectStart={startConnection}
@@ -973,6 +1083,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
         strokeRadius={strokeRadius}
         setStrokeRadius={setStrokeRadius}
         onAddCard={() => handleAddCard()}
+        onPlaceFileOnCanvas={placeDocOnCanvas}
         onUploadImage={handleUploadImage}
         onUploadDoc={handleUploadDoc}
         fileSystem={fileSystem.filter(f => f.name !== '__strokes__.json')}
@@ -990,6 +1101,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
         onCreateCollection={handleCreateCollection}
         onMoveCardToCollection={handleMoveCardToCollection}
         onRenameFile={(id, newName) => {
+          isDirtyRef.current = true;
           setFileSystem(prev => {
             const update = (items: FileSystemItem[]): FileSystemItem[] =>
               items.map(item => item.id === id
@@ -1000,6 +1112,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
           });
         }}
         onDeleteFile={(id) => {
+          isDirtyRef.current = true;
           const filterRecursive = (items: FileSystemItem[], targetId: string): FileSystemItem[] =>
             items.filter(item => item.id !== targetId).map(item => ({
               ...item, children: item.children ? filterRecursive(item.children, targetId) : undefined
@@ -1013,6 +1126,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
 
       {fullScreenImage && <FullScreenImageOverlay src={fullScreenImage} onClose={() => setFullScreenImage(null)} />}
       {fullScreenPdf && <FullScreenPdfOverlay src={fullScreenPdf.src} title={fullScreenPdf.title} onClose={() => setFullScreenPdf(null)} />}
+      {fullScreenBrowser && <FullScreenBrowserOverlay src={fullScreenBrowser.src} title={fullScreenBrowser.title} onClose={() => setFullScreenBrowser(null)} />}
+      {fullScreenCode && <FullScreenCodeOverlay src={fullScreenCode.src} fileName={fullScreenCode.fileName} onClose={() => setFullScreenCode(null)} />}
 
       <CreationModal
         isOpen={creationModal.isOpen}
@@ -1140,23 +1255,25 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
         </ErrorBoundary>
       )}
 
-      <HelpGuide />
-      <AIChat
-        history={chatHistoryForModel}
-        onSendMessage={handleSendMessage}
-        isProcessing={isChatProcessing || isHandoffProcessing}
-        onSettingsClick={() => openApiKeyModal('settings')}
-        selectedModelId={selectedModelId}
-        onModelChange={handleModelChange}
-      />
-      <APIKeyModal
-        isOpen={isApiKeyModalOpen}
-        onClose={() => setIsApiKeyModalOpen(false)}
-        onSave={persistKeys}
-        currentKeys={apiKeys}
-        variant={apiKeyModalVariant}
-        requiredProvider={requiredProvider}
-      />
+      <div onPointerDown={(e) => e.stopPropagation()}>
+        <HelpGuide />
+        <AIChat
+          history={chatHistoryForModel}
+          onSendMessage={handleSendMessage}
+          isProcessing={isChatProcessing || isHandoffProcessing}
+          onSettingsClick={() => openApiKeyModal('settings')}
+          selectedModelId={selectedModelId}
+          onModelChange={handleModelChange}
+        />
+        <APIKeyModal
+          isOpen={isApiKeyModalOpen}
+          onClose={() => setIsApiKeyModalOpen(false)}
+          onSave={persistKeys}
+          currentKeys={apiKeys}
+          variant={apiKeyModalVariant}
+          requiredProvider={requiredProvider}
+        />
+      </div>
 
       {cards.length === 0 && isNewUser && !showOnboarding && (
         <div

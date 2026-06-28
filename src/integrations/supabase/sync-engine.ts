@@ -248,11 +248,14 @@ export class SyncEngine {
                         last.text !== card.text || last.color !== card.color ||
                         last.width !== card.width || last.height !== card.height ||
                         JSON.stringify(last.style) !== JSON.stringify(card.style) ||
-                        last.image !== card.image ||
+                        (last.url ?? last.image) !== (card.url ?? card.image) ||
                         last.fileName !== card.fileName ||
                         last.collectionId !== card.collectionId ||
                         last.content !== card.content ||
-                        last.cardType !== card.cardType ||
+                        last.kind !== card.kind ||
+                        last.fileSubtype !== card.fileSubtype ||
+                        last.imageSubtype !== card.imageSubtype ||
+                        last.shape !== card.shape ||
                         JSON.stringify(last.typeData) !== JSON.stringify(card.typeData);
 
                     if (isChanged) {
@@ -272,11 +275,17 @@ export class SyncEngine {
                         height: c.height,
                         color: c.color,
                         style: c.style,
-                        image: c.image,
+                        image: c.url ?? c.image,
                         file_name: c.fileName,
                         collection_id: c.collectionId,
-                        card_type: c.cardType ?? 'note',
-                        type_data: c.typeData ?? {},
+                        card_type: c.kind ?? c.cardType ?? 'note',
+                        type_data: {
+                            ...(c.typeData ?? {}),
+                            ...(c.kind ? { kind: c.kind } : {}),
+                            ...(c.fileSubtype ? { fileSubtype: c.fileSubtype } : {}),
+                            ...(c.imageSubtype ? { imageSubtype: c.imageSubtype } : {}),
+                            ...(c.shape ? { shape: c.shape } : {}),
+                        },
                     }));
 
                     const { error } = await supabase.from('cards').upsert(cardsPayload);
