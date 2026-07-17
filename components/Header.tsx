@@ -152,14 +152,15 @@ export const Header: React.FC<HeaderProps> = ({
             )}
 
             {onExportMasterPDF && (
-              <Tooltip text="Export entire session as a structured PDF" position="bottom">
+              <Tooltip text="Compile an editable PDF draft" position="bottom">
                 <button
                   onClick={onExportMasterPDF}
                   disabled={isPdfExporting}
+                  data-testid="master-pdf-button"
                   className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Download className={`w-4 h-4 ${isPdfExporting ? 'animate-bounce' : ''}`} />
-                  <span className="hidden sm:inline">{isPdfExporting ? 'Generating...' : 'Master PDF'}</span>
+                  <span className="hidden sm:inline">{isPdfExporting ? 'Compiling...' : 'Master PDF'}</span>
                 </button>
               </Tooltip>
             )}

@@ -18,9 +18,11 @@ import { CollectionSelectorModal } from './CollectionSelectorModal';
 import { FolderSelectorModal } from './FolderSelectorModal';
 import { DrawingLayer } from './DrawingLayer';
 import { OnboardingOverlay } from './OnboardingOverlay';
+import { PdfPreviewEditor } from './PdfPreviewEditor';
 import { IdeaCard, Connection, Viewport, ToolMode, Point, ConnectionStyle, ArrowType, FileSystemItem, Session, RelationType, ChatMessage, ChatAttachment, Collection, UserProfile, Stroke, DrawingTool } from '../types';
 import { DEFAULT_CONNECTION_STYLE, DEFAULT_ARROW_END, DEFAULT_ARROW_START, DEFAULT_RELATION_TYPE, CARD_WIDTH, CARD_HEIGHT, DEFAULT_CARD_STYLE, DEFAULT_COLLECTION_ID, INITIAL_COLLECTIONS } from '../constants';
-import { generateMasterPDF } from '../services/pdfService';
+import { buildExportDraft } from '../services/exportDraftService';
+import { ExportDraft } from '../services/exportDraftTypes';
 import { useDrawing } from '../hooks/useDrawing';
 import { useCanvasViewport } from '../hooks/useCanvasViewport';
 import { useModelChat } from '../hooks/useModelChat';
@@ -230,6 +232,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   const [clickPopup, setClickPopup] = useState<{ x: number, y: number } | null>(null);
   const [cardCreationMenu, setCardCreationMenu] = useState<{ x: number; y: number } | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [pdfDraft, setPdfDraft] = useState<ExportDraft | null>(null);
 
   const activePointerIdRef = useRef<number | null>(null);
   const autoPanRestoreRef = useRef<ToolMode | null>(null);
@@ -362,13 +365,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
   const handleExportMasterPDF = useCallback(async () => {
     if (isPdfExporting) return;
     setIsPdfExporting(true);
-    showToast('Generating PDF...', 'info', 8000);
+    showToast('Compiling PDF draft...', 'info', 8000);
     try {
-      await generateMasterPDF(sessionName, cards, connections);
-      showToast('PDF downloaded!', 'success');
+      const draft = await buildExportDraft(sessionName, cards, connections, { appendOriginalPdfPages: true });
+      setPdfDraft(draft);
+      showToast('PDF draft ready to edit.', 'success');
     } catch (err) {
-      debugLog.error('Workspace', 'PDF export failed', err);
-      showToast('Failed to export PDF. Please try again.', 'error');
+      debugLog.error('Workspace', 'PDF draft generation failed', err);
+      showToast('Failed to compile PDF draft. Please try again.', 'error');
     } finally {
       setIsPdfExporting(false);
     }
@@ -865,6 +869,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       role="application"
       aria-label="Brainstorm canvas"
       data-canvas-root="true"
+      data-testid="canvas"
       className="fixed inset-0 overflow-hidden bg-black select-none font-sans"
       onPointerDown={handlePointerDownCanvas}
       onPointerMove={handlePointerMove}
@@ -1128,6 +1133,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
       {fullScreenPdf && <FullScreenPdfOverlay src={fullScreenPdf.src} title={fullScreenPdf.title} onClose={() => setFullScreenPdf(null)} />}
       {fullScreenBrowser && <FullScreenBrowserOverlay src={fullScreenBrowser.src} title={fullScreenBrowser.title} onClose={() => setFullScreenBrowser(null)} />}
       {fullScreenCode && <FullScreenCodeOverlay src={fullScreenCode.src} fileName={fullScreenCode.fileName} onClose={() => setFullScreenCode(null)} />}
+      {pdfDraft && (
+        <PdfPreviewEditor
+          initialDraft={pdfDraft}
+          onClose={() => setPdfDraft(null)}
+          onExported={() => showToast('PDF downloaded!', 'success')}
+        />
+      )}
 
       <CreationModal
         isOpen={creationModal.isOpen}

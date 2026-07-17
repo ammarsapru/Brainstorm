@@ -87,6 +87,8 @@ export interface IdeaCard {
   shape?: LabelShape;          // only when kind === 'label' — flowchart shape (default 'rectangle')
   url?: string;                // canonical media URL (image/file cards)
   fileName?: string;           // display name for file/image cards
+  exportRole?: 'auto' | 'chapter' | 'section' | 'appendix' | 'ignore';
+  exportTitleOverride?: string;
   typeData?: Record<string, unknown>;
   // Deprecated fields — kept so old loaded sessions still type-check during migration
   image?: string;
