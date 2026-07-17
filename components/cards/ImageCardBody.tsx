@@ -11,8 +11,14 @@ export const ImageCardBody: React.FC<ImageCardBodyProps> = ({ url, fileName, onI
 
   return (
     <div
+      data-testid="image-card-body"
       className="flex-1 min-h-[120px] w-full overflow-hidden bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity"
-      onClick={(e) => { e.stopPropagation(); if (!imgError) onImageClick?.(url); }}
+      title="Double-click to open image"
+      onPointerDown={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        if (!imgError) onImageClick?.(url);
+      }}
     >
       {imgError ? (
         <div className="w-full h-full min-h-[120px] flex items-center justify-center text-gray-400 text-xs">
