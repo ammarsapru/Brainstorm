@@ -19,6 +19,7 @@ export const FullScreenImageOverlay = ({ src, onClose }: { src: string; onClose:
   return (
     <div
       ref={containerRef}
+      data-testid="fullscreen-image-overlay"
       className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-8 animate-in fade-in duration-200"
       onClick={onClose}
       onPointerDown={(e) => e.stopPropagation()}
@@ -31,6 +32,7 @@ export const FullScreenImageOverlay = ({ src, onClose }: { src: string; onClose:
         onClick={(e) => e.stopPropagation()}
       />
       <button
+        aria-label="Close full screen image"
         className="absolute top-4 right-4 text-white/70 hover:text-white p-3 bg-black/50 hover:bg-black/80 rounded-full transition-colors"
         onClick={(e) => { e.stopPropagation(); onClose(); }}
       >

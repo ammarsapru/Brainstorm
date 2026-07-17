@@ -86,6 +86,7 @@ export const CardCreationMenu: React.FC<CardCreationMenuProps> = ({
   return (
     <div
       ref={menuRef}
+      data-testid="card-creation-menu"
       className="fixed z-[200] bg-white rounded-xl shadow-2xl border border-gray-200 py-1.5 animate-in fade-in zoom-in-95 duration-150"
       style={{ left, top, width: menuW }}
       onPointerDown={(e) => e.stopPropagation()}
@@ -93,6 +94,7 @@ export const CardCreationMenu: React.FC<CardCreationMenuProps> = ({
       {options.map((opt) => (
         <button
           key={opt.label}
+          data-testid={`create-${opt.label.toLowerCase().split(' ')[0]}-card-option`}
           className="w-full flex items-start gap-3 px-3 py-2.5 hover:bg-gray-50 transition-colors text-left"
           onClick={opt.action}
         >

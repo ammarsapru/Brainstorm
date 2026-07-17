@@ -295,6 +295,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="flex flex-col gap-1 animate-in slide-in-from-top-1 duration-200">
                 <button
                   onClick={onAddCard}
+                  data-testid="create-card-button"
                   className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors text-sm font-medium"
                 >
                   <Plus className="w-4 h-4 text-black" />

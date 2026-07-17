@@ -6,6 +6,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+test-results/
+playwright-report/
 
 node_modules
 dist
@@ -58,9 +60,14 @@ DEFERRED.md
 PROJECT_DESCRIPTION.txt
 future_changes
 features/
+planned changes/
 dev_log.txt
 dev_output.txt
 dev_*.txt
+Brainstorm_UI_QA_SKILL.md
+
+# Local test assets
+Data Strctures and algorithms-brainstorm.pdf
 
 # Supabase CLI local state
 supabase/.temp/

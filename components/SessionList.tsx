@@ -221,6 +221,7 @@ export const SessionList: React.FC<SessionListProps> = ({ sessions, onSelect, on
           {/* Create New Card - Updated Styles */}
           <button
             onClick={onCreate}
+            data-testid="create-canvas-button"
             className="group flex flex-col items-center justify-center h-64 rounded-3xl bg-black border-2 border-transparent hover:scale-[1.02] active:scale-95 transition-all shadow-xl"
           >
             <div className="w-14 h-14 rounded-full bg-white/10 text-white flex items-center justify-center mb-4 group-hover:bg-white group-hover:text-black transition-all">

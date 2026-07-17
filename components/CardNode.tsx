@@ -225,6 +225,7 @@ export const CardNode = React.memo<CardNodeProps>(({
       ref={cardRef}
       role="article"
       aria-label={card.text?.trim() || card.fileName || 'Idea card'}
+      data-testid="card"
       className={`absolute flex flex-col group
         ${isShapedLabel
           ? (isSelected ? 'z-20' : 'z-10')
@@ -348,6 +349,7 @@ export const CardNode = React.memo<CardNodeProps>(({
       {/* Drag handle */}
       <div
         data-html2canvas-ignore="true"
+        data-testid="card-drag-handle"
         onPointerDown={(e) => onGripDown?.(e, card.id)}
         className="h-6 w-full cursor-grab active:cursor-grabbing flex items-center justify-center bg-black/5 rounded-t-xl opacity-0 group-hover:opacity-100 transition-opacity"
       >
@@ -394,6 +396,7 @@ export const CardNode = React.memo<CardNodeProps>(({
             value={card.text}
             onChange={(e) => onUpdate(card.id, { text: e.target.value })}
             data-card-id={card.id}
+            data-testid="card-title-input"
             placeholder="Label…"
             className={`bg-transparent resize-none outline-none placeholder-gray-300 overflow-hidden text-center font-semibold text-gray-700 ${getFontFamily(card.style.fontFamily)} ${isShapedLabel ? '' : 'w-full'}`}
             style={{
@@ -438,6 +441,7 @@ export const CardNode = React.memo<CardNodeProps>(({
               value={card.text}
               onChange={(e) => onUpdate(card.id, { text: e.target.value })}
               data-card-id={card.id}
+              data-testid="card-title-input"
               onPaste={(e) => {
                 // Paste image into text cell — uploads and inserts URL as text
                 const items = e.clipboardData?.items;
@@ -534,6 +538,7 @@ export const CardNode = React.memo<CardNodeProps>(({
           <Tooltip text={isFileCard ? 'Open file viewer' : isImageCard ? 'Open full screen' : 'Open document editor'} position="bottom">
             <button
               onClick={(e) => { e.stopPropagation(); onOpenCard?.(card); }}
+              data-testid="document-open-button"
               className="p-2 bg-white rounded-full shadow-md hover:bg-gray-50 text-black border border-gray-100"
             >
               <Maximize2 className="w-4 h-4" />
@@ -543,6 +548,7 @@ export const CardNode = React.memo<CardNodeProps>(({
         <Tooltip text="Connect to another card" position="bottom">
           <button
             onClick={(e) => { e.stopPropagation(); onConnectStart(e, card.id); }}
+            data-testid="connect-card-button"
             className="p-2 bg-white rounded-full shadow-md hover:bg-gray-50 text-black border border-gray-100"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

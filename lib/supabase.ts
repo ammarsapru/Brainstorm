@@ -11,24 +11,30 @@ const FALLBACK_URL = 'https://tmafjvkhffxvksgkcxwl.supabase.co';
 const FALLBACK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtYWZqdmtoZmZ4dmtzZ2tjeHdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwMTI3MDQsImV4cCI6MjA4NDU4ODcwNH0.g6VS65nQTAUM_5DdfSi1GxxqXh4T4zCPX16U7fl_kdQ';
 
 const runtimeEnv = window.__APP_ENV__ || {};
+const disableSupabase =
+  runtimeEnv.VITE_DISABLE_SUPABASE === 'true' ||
+  import.meta.env.VITE_DISABLE_SUPABASE === 'true';
 export const supabaseUrl = normalizeSupabaseUrl(
-  runtimeEnv.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL || FALLBACK_URL
+  disableSupabase ? '' : runtimeEnv.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL || FALLBACK_URL
 );
 const supabaseAnonKey =
-  runtimeEnv.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || FALLBACK_KEY;
+  disableSupabase ? '' : runtimeEnv.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || FALLBACK_KEY;
 
 // Always log config status so it can be verified in DevTools on any environment
 console.log('[Brainstorm] Supabase config:', {
+  disabled: disableSupabase,
   url: supabaseUrl ? `✅ ${supabaseUrl}` : '❌ MISSING',
   keyLength: supabaseAnonKey?.length || 0,
   keyPrefix: supabaseAnonKey ? supabaseAnonKey.slice(0, 10) + '...' : '❌ MISSING',
 });
 
-if (!supabaseUrl || !supabaseAnonKey) {
+if (disableSupabase) {
+  console.warn('Supabase disabled by VITE_DISABLE_SUPABASE. Running in local demo mode.');
+} else if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('⚠️ Supabase is not configured. Authentication features will not work.');
 }
 
-export const supabase: SupabaseClient | null = (supabaseUrl && supabaseAnonKey)
+export const supabase: SupabaseClient | null = (!disableSupabase && supabaseUrl && supabaseAnonKey)
   ? createClient(supabaseUrl, supabaseAnonKey, {
       auth: { flowType: 'implicit' },
     })
