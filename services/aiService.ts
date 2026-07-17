@@ -219,7 +219,7 @@ To build a flowchart: create label cards with the right \`shape\`, keep their \`
 **Content fields**:
 - \`text\` = the card's header/title — keep it short (one line)
 - \`content\` = the card's document body text — write full paragraphs here, separated by \\n
-- To APPEND to an existing card's content without replacing it: first use read_card to read the current body, then use update_cards with original body + your new content joined with \\n\\n
+- To APPEND to an existing card's content without replacing it: read_card the card ONCE to get the current body, then in your NEXT response return update_cards with original body + your new content joined with \\n\\n. Never read_card the same card twice — once you have its content, write the update.
 
 **Spatial rules**:
 - Card positions are shown as pos:(x,y) in the canvas context. The canvas context also shows "Suggested position for new cards" — use coordinates near that suggestion for new cards so they appear in empty space.
@@ -282,7 +282,7 @@ Board context (use card IDs exactly as shown in JSON actions):
 ${boardContext}`;
 
   const executeAttempt = async (currentMessage: string, depth: number = 0): Promise<string> => {
-    if (depth > 3) return "I've reached my maximum thinking depth.";
+    if (depth > 8) return "I've reached my maximum thinking depth.";
 
     let resultText = "";
 
@@ -343,7 +343,7 @@ ${boardContext}`;
             model: modelId,
             messages,
             temperature: 0.8,
-            max_tokens: 4096,
+            max_tokens: 8192,
           }),
           signal: options.signal,
         });
@@ -391,7 +391,7 @@ ${boardContext}`;
             model: modelId,
             system: sysPrompt,
             messages,
-            max_tokens: 4096,
+            max_tokens: 8192,
             temperature: 0.8,
           }),
           signal: options.signal,

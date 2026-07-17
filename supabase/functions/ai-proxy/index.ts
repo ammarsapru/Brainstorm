@@ -84,7 +84,7 @@ async function callOpenAI(
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model: 'gpt-4o', messages, max_tokens: 4096, temperature: 0.8 }),
+    body: JSON.stringify({ model: 'gpt-4o', messages, max_tokens: 8192, temperature: 0.8 }),
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error?.message ?? `OpenAI ${res.status}`)
@@ -101,7 +101,7 @@ async function callAnthropic(
     ...history.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text })),
     { role: 'user', content: newMessage },
   ]
-  const body: Record<string, unknown> = { model: 'claude-3-5-sonnet-20241022', messages, max_tokens: 4096, temperature: 0.8 }
+  const body: Record<string, unknown> = { model: 'claude-3-5-sonnet-20241022', messages, max_tokens: 8192, temperature: 0.8 }
   if (systemPrompt) body.system = systemPrompt
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
