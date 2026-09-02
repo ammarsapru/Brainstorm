@@ -381,11 +381,11 @@ export class SyncEngine {
         } catch (err: any) {
             const message = err.message || 'Sync failed';
             console.error('Sync Error:', err);
-            // Avoid UI flicker if the same error repeats on retry
-            if (message !== this._lastErrorMessage) {
-                this._lastErrorMessage = message;
-                this.updateState({ status: 'error', error: message });
-            }
+            this._lastErrorMessage = message;
+            // Always re-assert the error state, even on a repeated failure — flush()
+            // flips status to 'saving' at the start of every retry, so skipping this
+            // when the message repeats silently hides an error that is still failing.
+            this.updateState({ status: 'error', error: message });
 
             dirtyCardsSnapshot.forEach(c => this.dirtyCards.set(c.id, c));
             dirtyConnectionsSnapshot.forEach(c => this.dirtyConnections.set(c.id, c));

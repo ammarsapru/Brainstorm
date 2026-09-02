@@ -24,6 +24,7 @@ interface UseWorkspaceResult {
     syncUpdateCard: (card: IdeaCard) => void;
     syncUpdateConnection: (conn: Connection) => void;
     syncStroke: (stroke: Stroke) => void;
+    syncCollection: (collection: Collection) => void;
     isHydrated: boolean;
 }
 
@@ -249,6 +250,7 @@ export function useWorkspace(
         syncUpdateCard: (card: IdeaCard) => syncEngine.queueCardUpdate(card),
         syncUpdateConnection: (conn: Connection) => syncEngine.queueConnectionUpdate(conn),
         syncStroke: (stroke: Stroke) => syncEngine.queueStrokeUpdate(stroke),
+        syncCollection: (collection: Collection) => syncEngine.queueCollectionUpdate(collection),
         isHydrated,
     };
 }

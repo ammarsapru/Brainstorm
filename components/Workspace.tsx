@@ -87,6 +87,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     syncUpdateCard,
     syncUpdateConnection,
     syncStroke,
+    syncCollection,
     isSaving,
     isHydrated,
   } = useWorkspace(session.id, session);
@@ -186,7 +187,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ session, onSave, onBack, o
     isDirtyRef,
     handleAddCard,
     handleUpdateCard,
-    onCollectionCreate: (name) => { isDirtyRef.current = true; setCollections(prev => [...prev, { id: generateId(), name }]); },
+    onCollectionCreate: (name) => {
+      isDirtyRef.current = true;
+      const newCollection = { id: generateId(), name };
+      // Sync immediately — a card can be assigned to this collection right after
+      // creation, and the FK constraint requires the collection row to exist first.
+      syncCollection(newCollection);
+      setCollections(prev => [...prev, newCollection]);
+    },
   });
 
   // 8. Pan-to-cards: centres + zooms to fit a set of card IDs
