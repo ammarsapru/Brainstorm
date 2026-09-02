@@ -48,7 +48,7 @@ export const CardCreationMenu: React.FC<CardCreationMenuProps> = ({
     {
       icon: <Type className="w-4 h-4" />,
       label: 'Text card',
-      sublabel: 'Editable note with document editor',
+      sublabel: 'Quick idea with expandable notes',
       action: () => { onSelectText(); onClose(); },
     },
     {

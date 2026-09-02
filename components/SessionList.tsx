@@ -204,8 +204,8 @@ export const SessionList: React.FC<SessionListProps> = ({ sessions, onSelect, on
         />
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-3xl font-bold text-gray-900 font-display text-center md:text-left w-full">Your Sessions (V2 - Secure)</h2>
-            <p className="text-gray-500 mt-1 font-medium text-center md:text-left w-full">Manage your brainstorming canvases and documents</p>
+            <h2 className="text-3xl font-bold text-gray-900 font-display text-center md:text-left w-full">Your Sessions</h2>
+            <p className="text-gray-500 mt-1 font-medium text-center md:text-left w-full">Open a canvas, keep building, or compile a board into a draft</p>
           </div>
         </div>
 

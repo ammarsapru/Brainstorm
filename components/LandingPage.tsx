@@ -149,7 +149,7 @@ const CardToDocAnimation = () => {
             <Sparkles className="w-4 h-4" />
           </div>
         </div>
-        <p className="text-white/40 text-center mt-6 font-medium text-sm tracking-widest uppercase">Double Tap to Expand</p>
+        <p className="text-white/40 text-center mt-6 font-medium text-sm tracking-widest uppercase">Compile to Draft</p>
       </div>
       <div className={`absolute w-[85%] h-[85%] bg-white rounded-xl shadow-2xl flex flex-col transition-all duration-700 ease-out ${stage === 'doc' ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-20 opacity-0 scale-90 pointer-events-none'}`}>
         <div className="h-12 border-b border-slate-100 flex items-center px-4 justify-between">
@@ -180,7 +180,7 @@ const CardToDocAnimation = () => {
       </div>
       <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-        <span className="text-xs font-bold text-white uppercase tracking-tighter">Live Deep-Dive Mode</span>
+        <span className="text-xs font-bold text-white uppercase tracking-tighter">Editable PDF Draft</span>
       </div>
     </div>
   );
@@ -280,12 +280,12 @@ const AIPreview = () => {
       {generated && (
         <>
           <div className="absolute top-[20%] left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 px-4 py-2 rounded-lg border border-purple-500/30 text-sm font-medium text-purple-200">Research</div>
-          <div className="absolute top-[80%] left-[20%] -translate-x-1/2 -translate-y-1/2 bg-gray-800 px-4 py-2 rounded-lg border border-purple-500/30 text-sm font-medium text-purple-200">Design</div>
-          <div className="absolute top-[80%] right-[20%] translate-x-1/2 -translate-y-1/2 bg-gray-800 px-4 py-2 rounded-lg border border-purple-500/30 text-sm font-medium text-purple-200">Develop</div>
+          <div className="absolute top-[80%] left-[20%] -translate-x-1/2 -translate-y-1/2 bg-gray-800 px-4 py-2 rounded-lg border border-purple-500/30 text-sm font-medium text-purple-200">Evidence</div>
+          <div className="absolute top-[80%] right-[20%] translate-x-1/2 -translate-y-1/2 bg-gray-800 px-4 py-2 rounded-lg border border-purple-500/30 text-sm font-medium text-purple-200">Next steps</div>
         </>
       )}
       <div className="relative z-10 bg-gray-900 w-56 h-36 rounded-2xl shadow-2xl border border-purple-500/50 flex flex-col items-center justify-center gap-4">
-        <span className="font-semibold text-white tracking-wide text-lg">New Project</span>
+        <span className="font-semibold text-white tracking-wide text-lg">Messy Board</span>
         <button
           onClick={handleGenerate}
           className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 ${
@@ -295,7 +295,7 @@ const AIPreview = () => {
           }`}
         >
           {loading ? <span className="animate-spin">✨</span> : <Sparkles className="w-3 h-3" />}
-          {generated ? 'Clear' : 'Generate Roadmap'}
+          {generated ? 'Clear' : 'Find Structure'}
         </button>
       </div>
     </div>
@@ -311,24 +311,24 @@ const ChatPreview = () => (
       <div>
         <div className="font-bold text-gray-900">Brainstorm AI</div>
         <div className="text-xs text-green-500 flex items-center gap-1">
-          <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Active · Reads your canvas
+          <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Active · Reads the whole session
         </div>
       </div>
     </div>
     <div className="flex-1 space-y-4 overflow-hidden">
       <div className="flex justify-start">
         <div className="bg-gray-100 rounded-2xl rounded-tl-none px-4 py-3 text-sm text-gray-700 max-w-[80%]">
-          I can see your 8 cards and the PDF you uploaded. How can I help?
+          I found 8 cards, 2 connections, and one uploaded PDF. Want a summary or a draft outline?
         </div>
       </div>
       <div className="flex justify-end">
         <div className="bg-blue-600 rounded-2xl rounded-tr-none px-4 py-3 text-sm text-white max-w-[80%] shadow-md">
-          Summarise the strategy cards and add an action plan.
+          Turn this board into sections and add missing next steps.
         </div>
       </div>
       <div className="flex justify-start">
         <div className="bg-gray-100 rounded-2xl rounded-tl-none px-4 py-3 text-sm text-gray-700 max-w-[80%]">
-          Based on your 3 strategy cards, the focus is <strong>community-led growth</strong>. I've added 4 action cards to your canvas.
+          I grouped the strategy cards, kept the PDF as source material, and added 4 action cards.
         </div>
       </div>
     </div>
@@ -391,9 +391,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-500">
             <a href="#canvas" onClick={scrollToSection('canvas')} className="hover:text-black transition-colors">Canvas</a>
+            <a href="#deep-dive" onClick={scrollToSection('deep-dive')} className="hover:text-black transition-colors">PDF Drafts</a>
             <a href="#ai" onClick={scrollToSection('ai')} className="hover:text-black transition-colors">AI</a>
-            <a href="#deep-dive" onClick={scrollToSection('deep-dive')} className="hover:text-black transition-colors">Documents</a>
-            <a href="#chat" onClick={scrollToSection('chat')} className="hover:text-black transition-colors">Chat</a>
+            <a href="#connections" onClick={scrollToSection('connections')} className="hover:text-black transition-colors">Connections</a>
           </div>
           <button
             onClick={onGetStarted}
@@ -420,16 +420,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
             </span>
-            <span className="text-xs font-semibold text-gray-600 tracking-wide">Gemini · GPT-4o · Claude — your key, your choice</span>
+            <span className="text-xs font-semibold text-gray-600 tracking-wide">Cards, files, AI, and editable PDF drafts</span>
           </div>
 
           <h1 className="font-bold text-6xl md:text-8xl tracking-tight leading-[1.1] text-gray-900">
-            Every card is<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-500 to-teal-600">a document.</span>
+            Turn scattered ideas<br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-600">into structured work.</span>
           </h1>
 
           <p className="text-xl md:text-2xl text-gray-500 max-w-2xl leading-relaxed font-light">
-            An infinite canvas where sticky notes become rich documents, PDFs become searchable cards, and three AI models read your whole board to help you think.
+            Brainstorm is an infinite canvas for cards, files, images, links, and rough notes. Connect what belongs together, let AI read the board, then compile everything into an editable PDF draft.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center gap-4 pt-2">
@@ -437,7 +437,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               onClick={onGetStarted}
               className="px-8 py-4 bg-black text-white rounded-full font-bold text-lg shadow-xl shadow-gray-200 hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2"
             >
-              Start for Free <ArrowRight className="w-5 h-5" />
+              Start Mapping <ArrowRight className="w-5 h-5" />
             </button>
             <button
               onClick={handleDownload}
@@ -447,7 +447,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             </button>
           </div>
 
-          <p className="text-sm text-gray-400 font-medium">Free forever · Open source · No credit card</p>
+          <p className="text-sm text-gray-400 font-medium">Free forever · Open source · Bring your own AI keys</p>
         </div>
       </main>
 
@@ -456,10 +456,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
         <div className="max-w-5xl mx-auto px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             {[
-              { icon: <FileText className="w-5 h-5 text-emerald-600" />, label: 'PDF text extraction', sub: 'AI reads your uploads' },
-              { icon: <Code className="w-5 h-5 text-violet-600" />, label: 'Code files', sub: '20+ languages, syntax highlighted' },
-              { icon: <ImageIcon className="w-5 h-5 text-blue-600" />, label: 'Image cards', sub: 'Paste or drag in images' },
-              { icon: <Download className="w-5 h-5 text-amber-600" />, label: 'PDF export', sub: 'Auto-sections & table of contents' },
+              { icon: <FileText className="w-5 h-5 text-emerald-600" />, label: 'Draft builder', sub: 'Preview before export' },
+              { icon: <Code className="w-5 h-5 text-violet-600" />, label: 'File cards', sub: 'PDFs, docs, text, and code' },
+              { icon: <ImageIcon className="w-5 h-5 text-blue-600" />, label: 'Visual context', sub: 'Images stay on the board' },
+              { icon: <Download className="w-5 h-5 text-amber-600" />, label: 'Master PDF', sub: 'Chapters from relationships' },
             ].map((f, i) => (
               <div key={i} className="flex flex-col items-center gap-2 p-4">
                 <div className="w-10 h-10 rounded-xl bg-white border border-gray-100 shadow-sm flex items-center justify-center">{f.icon}</div>
@@ -480,15 +480,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center text-white mb-6 shadow-md">
                 <MousePointer2 className="w-6 h-6" />
               </div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-4 leading-tight">Infinite Canvas</h2>
+              <h2 className="text-3xl font-bold text-gray-900 mb-4 leading-tight">Think on the board first</h2>
               <p className="text-gray-600 mb-6 font-medium leading-relaxed">
-                No more running out of space. Drag, pinch, connect, and draw. Works on desktop, tablet, and phone.
+                Start messy without losing the thread. Place cards, move them around, draw notes, and connect ideas when the relationship becomes clear.
               </p>
               <ul className="space-y-3">
                 {[
-                  { icon: <Maximize2 className="w-4 h-4 text-blue-500" />, text: 'Pinch to zoom, swipe to pan' },
-                  { icon: <GripHorizontal className="w-4 h-4 text-blue-500" />, text: 'Drag & drop on any device' },
-                  { icon: <Network className="w-4 h-4 text-blue-500" />, text: 'Connect cards with typed arrows' },
+                  { icon: <Maximize2 className="w-4 h-4 text-blue-500" />, text: 'Pan and zoom across a large workspace' },
+                  { icon: <GripHorizontal className="w-4 h-4 text-blue-500" />, text: 'Drop in notes, images, PDFs, and files' },
+                  { icon: <Network className="w-4 h-4 text-blue-500" />, text: 'Use connections to show structure' },
                 ].map((item, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                     {item.icon}<span>{item.text}</span>
@@ -511,16 +511,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 mb-6 shadow-sm">
                 <Maximize2 className="w-6 h-6" />
               </div>
-              <h2 className="text-4xl font-bold text-gray-900 mb-6 tracking-tight">Cards that go deep</h2>
+              <h2 className="text-4xl font-bold text-gray-900 mb-6 tracking-tight">Compile the board into a draft</h2>
               <p className="text-xl text-gray-600 leading-relaxed mb-8">
-                Double-click any card to open a full rich-text document editor. Lists, headers, code blocks, embedded images — all inside a sticky note.
+                Master PDF now creates an export draft first. Brainstorm infers chapters from connected cards, shows the preview, and lets you edit before the final PDF is downloaded.
               </p>
               <div className="space-y-4">
                 {[
-                  'Full markdown editor inside every card',
-                  'Upload PDFs — AI extracts and reads the text',
-                  'Drag in code files for syntax-highlighted viewing',
-                  'Export the whole board as a structured PDF report',
+                  'Chapters and sections inferred from card relationships',
+                  'Editable preview before the final PDF',
+                  'Text, images, PDFs, and code included with context',
+                  'Card documents still open for long-form notes',
                 ].map((text, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
@@ -544,9 +544,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             <div className="inline-flex items-center justify-center w-12 h-12 bg-purple-500/10 border border-purple-500/20 rounded-xl mb-6">
               <Wand2 className="w-6 h-6 text-purple-400" />
             </div>
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">Three AIs. One canvas.</h2>
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">AI that understands the board</h2>
             <p className="text-lg text-gray-400 max-w-2xl mx-auto font-light">
-              Switch between Gemini, GPT-4o, and Claude in the same chat — each one reads your cards, your documents, and your uploaded files before it responds.
+              Use Gemini, GPT-4o, or Claude with your own key. The chat reads cards, connections, card content, and uploaded files before it answers or changes the canvas.
             </p>
           </div>
           <div className="w-full reveal delay-200">
@@ -554,9 +554,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-16 w-full reveal delay-300">
             {[
-              { title: 'Canvas-aware', desc: 'Sees every card, connection, and uploaded file' },
-              { title: 'Action-capable', desc: 'Creates, moves, connects, and colours cards on command' },
-              { title: 'Your key', desc: 'BYOK — keys stay AES-GCM encrypted in your browser' },
+              { title: 'Board-aware', desc: 'Reads cards, links, files, and notes together' },
+              { title: 'Action-capable', desc: 'Creates, moves, connects, and colors cards on command' },
+              { title: 'Your key', desc: 'Bring your own provider keys and keep control' },
             ].map((f, i) => (
               <div key={i} className="p-4 rounded-xl bg-white/5 border border-white/10 text-center">
                 <div className="font-bold text-purple-300 mb-1">{f.title}</div>
@@ -578,15 +578,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 mb-6">
                 <MessageSquareText className="w-6 h-6" />
               </div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">Chat that sees your work</h2>
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">Ask about the mess. Then ask it to organize.</h2>
               <p className="text-lg text-gray-600 leading-relaxed mb-6 font-medium">
-                The AI reads your cards, your connections, and the content inside them — including PDFs you've uploaded — before every reply. Ask it to act and it will.
+                Use chat when the board gets too large to hold in your head. Ask for gaps, summaries, outlines, or new connected cards without leaving the canvas.
               </p>
               <div className="flex flex-col gap-3">
                 {[
-                  '"What\'s missing from this strategy?"',
-                  '"Summarise the PDF I uploaded and add key points as cards."',
-                  '"Connect all the red cards to the main goal."',
+                  '"What is the central idea of this board?"',
+                  '"Summarize the uploaded PDF and add source cards."',
+                  '"Group these cards into sections for the PDF draft."',
                 ].map((prompt, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
                     <Bot className="w-5 h-5 text-gray-400 flex-shrink-0" />
@@ -607,15 +607,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               <div className="w-12 h-12 bg-emerald-100 border border-emerald-200 rounded-xl flex items-center justify-center text-emerald-700 mb-6">
                 <GitFork className="w-6 h-6" />
               </div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">Connections that mean something</h2>
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">Relationships become structure</h2>
               <p className="text-lg text-gray-600 leading-relaxed font-medium mb-6">
-                Draw arrows between cards to define relationships — parent-child, equivalence, dependency. The AI understands these links when it reads your canvas.
+                Lines are more than decoration. They tell Brainstorm what belongs together, help AI reason about the board, and guide the chapter and section draft for export.
               </p>
               <div className="flex flex-col gap-3">
                 {[
-                  { color: 'bg-emerald-100 text-emerald-700', label: 'Parent → Child', desc: 'Hierarchy and breakdown' },
-                  { color: 'bg-blue-100 text-blue-700', label: 'Equivalence', desc: 'Two sides of the same idea' },
-                  { color: 'bg-amber-100 text-amber-700', label: 'Custom colour + label', desc: 'Any relationship you need' },
+                  { color: 'bg-emerald-100 text-emerald-700', label: 'Parent -> Child', desc: 'Hierarchy and breakdown' },
+                  { color: 'bg-blue-100 text-blue-700', label: 'Equivalence', desc: 'Same-level grouping' },
+                  { color: 'bg-amber-100 text-amber-700', label: 'Custom color + label', desc: 'A relationship note in plain language' },
                 ].map((rel, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
                     <span className={`text-xs font-bold px-2 py-1 rounded ${rel.color}`}>{rel.label}</span>
@@ -628,7 +628,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               <div className="relative w-72 h-64 select-none">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-white border-2 border-gray-200 rounded-xl px-5 py-3 shadow-sm text-center">
                   <div className="text-xs text-gray-400 mb-1 font-medium">Goal</div>
-                  <div className="font-bold text-gray-800">Launch v2</div>
+                  <div className="font-bold text-gray-800">Main Topic</div>
                 </div>
                 <svg className="absolute inset-0 w-full h-full pointer-events-none">
                   <defs>
@@ -641,11 +641,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                 </svg>
                 <div className="absolute bottom-0 left-[10%] bg-white border-2 border-emerald-200 rounded-xl px-4 py-3 shadow-sm text-center">
                   <div className="text-xs text-emerald-600 mb-1 font-bold">Task</div>
-                  <div className="font-bold text-gray-800">Design</div>
+                  <div className="font-bold text-gray-800">Section A</div>
                 </div>
                 <div className="absolute bottom-0 right-[10%] bg-white border-2 border-emerald-200 rounded-xl px-4 py-3 shadow-sm text-center">
                   <div className="text-xs text-emerald-600 mb-1 font-bold">Task</div>
-                  <div className="font-bold text-gray-800">Build</div>
+                  <div className="font-bold text-gray-800">Section B</div>
                 </div>
               </div>
             </div>
@@ -657,15 +657,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       <section id="use-cases" className="py-24 bg-gray-50 border-t border-gray-200">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16 reveal">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4 tracking-tight">Built for every thinker</h2>
-            <p className="text-gray-500">From a student's first notes to a developer's architecture diagram.</p>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4 tracking-tight">Built for messy source material</h2>
+            <p className="text-gray-500">Use it when your work starts scattered but needs to leave as something readable.</p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 reveal">
             {[
-              { icon: <Target className="w-6 h-6 text-red-600" />, title: 'Product Managers', desc: 'Map user flows, organise feature requests, and export strategy docs for stakeholders.' },
-              { icon: <Lightbulb className="w-6 h-6 text-amber-500" />, title: 'Creatives', desc: 'Moodboard with images, draft copy, and connect visual concepts in one place.' },
-              { icon: <Users className="w-6 h-6 text-blue-600" />, title: 'Students', desc: 'Organise research, upload source PDFs, and let AI summarise across all your cards.' },
-              { icon: <Layers className="w-6 h-6 text-violet-600" />, title: 'Developers', desc: 'Diagram systems, plan schemas, upload code files with syntax highlighting, export to PDF.' },
+              { icon: <Target className="w-6 h-6 text-red-600" />, title: 'Teams', desc: 'Map strategy, decisions, files, and open questions, then export a clean working draft.' },
+              { icon: <Lightbulb className="w-6 h-6 text-amber-500" />, title: 'Creators', desc: 'Collect references, visual ideas, notes, and copy without flattening the process too early.' },
+              { icon: <Users className="w-6 h-6 text-blue-600" />, title: 'Students', desc: 'Turn lecture cards, readings, PDFs, and topic maps into study packets or reports.' },
+              { icon: <Layers className="w-6 h-6 text-violet-600" />, title: 'Builders', desc: 'Plan systems with diagrams, code files, links, and AI-assisted implementation notes.' },
             ].map((useCase, i) => (
               <div key={i} className="p-8 rounded-2xl bg-white shadow-sm border border-gray-200 hover:shadow-md hover:-translate-y-1 transition-all duration-300 group cursor-default">
                 <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center mb-6 group-hover:bg-black transition-colors">
@@ -682,7 +682,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       {/* ── CTA banner ──────────────────────────────────────────────────────── */}
       <section className="py-24 bg-black text-white text-center">
         <div className="max-w-2xl mx-auto px-6 reveal">
-          <h2 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Free forever. No card needed.</h2>
+          <h2 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Start with a rough board. Leave with a draft.</h2>
           <p className="text-gray-400 text-lg mb-10">Open source · Works on desktop, tablet, and phone · Your data, your keys</p>
           <button
             onClick={onGetStarted}
@@ -702,7 +702,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                 <div className="w-9 h-9 bg-black rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-105 transition-transform">B</div>
                 <span className="text-xl font-bold text-gray-900 ml-1 -mt-0.5">rainstorm</span>
               </div>
-              <p className="text-gray-500 max-w-sm mb-6 font-medium text-sm">The infinite canvas for your mind. Open source and free for everyone.</p>
+              <p className="text-gray-500 max-w-sm mb-6 font-medium text-sm">A spatial workspace for turning scattered ideas, files, and connections into structured drafts.</p>
               <div className="flex gap-4">
                 <a href="https://www.instagram.com/ammarsaboorr11" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 rounded-full text-gray-600 hover:bg-gray-100 hover:text-black transition-all" aria-label="Instagram"><Instagram className="w-4 h-4" /></a>
                 <a href="https://github.com/ammarsapru" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 rounded-full text-gray-600 hover:bg-gray-100 hover:text-black transition-all" aria-label="GitHub"><Github className="w-4 h-4" /></a>

@@ -14,19 +14,19 @@ interface Step {
 const STEPS: Step[] = [
   {
     icon: <MousePointerClick className="w-8 h-8 text-blue-500" />,
-    title: 'Create idea cards',
-    body: 'Double-click anywhere on the dark canvas to drop a card. Right-click for a context menu. Click the + button in the sidebar anytime.',
-    hint: 'Try it after this tour — the canvas is live.',
+    title: 'Capture rough ideas',
+    body: 'Double-click the dark canvas to drop a card, or right-click for the creation menu. Notes, labels, files, images, and browser cards can all live on the same board.',
+    hint: 'Try it after this tour. The canvas is live.',
   },
   {
     icon: <Link2 className="w-8 h-8 text-emerald-500" />,
-    title: 'Connect your ideas',
-    body: 'Hover over any card edge to reveal a blue connection dot. Drag it to another card to link them. Connections let the AI understand relationships between ideas.',
+    title: 'Show relationships',
+    body: 'Hover over a card edge to reveal the blue connection dot. Lines help the AI understand what belongs together and help Master PDF infer sections later.',
   },
   {
     icon: <Sparkles className="w-8 h-8 text-violet-500" />,
-    title: 'AI that reads your canvas',
-    body: 'The AI chat reads every card title, content, and connection on the board. Ask it to brainstorm, reorganise, rename, connect, or add cards — it acts directly on the canvas.',
+    title: 'AI that reads the board',
+    body: 'The AI chat reads card titles, card content, files, and connections. Ask it to brainstorm, organize, rename, connect, summarize, or add cards.',
     hint: 'Click the chat icon in the top right to open it.',
   },
   {
@@ -36,13 +36,13 @@ const STEPS: Step[] = [
   },
   {
     icon: <FolderOpen className="w-8 h-8 text-yellow-500" />,
-    title: 'Documents and files',
-    body: 'Double-click a card to open the full document editor — write long-form notes, lists, and formatted content. Drop images or PDFs directly onto the canvas to attach them as cards.',
+    title: 'Files stay on the canvas',
+    body: 'Drop images, PDFs, documents, and code files onto the canvas. Text cards can still expand into a rich editor when an idea needs more detail.',
   },
   {
     icon: <FileDown className="w-8 h-8 text-rose-500" />,
-    title: 'Export as PDF',
-    body: 'Click "Export PDF" in the header to generate a structured document from your entire session — organised by clusters, with a cover page, table of contents, and page numbers.',
+    title: 'Compile a PDF draft',
+    body: 'Click "Master PDF" in the header to build an editable preview from your board. Fix titles, sections, and layout before downloading the final PDF.',
     hint: 'Great for turning a brainstorm into a shareable report.',
   },
 ];

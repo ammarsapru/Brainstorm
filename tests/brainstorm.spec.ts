@@ -128,7 +128,7 @@ test('demo user can create a canvas, open PDF preview, and export final PDF', as
   const longTitle = 'AI/ML - Week 5: MCP, Multi-Agent Orchestration & Tool Design';
 
   await page.goto('/');
-  await expect(page.getByText(/Every card is/i)).toBeVisible();
+  await expect(page.getByText(/Turn scattered ideas/i)).toBeVisible();
 
   await page.getByRole('button', { name: /Start for Free|Launch App/i }).first().click();
   await expect(page.getByTestId('create-canvas-button')).toBeVisible();

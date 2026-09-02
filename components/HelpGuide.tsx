@@ -62,15 +62,15 @@ export const HelpGuide: React.FC = () => {
 
           <Section title="Cards">
             <Item label="Move">Drag the grip handle that appears at the top of a selected card.</Item>
-            <Item label="Format">Select a card to reveal the toolbar above it — bold, italic, align, heading, font, and card colour.</Item>
-            <Item label="Document editor">Click the expand icon in the card action bar (below the selected card) to open a full rich-text editor for long-form notes.</Item>
+            <Item label="Format">Select a card to reveal the toolbar above it — bold, italic, align, heading, font, and card color.</Item>
+            <Item label="Card content">Click the expand icon in the card action bar (below the selected card) to open the rich-text editor for longer notes.</Item>
             <Item label="Connect">Click the arrow icon in the card action bar, then click a target card. Click a connection line to change its type (Equivalence ↔ or Parent-Child →).</Item>
             <Item label="Delete">Click the red trash icon in the card action bar.</Item>
           </Section>
 
           <Section title="AI">
-            <Item label="AI Chat">Click the purple sparkle button (top right). The AI reads every card title, content, and connection on the board before each message.</Item>
-            <Item label="Canvas actions">Ask the AI to create, update, connect, or delete cards — it acts on the board in real time. Be specific: "connect the React card to the Vite card."</Item>
+            <Item label="AI Chat">Click the purple sparkle button (top right). The AI reads card titles, card content, files, and connections before each message.</Item>
+            <Item label="Canvas actions">Ask the AI to create, update, connect, organize, or delete cards. Be specific: "group the React cards under the Vite card."</Item>
             <Item label="Brainstorm">Click the <strong>B</strong> button in a card's action bar. The AI generates 5–7 lateral ideas spanning different angles and places them as new cards.</Item>
             <Item label="Search">The AI can issue a semantic search across all cards to find relevant context before answering.</Item>
             <Item label="Switch models">Use the model picker in the AI Chat header to switch between Gemini 2.5 Flash, GPT-4o, and Claude 3.5 Sonnet. Each model has its own conversation thread; switching triggers an automatic handoff summary.</Item>
@@ -78,19 +78,19 @@ export const HelpGuide: React.FC = () => {
 
           <Section title="Drawing">
             <Item label="Draw mode">Open the sidebar → select Draw. Choose Pen (precise), Marker (thick, semi-transparent), or Eraser.</Item>
-            <Item label="Size &amp; colour">Adjust stroke size with the slider and pick a colour from the palette in the draw panel.</Item>
+            <Item label="Size &amp; color">Adjust stroke size with the slider and pick a color from the palette in the draw panel.</Item>
             <Item label="Erase">Switch to Eraser tool and paint over strokes to remove them.</Item>
           </Section>
 
           <Section title="Files & Documents">
             <Item label="Upload">Use the sidebar Actions section to upload an image or file. It appears as a card on the canvas.</Item>
             <Item label="Drop zone">Drag an image or PDF directly onto the canvas to create a file card instantly.</Item>
-            <Item label="File system">The sidebar Files section lets you organise notes and uploads into folders.</Item>
+            <Item label="File system">The sidebar Files section lets you organize notes and uploads into folders.</Item>
             <Item label="Collections">Group cards into named collections via the sidebar. Drag cards between collections.</Item>
           </Section>
 
           <Section title="Export">
-            <Item label="Master PDF">Click <strong>Master PDF</strong> in the header. Generates a structured document: cover page, table of contents, and content pages organised by connected card clusters. Tables, code blocks, and images all render.</Item>
+            <Item label="Master PDF">Click <strong>Master PDF</strong> in the header. Brainstorm compiles an editable draft first: cover page, table of contents, chapters from relationships, sections, text, images, PDFs, and code blocks.</Item>
             <Item label="Card PDF">Click the download icon in a card's action bar to export just that card as a PDF snapshot.</Item>
           </Section>
 
